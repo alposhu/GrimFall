@@ -1,6 +1,21 @@
-# Grimfall
+<p align="center">
+  <img src=".github/banner.jpg" width="820"
+       alt="Grimfall — Survive. Grow stronger. Fall no more.">
+</p>
 
-**A game by Alperen Karabıyık.**
+<p align="center">
+  <strong>A game by Alperen Karabıyık</strong>
+</p>
+
+<p align="center">
+  <img alt="MIT licensed" src="https://img.shields.io/badge/license-MIT-c9a45c">
+  <img alt="No dependencies, no build step to play" src="https://img.shields.io/badge/dependencies-none-3f7d5a">
+  <img alt="Runs in the browser" src="https://img.shields.io/badge/plays%20in-your%20browser-4f9dff">
+</p>
+
+---
+
+# Grimfall
 
 A browser roguelite in the *survivors* tradition: you never press attack. You move,
 your weapons fire themselves, and the only question is whether your build outgrows
