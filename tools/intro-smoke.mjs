@@ -14,7 +14,7 @@
  *   - the beat table adds up to the length it advertises
  */
 
-import './dom-stub.mjs';
+import { byId } from './dom-stub.mjs';
 
 const { playIntro, skipIntro, introLength } = await import('../src/game/intro.js');
 
@@ -61,6 +61,45 @@ function surface(w = 1280, h = 720) {
   check(how === 'skipped' || how === 'none', `skipped intro resolved with "${how}"`);
   check(took < 2, `skipping took ${took.toFixed(2)}s — it should be immediate`);
   console.log(`skip              ok (${took.toFixed(2)}s to get out)`);
+}
+
+// --- the button is the only skip a phone can see ---------------------------
+// On touch there is no key to press and nothing on screen saying a tap would
+// do anything, so the button is not a convenience — it is the affordance. The
+// stub's window listeners are no-ops, which is exactly what makes this
+// meaningful: if the click handler were not wired, nothing else could rescue it
+// and the intro would run to its full length.
+{
+  const btn = byId.introSkip;
+  check(!!btn, 'index.html has no #introSkip button');
+
+  const s = surface(390, 844);                 // a phone, held upright
+  let shown = false;
+  const watch = setInterval(() => { if (btn && btn.hidden === false) shown = true; }, 4);
+  const tap = setTimeout(() => btn?.click(), 120);
+  const t0 = Date.now();
+  const how = await playIntro(s);
+  clearInterval(watch);
+  clearTimeout(tap);
+  const took = (Date.now() - t0) / 1000;
+
+  check(shown, 'the skip button was never shown while the intro was playing');
+  check(how === 'skipped', `tapping Skip resolved with "${how}"`);
+  check(took < 2, `tapping Skip took ${took.toFixed(2)}s`);
+  check(btn?.hidden === true, 'the skip button was left on screen after the intro');
+  console.log(`skip button       ok (shown, tapped, ${took.toFixed(2)}s, hidden again)`);
+}
+
+// --- every way in still skips ----------------------------------------------
+// keydown for a keyboard, pointerdown for a mouse, touchstart for a browser
+// with no Pointer Events, mousedown for one older still.
+{
+  const src = await import('node:fs').then((fs) => fs.readFileSync(
+    new URL('../src/game/intro.js', import.meta.url), 'utf8'));
+  for (const ev of ['keydown', 'pointerdown', 'touchstart', 'mousedown']) {
+    check(src.includes(`'${ev}'`), `the intro does not listen for ${ev}`);
+  }
+  console.log('skip inputs       ok (keydown, pointerdown, touchstart, mousedown)');
 }
 
 // --- it never strands the boot ---------------------------------------------

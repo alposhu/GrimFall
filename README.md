@@ -108,7 +108,7 @@ stereo were reduced to a seamless 48-second mono loop for the web; the process
 is written up in `audio/SOURCE.txt`, and the untouched original is kept beside
 the project as `marketplace-source.wav`.
 
-**Character artwork** — Ada and Leon are drawn by the project owner and are the
+**Character artwork** — Jane and Joan are drawn by the project owner and are the
 only game art in this project that is a file rather than code. Provenance and
 sheet layout are in `img/chr_/SOURCE.txt`. Both also exist as code-drawn
 characters built from the same designs, which is what the game falls back to if
@@ -120,7 +120,7 @@ update its bundled Runtime Package assets may be used in games built with other
 engines.
 
 It covers the **people** and the **Long Market**. Five of the seven heroes wear
-a block of the `Actor2` party sheet, with the matching portraits — Ada and Leon
+a block of the `Actor2` party sheet, with the matching portraits — Jane and Joan
 do not, because they are the owner's own drawings. The market's paving, props,
 wall banners, expression balloons and the shop's goods are MZ material, and so are the
 three merchants and the crowd.
@@ -510,7 +510,7 @@ Mobile is a first-class target, not a shrunken desktop build.
 ```
 index.html              markup for the canvas, HUD and every menu
 img/                    the Grimfall wordmark and app icons
-img/chr_/               Ada and Leon, the two hand-drawn character sheets
+img/chr_/               Jane and Joan, the two hand-drawn character sheets
 img/rtp/                the Long Market's eight atlases (RPG Maker MZ),
                         with a SOURCE.txt carrying the licence and the recipe
 audio/                  soundtrack (HydroGene), sfx/ (Helton Yan) and
@@ -582,8 +582,8 @@ dist/                   the build output — gitignored, regenerate it
   The prop list in that script and `RTP_PROPS` in `src/art/rtp.js` are positional
   and must stay in the same order; `sheet-smoke` fails if they drift.
 - **A new hero** — one entry in `CHARACTERS` in `art/hero.js`. It is a palette and a
-  stat line; the body art is shared. A hero that needs its own silhouette (Ada's
-  bob, Leon's fur collar) can add front/back/side maps to `BODIES` instead.
+  stat line; the body art is shared. A hero that needs its own silhouette (Jane's
+  bob, Joan's fur collar) can add front/back/side maps to `BODIES` instead.
 - **A new vendor or good** — `VENDORS` in `game/shop.js`. A good is a price, a
   description and an `apply` that mutates the run.
 - **A new biome** — one entry in `BIOMES` in `game/world.js`: ground colours, a prop

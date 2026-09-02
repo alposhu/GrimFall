@@ -12,7 +12,7 @@ import { rtpActorSprites, rtpActorFace } from './rtp.js';
 
 // Which block of the RPG Maker party sheet each hero wears.
 //
-// Ada and Leon are deliberately absent: they are the owner's own drawings and
+// Jane and Joan are deliberately absent: they are the owner's own drawings and
 // go through `sheets.js` instead. Everyone else was a code-drawn placeholder,
 // and the placeholders are what these replace. The code-drawn bodies stay as
 // the fallback for when the sheet has not decoded — offline, a blocked file,
@@ -111,7 +111,7 @@ export const SHARED = {
 // Silhouette overrides
 //
 // Five of the heroes share the body above and differ only by palette. Two do
-// not: Ada's bob hangs past the jaw and Leon's jacket has a fur collar across
+// not: Jane's bob hangs past the jaw and Joan's jacket has a fur collar across
 // the shoulders, and neither reads as itself without the shape. A character may
 // therefore supply its own upper body; the legs stay shared so the walk cycle
 // lines up.
@@ -262,16 +262,16 @@ export const CHARACTERS = [
     palette: { 1: '#3f7fa8', 2: '#27546f', 3: '#c9f2ff', h: '#e6f3ff', H: '#ffffff', l: '#3a5a70', L: '#22384a' },
   },
   {
-    id: 'leon', name: 'Leon', title: 'Sees it through',
+    id: 'leon', name: 'Joan', title: 'Sees it through',
     weapon: 'lightning', unlock: 1200,
-    blurb: 'Unshakeable. Good health, steady damage, and he keeps his footing when he is hit.',
+    blurb: 'Unshakeable. Good health, steady damage, and never knocked off balance.',
     stats: { hp: 128, speed: 112, might: 1.08, cooldown: 0.96, magnet: 1.05, armor: 1, luck: 1.05, poise: 0.5 },
     palette: { 1: '#2b2f3a', 2: '#1a1d24', 3: '#e8e4d8', h: '#a8823f', H: '#d6b978', l: '#3a3f4a', L: '#20242c' },
   },
   {
-    id: 'ada', name: 'Ada', title: 'Never where you swung',
+    id: 'ada', name: 'Jane', title: 'Never where you swung',
     weapon: 'glaive', unlock: 2400,
-    blurb: 'Quick and opportunistic. The fastest hero alive, and the luckiest — if she is still standing.',
+    blurb: 'Quick and opportunistic. The fastest hero alive, and the luckiest — while still standing.',
     stats: { hp: 84, speed: 128, might: 1.12, cooldown: 0.9, magnet: 1.25, armor: 0, luck: 1.3 },
     palette: { 1: '#c8203c', 2: '#8a1226', 3: '#f2d0d6', h: '#17161c', H: '#3a3a48', l: '#5a1020', L: '#241018' },
   },
@@ -297,7 +297,7 @@ function buildFrames(baseRows, legsSet, palette, scale) {
  * Frames are cached per character id + scale.
  */
 export function heroSprites(charId, scale = 3) {
-  // Ada and Leon ship as hand-drawn sheets. If the artwork decoded, it wins;
+  // Jane and Joan ship as hand-drawn sheets. If the artwork decoded, it wins;
   // if it did not, the code-drawn version of the same character stands in, so
   // the game looks right either way and nothing has to check first.
   if (hasSheet(charId)) {

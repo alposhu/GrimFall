@@ -19,6 +19,10 @@
 <div id="app">
   <canvas id="game"></canvas>
 
+  <!-- Skip the opening film. A real button, because on a phone there is
+       nothing else on screen to tell you a tap would do anything. -->
+  <button id="introSkip" class="intro-skip" type="button" hidden>Skip <span aria-hidden="true">&#9654;&#9654;</span></button>
+
   <!-- Touch stick -->
   <div id="joystick" class="joystick" style="display:none">
     <div id="joyBase" class="joy-base"><div id="joyThumb" class="joy-thumb"></div></div>

@@ -1,5 +1,13 @@
-Character artwork — Ada and Leon
-================================
+Character artwork — Jane and Joan
+=================================
+
+NAMES
+  These two are called Jane and Joan in the game. The folders, the file names
+  and the character ids are still `ada` and `leon`, which is what they were
+  called when the art was drawn. That is deliberate and should stay: the id is
+  what a save, an unlock and a personal best are keyed by, so renaming it would
+  quietly take every player's purchased hero away from them. Only the display
+  name in `src/art/hero.js` changed.
 
 These sheets are the work of the project owner (alper.kby@gmail.com), supplied
 for this game and included here at their direction. They were previously kept
@@ -35,7 +43,7 @@ WHAT THE GAME USES
   are not referenced: this game has no side-view battle mode.
 
 IF A SHEET FAILS TO LOAD
-  Ada and Leon both also exist as code-drawn pixel-map characters in
+  Jane and Joan both also exist as code-drawn pixel-map characters in
   `src/art/hero.js`, built from the same designs. If the artwork cannot be
   decoded — offline, a bad path, a file:// origin — the game silently falls
   back to those, so the characters are never missing. `tools/sheet-smoke.mjs`

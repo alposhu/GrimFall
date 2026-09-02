@@ -83,20 +83,41 @@ export async function playIntro(io) {
 // ---------------------------------------------------------------------------
 // Skipping
 // ---------------------------------------------------------------------------
-// Everything skips: any key, any click, any tap. Space and Enter are named in
-// the prompt because they are what people reach for, but nothing is fussy.
+// Everything skips: any key, any click, any tap, and a button you can see.
+//
+// The button is the important one. On a phone the intro is a bare canvas with
+// no visible controls, so "tap anywhere" is a rule nobody has been told — and
+// `pointerdown` alone is not enough either, since a browser without Pointer
+// Events sends only the touch events. Listening for both and showing a real
+// control covers every case, and none of the three can fire twice in a way
+// that matters, because skipping is a flag and not an action.
+const SKIP_EVENTS = ['keydown', 'pointerdown', 'touchstart', 'mousedown'];
+
 function listen() {
   if (typeof window === 'undefined') return { remove() {} };
   const go = () => { skipRequested = true; };
   const opts = { passive: true };
-  window.addEventListener('keydown', go, opts);
-  window.addEventListener('pointerdown', go, opts);
+  for (const name of SKIP_EVENTS) window.addEventListener(name, go, opts);
+
+  // Guarded at every step: this module runs before anything else has been set
+  // up, and a missing button must cost the intro a button and nothing more.
+  let btn = null;
+  try {
+    btn = typeof document !== 'undefined' ? document.getElementById('introSkip') : null;
+    if (btn) {
+      btn.hidden = false;
+      btn.addEventListener('click', go);
+    }
+  } catch (e) { btn = null; }
+
   return {
     remove() {
-      // Guarded: a host that can add a listener but not remove one is a broken
-      // host, and it must not take the intro — or the boot — down with it.
-      window.removeEventListener?.('keydown', go, opts);
-      window.removeEventListener?.('pointerdown', go, opts);
+      // A host that can add a listener but not remove one is a broken host, and
+      // it must not take the intro — or the boot — down with it.
+      for (const name of SKIP_EVENTS) window.removeEventListener?.(name, go, opts);
+      try {
+        if (btn) { btn.hidden = true; btn.removeEventListener?.('click', go); }
+      } catch (e) { /* nothing left to tidy */ }
     },
   };
 }
@@ -407,17 +428,23 @@ function drawLogo(ctx, w, h, logo, alpha, scale, settled) {
   ctx.restore();
 }
 
-/** The prompt, held back a beat so it does not pre-empt the first shot. */
+/**
+ * The keyboard prompt, held back a beat so it does not pre-empt the first shot.
+ *
+ * Bottom LEFT, because the Skip button is bottom right and two things saying
+ * the same thing in the same corner is worse than either alone. This one names
+ * the keys; the button covers touch, where there is no key to name.
+ */
 function drawSkipHint(ctx, w, h, t) {
   if (t < 1.2) return;
   ctx.save();
   ctx.globalAlpha = 0.38 + Math.sin(t * 2.4) * 0.12;
   ctx.fillStyle = '#c9c2d8';
-  ctx.textAlign = 'right';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
   const s = Math.min(w, h) / 720;
   ctx.font = `${Math.round(13 * s)}px 'Chakra Petch', system-ui, sans-serif`;
-  ctx.fillText('Space / Enter to skip', w - 24 * s, h - 20 * s);
+  ctx.fillText('Space / Enter to skip', 24 * s, h - 20 * s);
   ctx.restore();
 }
 

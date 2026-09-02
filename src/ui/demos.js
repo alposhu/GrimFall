@@ -442,7 +442,7 @@ export const DEMOS = {
     if (cycle > 1.2) {
       blitc(ctx, heroSprites('ada', 2).south[0], cx - cardW / 2 + 22, y + 20, 0.8);
       ctx.textAlign = 'left';
-      label(ctx, 'Ada — LV 24', cx - cardW / 2 + 42 + 30, y + 15, INK, 10);
+      label(ctx, 'Jane — LV 24', cx - cardW / 2 + 42 + 30, y + 15, INK, 10);
       label(ctx, '12:40 · 4 210 slain', cx - cardW / 2 + 42 + 34, y + 28, DIM, 8);
       ctx.textAlign = 'center';
     } else {

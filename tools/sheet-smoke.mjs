@@ -383,8 +383,10 @@ const src = path.join(ROOT, 'img', 'chr_', 'SOURCE.txt');
 check(fs.existsSync(src), 'img/chr_/SOURCE.txt is missing — the artwork has no provenance note');
 if (fs.existsSync(src)) {
   const text = fs.readFileSync(src, 'utf8');
-  for (const needle of ['Ada', 'Leon']) {
-    check(text.includes(needle), `img/chr_/SOURCE.txt does not mention ${needle}`);
+  const names = SHEET_HEROES.map((id) => CHARACTERS.find((c) => c.id === id)?.name || id);
+  for (const needle of [...SHEET_HEROES, ...names]) {
+    check(text.toLowerCase().includes(needle.toLowerCase()),
+      `img/chr_/SOURCE.txt does not mention ${needle}`);
   }
 }
 console.log('provenance        ok (SOURCE.txt records where the art came from)');

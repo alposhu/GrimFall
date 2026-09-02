@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // sheets.js — hand-drawn character sheets.
 //
-// Every other sprite in this game is generated from pixel maps at boot. Ada and
-// Leon are the exception: they are the project owner's own hand-drawn art,
+// Every other sprite in this game is generated from pixel maps at boot. Jane and
+// Joan are the exception: they are the project owner's own hand-drawn art,
 // supplied as sheets (see img/chr_/SOURCE.txt), so they are loaded and sliced
 // rather than drawn in code.
 //

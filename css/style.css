@@ -84,6 +84,34 @@ html, body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(183, 107, 255, 0.3); border-radius: 8px; }
 
+/* --- skip the opening film ------------------------------------------------ */
+/* Sits above the canvas the intro draws on and below nothing else, since the
+   intro runs before any screen is shown. The tap target is deliberately larger
+   than the text: this is the one control a first-time player on a phone has to
+   find, and they have not been taught anything yet. */
+.intro-skip {
+  position: absolute;
+  right: calc(16px + var(--safe-r));
+  bottom: calc(16px + var(--safe-b));
+  z-index: 30;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 46px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 236, 210, 0.34);
+  background: rgba(12, 8, 18, 0.62);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  font: 400 12px/1 var(--font-display);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;          /* no 300ms tap delay, no double-tap zoom */
+  animation: skipIn 0.6s ease-out both;
+  animation-delay: 0.9s;               /* let the first shot land before nagging */
+}
+.intro-skip:active { transform: translateY(1px); background: rgba(30, 20, 40, 0.8); }
+@keyframes skipIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 /* =========================================================== touch joystick */
 .joystick {
   position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
