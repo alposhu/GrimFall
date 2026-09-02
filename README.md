@@ -114,6 +114,14 @@ sheet layout are in `img/chr_/SOURCE.txt`. Both also exist as code-drawn
 characters built from the same designs, which is what the game falls back to if
 the artwork cannot be decoded.
 
+**Budgie familiars** — the four birds are traced from a spritesheet pack supplied
+by the project owner as `Budgies_Spritesheets.zip`. The archive carried no licence
+file, no readme and no author credit, so unlike every other asset here its terms
+are **not established**. See `art-source/budgies/SOURCE.txt`: this needs settling
+before release, and if the pack turns out not to permit use in a released game,
+the art has to come out. Everything else in this section has its terms written
+down, and that is the standard this one has to meet too.
+
 **RPG Maker MZ material** — © Gotcha Gotcha Games / KADOKAWA. The project owner
 holds a licence for RPG Maker MZ, and under the 2023 Gotcha Gotcha Games terms
 update its bundled Runtime Package assets may be used in games built with other
@@ -480,7 +488,9 @@ Mobile is a first-class target, not a shrunken desktop build.
 
 ## How it plays
 
-- **An opening cinematic** plays before the menu; any key, click or tap skips it.
+- **An opening cinematic** plays before the menu. Any key, click or tap skips it,
+  and there is a **Skip button** on screen throughout — on a phone that button is
+  the affordance, since a bare canvas tells nobody that a tap would do anything.
   `video/intro.mp4` is built by `tools/assets/build-intro.py`, which re-encodes
   the master from `art-source/`, moves the index to the front so playback starts
   before the download finishes, and mixes a score under the film's own audio.
@@ -491,12 +501,25 @@ Mobile is a first-class target, not a shrunken desktop build.
   cap at five levels; **health and armour go to twenty-five**, so a build that
   wants to spend its whole run on staying alive can.
 - **Evolutions**: take a weapon to level 8 while its paired passive is at level 3+,
-  and the evolution appears in your next draft. Fourteen weapons, fourteen
+  and the evolution appears in your next draft. Seventeen weapons, seventeen
   evolutions — auto-aim bolts, a melee arc, homing orbs, lobbed firebombs, a
   burning aura, chain lightning, a frost nova, a warding orbit, a returning
-  glaive, thorn patches, a two-sided lash, **Mjolnir** — thrown, then hunting
-  the crowd like a missile and throwing lightning as it goes — a censer that
-  leaves the ground alight, and a pike thrown wherever you are facing.
+  glaive, thorn patches, **Mjolnir** — thrown, then hunting the crowd like a
+  missile and throwing lightning as it goes — a censer that leaves the ground
+  alight, a pike thrown wherever you are facing, and **four budgies**.
+- **The familiars.** Four birds that fly with you and fight on their own. The
+  blue one rings you and drops lightning, later chaining and stunning; the
+  blue-yellow one rides your shoulder and sings shockwaves that slow and
+  eventually strip armour; the green-yellow one flies at your back and lobs fire
+  into the thickest crowd, later leaving the ground burning; the white one does
+  not stay with you at all — it hunts alone, takes ordinary enemies outright on
+  contact, and hits anything too big to execute for a multiple of its damage.
+  Each has four named upgrades at levels two to five and its own evolution.
+- **A dead boss** takes the whole field with him — everything still standing
+  dies, every shot in flight goes out — and tears a portal open twelve to
+  eighteen tiles away, with an arrow pointing at it the whole way. It waits, so
+  sweep up what he dropped first. Stepping through **asks where it lets you
+  out**: the Long Market, or straight on into open country.
 - **Champions** arrive every 85 seconds. A **boss** lands every four minutes, each
   with its own animated entrance, ending with **Parduin, the Drake God** at twenty
   minutes. Kill him and the run is won.
@@ -511,8 +534,11 @@ Mobile is a first-class target, not a shrunken desktop build.
 index.html              markup for the canvas, HUD and every menu
 img/                    the Grimfall wordmark and app icons
 img/chr_/               Jane and Joan, the two hand-drawn character sheets
-img/rtp/                the Long Market's eight atlases (RPG Maker MZ),
+img/rtp/                the Long Market's ten atlases (RPG Maker MZ),
                         with a SOURCE.txt carrying the licence and the recipe
+art-source/             masters that never ship: the intro film, the logo,
+                        the store art, and the budgie sheets the familiars
+                        were traced from
 audio/                  soundtrack (HydroGene), sfx/ (Helton Yan) and
                         voice/ (Dillon Becker) — each with a SOURCE.txt
                         carrying its licence and the changes made
@@ -534,6 +560,7 @@ src/
     pixel.js            pixel-map rasteriser, mirroring, outlining, blitting
     hero.js             the seven playable characters
     sheets.js           loads and slices the hand-drawn character art
+    familiars.js        the four budgies: one flight cycle, four palettes
     folk.js             the market crowd: five silhouettes, weighted
     balloons.js         expression balloons and their animation
     items.js            an icon for every good the market sells
@@ -547,6 +574,7 @@ src/
     config.js           all balance data: weapons, passives, enemies, meta shop
     state.js            the live run, derived stats, the damage pipeline
     weapons.js          how each weapon fires and what it spawns
+    familiars.js        the flock: where each budgie flies and what it does
     enemies.js          spawning, steering, status effects, boss scripts
     world.js            infinite terrain and biomes
     particles.js        pooled effects, floating text, biome weather
@@ -578,6 +606,12 @@ dist/                   the build output — gitignored, regenerate it
   `npm test` then checks it fires, scales, evolves into something no weaker, and
   cleans up after itself; nothing else needs touching, including the boot-time
   sprite warming, which is derived from the tables.
+- **A familiar** — the same, plus `familiar: '<id>'` on the weapon and a flight
+  entry in `FAMILIARS`. It needs no `FIRE` function: `game/familiars.js` owns
+  when a bird acts. Flight and damage are deliberately kept in separate tables,
+  so a balance pass cannot make a bird fly wrong. The flock itself is derived
+  from the weapons you own every frame and is never saved, which is why an
+  evolution, a level-up granting a second bird and a loaded save all just work.
 - **The market's art** — `img/rtp/`, rebuilt by `tools/assets/build-rtp-art.py`.
   The prop list in that script and `RTP_PROPS` in `src/art/rtp.js` are positional
   and must stay in the same order; `sheet-smoke` fails if they drift.

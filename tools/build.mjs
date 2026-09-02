@@ -175,6 +175,17 @@ fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
 const sources = shipped.filter((f) => f.rel.endsWith('SOURCE.txt'));
 check(sources.length >= 3, `only ${sources.length} SOURCE.txt files shipped — attribution is incomplete`);
 
+// Provenance for art that ships WITHOUT its source file. The budgies are the
+// case: the birds reach players as pixel maps compiled into src/art, so nothing
+// under art-source/ is copied — but the art is in the build all the same, and
+// its terms have to be in the build with it. A note here rather than a folder
+// on the allowlist, because shipping the masters would be shipping megabytes
+// nobody downloads to play.
+const DERIVED_CREDITS = ['art-source/budgies/SOURCE.txt'];
+for (const rel of DERIVED_CREDITS) {
+  check(fs.existsSync(path.join(ROOT, rel)), `${rel} is missing — shipped art with no provenance`);
+}
+
 const credits = [
   'GRIMFALL — credits and licences',
   '='.repeat(50),
@@ -191,6 +202,11 @@ const credits = [
 for (const s of sources) {
   credits.push('', '-'.repeat(50), `FROM ${s.rel}`, '-'.repeat(50), '');
   credits.push(fs.readFileSync(path.join(OUT, s.rel), 'utf8').trimEnd());
+}
+for (const rel of DERIVED_CREDITS) {
+  if (!fs.existsSync(path.join(ROOT, rel))) continue;
+  credits.push('', '-'.repeat(50), `FROM ${rel} (source not shipped)`, '-'.repeat(50), '');
+  credits.push(fs.readFileSync(path.join(ROOT, rel), 'utf8').trimEnd());
 }
 fs.writeFileSync(path.join(OUT, 'CREDITS.txt'), credits.join('\n') + '\n');
 
