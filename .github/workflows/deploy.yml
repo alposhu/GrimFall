@@ -32,6 +32,15 @@ jobs:
         with:
           node-version: '20'
 
+      # Creates the Pages site if it does not exist yet. Without this the
+      # deploy step fails with a 404 on a repository where Pages has never
+      # been switched on — which looks like a broken workflow rather than a
+      # setting nobody has touched.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       # The suite is the gate. A build that fails its own tests should not
       # become the thing players are looking at.
       - name: Test
