@@ -1,0 +1,56 @@
+GRIMFALL — itch.io page copy
+============================
+Paste the block below the line into the Description box on the itch.io edit
+page. The GitHub link is in it. Keep the credits: two of the audio packs and
+both fonts are Creative Commons / OFL, and attribution is a licence condition,
+not a courtesy.
+
+------------------------------------------------------------------------------
+
+Twenty minutes. One hero. Everything else wants you dead.
+
+You never press attack. You move — your weapons fire themselves, and the only
+question is whether your build outgrows the horde before it closes over you.
+Survive the long hour, bring down Parduin the Drake God, and carry your gold
+into the next run.
+
+Plays in your browser. Nothing to install.
+
+
+WHAT'S IN IT
+
+• 14 weapons, each with an evolution — auto-aiming bolts, a returning glaive,
+  chain lightning, a two-sided lash, and Mjolnir, which you throw and then
+  watch hunt the crowd while it throws lightning of its own.
+• 5 bosses, each with an animated entrance, ending with a dragon.
+• The Long Market — kill a boss, step through the portal it leaves, and spend
+  your run gold on weapons, draughts and charms. Gold spent there never reaches
+  the Sanctuary: that's the trade, this run or the next one.
+• 7 heroes, unlocked with gold that survives death.
+• Four save slots, plus save-to-file so your progress isn't trapped in one
+  browser on one device.
+• Full touch controls. It plays properly on a phone.
+
+
+SOURCE CODE
+
+Grimfall is open source, MIT licensed:
+https://github.com/alposhu/GrimFall
+
+Almost none of the art is an image file — the sprites are pixel maps rasterised
+when the game boots, and the world is a pure function of position, so the map
+costs no memory and never repeats a seam.
+
+
+CREDITS
+
+Made by Alperen Karabıyık.
+
+Music — "28 High Quality 16-bit RPG Music" by HydroGene.
+Hero voices — "Super Dialogue Audio Pack v1" by Dillon Becker, CC BY 4.0.
+Sound effects — "Pixel Combat SFX" by Helton Yan, CC BY 4.0.
+Market art, townsfolk and character sprites — RPG Maker MZ material,
+  © Gotcha Gotcha Games / KADOKAWA, used under licence.
+Fonts — Silkscreen by Jason Kottke, Chakra Petch by Cadson Demak, SIL OFL 1.1.
+
+Audio clips were trimmed, downmixed to mono and resampled for the web.
