@@ -114,13 +114,19 @@ sheet layout are in `img/chr_/SOURCE.txt`. Both also exist as code-drawn
 characters built from the same designs, which is what the game falls back to if
 the artwork cannot be decoded.
 
-**Budgie familiars** — the four birds are traced from a spritesheet pack supplied
-by the project owner as `Budgies_Spritesheets.zip`. The archive carried no licence
-file, no readme and no author credit, so unlike every other asset here its terms
-are **not established**. See `art-source/budgies/SOURCE.txt`: this needs settling
-before release, and if the pack turns out not to permit use in a released game,
-the art has to come out. Everything else in this section has its terms written
-down, and that is the standard this one has to meet too.
+**Budgie familiars** — the four birds come from the *"Budgie / Parakeet Birds
+Pixel Asset Pack"* by **Pop Shop Packs**,
+<https://pop-shop-packs.itch.io/budgie-parakeet-birds-pixel-asset-pack>. The pack
+permits commercial use and modification and does not require credit; it is
+credited anyway. It may not be resold or redistributed as a game asset, turned
+into an NFT, or fed to generative A.I. software.
+
+> The birds ship as pixel maps in `src/art/familiars.js` rather than as image
+> files — the four sheets are palette swaps of one drawing, so the game carries
+> one flight cycle and four palettes. The original sheets are deliberately **not**
+> kept in this repository: it is public, and four unmodified sheets sitting in a
+> folder would be nearer to redistributing the pack than to using it. Full terms
+> and the recipe for rebuilding from the pack are in `art-source/budgies/SOURCE.txt`.
 
 **RPG Maker MZ material** — © Gotcha Gotcha Games / KADOKAWA. The project owner
 holds a licence for RPG Maker MZ, and under the 2023 Gotcha Gotcha Games terms

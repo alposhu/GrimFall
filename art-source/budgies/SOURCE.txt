@@ -1,31 +1,55 @@
-Budgie spritesheets
-===================
+Budgie familiars
+================
 
-The four bird sheets these came from, kept here as the source of the familiar
-art. They are NOT loaded by the game and are not in the shipped build:
-`tools/build.mjs` ships an allowlist of folders and art-source is not on it.
+The four birds that fly with you are drawn from a third-party pixel pack.
 
-WHAT THE GAME ACTUALLY USES
+SOURCE
+  "Budgie / Parakeet Birds Pixel Asset Pack" by Pop Shop Packs
+  https://pop-shop-packs.itch.io/budgie-parakeet-birds-pixel-asset-pack
+  Free / name-your-own-price. Supplied to the project as
+  `Budgies_Spritesheets.zip`.
+
+LICENCE (as published on that page)
+  - Usable in any project, personal or commercial.
+  - May be modified to suit.
+  - Credit is not required, but is appreciated, with a link to the author's
+    itch.io profile.
+  - MUST NOT be resold or redistributed AS A GAME ASSET. Use has to be as part
+    of a project.
+  - MUST NOT be turned into an NFT.
+  - MUST NOT be fed to generative A.I. software.
+
+  Everything this game does with them is squarely inside those terms: they are
+  modified, they are part of a project, and they are credited on the game's own
+  credits screen and in README.md even though the licence does not demand it.
+  That matches how this project treats the music, which also does not require
+  attribution and gets it anyway.
+
+WHY THE ORIGINAL PNGs ARE NOT IN THIS FOLDER
+  They were here briefly and were removed on purpose. This repository is
+  public, so four unmodified sheets sitting in a folder called `art-source`
+  are downloadable as loose files - which is nearer to redistributing the pack
+  than to using it in a project, and the licence draws exactly that line. The
+  pack is free and permanently available at the link above, so nothing is lost
+  by pointing at it instead of copying it.
+
+  The NFT and generative-A.I. clauses are also worth keeping in view: do not
+  re-add the raw sheets, and do not feed them to an image model.
+
+WHAT THE GAME SHIPS INSTEAD
   `src/art/familiars.js` holds one flight cycle as a pixel map plus four
   palettes. The four sheets turned out to be palette swaps of a single drawing
-  - identical alpha, identical pixel counts - so keeping four copies of the
-  same geometry would have been four times the bytes for no extra art. The
-  extraction was verified pixel-for-pixel before the maps were written.
+  - identical alpha masks, identical pixel counts - so four copies of the same
+  geometry would have been four times the bytes for no extra art. The
+  extraction asserted the shapes matched pixel-for-pixel before the maps were
+  written.
 
-  Only the first column is used: a four-frame flight cycle at 16x15, east
-  facing. The perched and standing poses in columns 1 and 2, `branches.png`
-  and `Bungie Case.png` are unused.
+  Only the first column of the sheet is used: a four-frame flight cycle at
+  16x15, east facing, mirrored for west. The perched and standing poses in
+  columns 1 and 2, and the `branches` and `Bungie Case` sheets, are unused.
 
-PROVENANCE
-  Supplied by the project owner as `Budgies_Spritesheets.zip`. The archive
-  carried no licence file, no readme and no author credit.
-
-  ---> ACTION NEEDED BEFORE RELEASE <---
-  Unlike every other asset in this project, the terms for this one are not
-  recorded. Find where the pack came from and confirm what it permits. If it
-  needs attribution, add it to the in-game credits alongside the audio; if it
-  is not licensed for use in a released game, the art has to come out.
-
-  Everything else in Grimfall has its provenance written down - see
-  audio/SOURCE.txt, fonts/SOURCE.txt and img/rtp/SOURCE.txt. This file exists
-  so that this one does not quietly become the exception.
+TO REBUILD FROM THE PACK
+  Download it from the link above, then take column 0 (four 16x16 cells) of
+  `Blue Budgie.png` as the geometry and read each variant's eight colours off
+  the same pixel positions in the other three sheets. That is exactly how the
+  maps and palettes in `src/art/familiars.js` were produced.
