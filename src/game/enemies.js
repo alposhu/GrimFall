@@ -320,6 +320,12 @@ export function updateEnemies(dt) {
   setIntensity(clamp(S.enemies.length / 220, 0, 1));
 }
 
+// How far from the player a portal opens. The world is 48px to a tile, so this
+// is twelve to eighteen tiles: a walk, not a hike.
+const TILE = 48;
+const PORTAL_NEAR = 12 * TILE;
+const PORTAL_FAR = 18 * TILE;
+
 function onBossDefeated(e) {
   S.boss = null;
   screenFlash(e.tint, 0.6);
@@ -328,19 +334,34 @@ function onBossDefeated(e) {
   for (let i = 0; i < 5; i++) {
     setTimeout(() => { if (S.running) { burst(e.x + rand(-60, 60), e.y + rand(-60, 60), 24, e.tint, { speed: 260, glow: true }); } }, i * 90);
   }
-  // Clear the arena a little as a reward.
-  for (const o of S.enemies) if (!o.isBoss && !o.isChampion && Math.random() < 0.6) killEnemy(o);
+  // The field goes with him. Everything still standing dies, every shot in
+  // flight and every hazard on the ground goes out. Killing them rather than
+  // deleting them is deliberate: you get the gems, which is the reward, and
+  // the walk to the portal is a victory lap instead of a fighting retreat.
+  for (const o of S.enemies) if (!o.isBoss) killEnemy(o);
+  S.hostileShots.length = 0;
+  S.zones.length = 0;
+  S.champion = null;
   sfx(`boss-${e.bossId}-die`);
 
-  // A killed boss tears a way through to the market and leaves it standing
-  // where it fell. You go when you choose to, which means you can finish
-  // collecting the field first — the run is paused the moment you step in, and
-  // a boss drops a lot of gems. Arena fights are practice and pay nothing, so
-  // they never open one; neither does the last boss of the run, because there
-  // is no run left to spend on.
+  // A killed boss tears a way through, but NOT underfoot. It opens a short walk
+  // away — twelve to eighteen tiles, far enough to be somewhere you have to go
+  // and near enough that going there is not a chore — and an arrow points at it
+  // the whole way. Opening it where the boss fell meant standing in it by
+  // accident at the exact moment you were still collecting his drops.
+  //
+  // Arena fights are practice and pay nothing, so they never open one; neither
+  // does the last boss of the run, because there is no run left to spend on.
   if (!S.arena && S.bossIndex < BOSSES.length) {
-    S.portal = { x: e.x, y: e.y, t: 0, bossName: e.name, taken: false };
-    showToast('A way through has opened — step into it when you are ready', '#9ad4ff', 4.2);
+    const p = S.player;
+    const a = rand(0, TAU);
+    const d = rand(PORTAL_NEAR, PORTAL_FAR);
+    S.portal = {
+      x: p.x + Math.cos(a) * d,
+      y: p.y + Math.sin(a) * d,
+      t: 0, bossName: e.name, taken: false,
+    };
+    showToast('A way through has opened — follow the arrow', '#9ad4ff', 4.6);
   }
 }
 

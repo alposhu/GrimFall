@@ -195,7 +195,7 @@
         <div class="help-card" data-demo="survive">
           <h3>Survive</h3>
           <p>Champions arrive every 85 seconds, and a boss lands every four minutes — each with its own entrance. At twenty minutes the sky opens for <strong>Parduin, the Drake God</strong>. Kill him and the run is won.</p>
-          <p>A dead boss tears a <strong>portal</strong> where it fell. It waits: sweep up what it dropped first, then step through to the market when you are ready.</p>
+          <p>A dead boss takes the whole field with him and tears a <strong>portal</strong> open a short walk away — follow the arrow. It waits, so sweep up what he dropped first. Stepping through asks where you want to come out: <strong>the Long Market</strong>, or straight on into open country.</p>
         </div>
         <div class="help-card" data-demo="arena">
           <h3>Boss Arena</h3>
@@ -257,6 +257,25 @@
           <button class="menu-btn" data-action="saveRun"><span>Save Run</span></button>
           <button class="menu-btn" data-action="options"><span>Options</span></button>
           <button class="menu-btn danger" id="abandonBtn"><span>Abandon Run</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- The portal's two doors -->
+    <section id="portalScreen" class="screen">
+      <div class="panel portal-panel">
+        <div class="portal-kicker" id="portalKicker">The way is open</div>
+        <h2>Where does it let you out?</h2>
+        <p class="panel-sub">Step through either side. The market costs you nothing but the gold you spend in it.</p>
+        <div class="portal-doors">
+          <button class="door" id="portalMarketBtn">
+            <span class="door-name">The Long Market</span>
+            <span class="door-desc">Oswin, Marta and the Coinweigher are open. Your run is saved on arrival.</span>
+          </button>
+          <button class="door" id="portalOnwardBtn">
+            <span class="door-name">Press On</span>
+            <span class="door-desc">Straight through to open country, and the next stretch of the hunt.</span>
+          </button>
         </div>
       </div>
     </section>

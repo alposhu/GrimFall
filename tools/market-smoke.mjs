@@ -61,7 +61,7 @@ console.log(`layout            ok (${marketLayout.stalls.length} stalls, ${marke
 // enterMarket is called directly everywhere below, so this is the one check
 // that the market is reachable by playing the game at all.
 {
-  const { startArena, update, suspendForMarket, PORTAL_RADIUS } = await import('../src/game/game.js');
+  const { startArena, update, suspendForMarket, pressOn, PORTAL_RADIUS } = await import('../src/game/game.js');
   const { killEnemy } = await import('../src/game/state.js');
   const { BOSSES } = await import('../src/game/config.js');
   const bigView = { left: -900, right: 900, top: -700, bottom: 700, w: 1800, h: 1400 };
@@ -71,7 +71,7 @@ console.log(`layout            ok (${marketLayout.stalls.length} stalls, ${marke
   for (let i = 0; i < 60 * 20 && !S.boss; i++) update(1 / 60, bigView);
   check(S.boss, 'the arena boss never arrived');
   if (S.boss) killEnemy(S.boss);
-  check(!S.pendingMarket, 'a Boss Arena kill opened the market');
+  check(!S.pendingMarket && !S.pendingPortal, 'a Boss Arena kill opened the market');
   check(!S.portal, 'a Boss Arena kill opened a portal');
 
   // A real run, played until the first boss dies.
@@ -82,16 +82,25 @@ console.log(`layout            ok (${marketLayout.stalls.length} stalls, ${marke
   check(S.boss, 'no boss turned up in a real run');
   const name = S.boss?.name;
   const where = S.boss ? { x: S.boss.x, y: S.boss.y } : { x: 0, y: 0 };
+  const standing = S.enemies.filter((e) => !e.isBoss && !e.dead).length;
+  const me = { x: S.player.x, y: S.player.y };
   if (S.boss) killEnemy(S.boss);
   update(1 / 60, bigView);
 
-  // A dead boss leaves a portal where it fell. It does not teleport you: the
-  // run keeps running until you choose to step in, which is what lets you
-  // finish collecting the gems a boss drops.
+  // A dead boss takes the whole field with him.
+  check(standing > 0, 'nothing else was alive, so the wipe proves nothing');
+  check(S.enemies.every((e) => e.isBoss || e.dead), 'something survived the boss');
+  check(S.hostileShots.length === 0, 'enemy fire outlived the boss');
+
+  // The portal opens a walk away rather than underfoot, so that collecting a
+  // boss's drops cannot shove you through it by accident.
   check(S.portal, 'killing a boss did not open a portal');
-  check(!S.pendingMarket, 'the portal took the player without being entered');
-  check(Math.hypot((S.portal?.x ?? 1e9) - where.x, (S.portal?.y ?? 1e9) - where.y) < 1,
-    'the portal did not open where the boss died');
+  check(!S.pendingPortal && !S.pendingMarket, 'the portal took the player without being entered');
+  const gap = Math.hypot((S.portal?.x ?? 0) - me.x, (S.portal?.y ?? 0) - me.y);
+  check(gap >= 12 * 48 - 1 && gap <= 18 * 48 + 1,
+    `the portal opened ${Math.round(gap / 48)} tiles away, wanted 12-18`);
+  check(Math.hypot((S.portal?.x ?? 0) - where.x, (S.portal?.y ?? 0) - where.y) > 1,
+    'the portal still opens exactly where the boss died');
 
   // A boss death also hands out level-ups, and `update` stops dead while any
   // are pending — the real game opens the draft here. Take them so the run is
@@ -103,18 +112,44 @@ console.log(`layout            ok (${marketLayout.stalls.length} stalls, ${marke
   S.player.x = S.portal.x;
   S.player.y = S.portal.y;
   update(1 / 60, bigView);
-  check(!S.pendingMarket, 'the portal took the player before it had opened');
+  check(!S.pendingPortal, 'the portal took the player before it had opened');
 
-  // Once open, walking into it does.
+  // Once open, walking into it asks which door you want — it does not decide.
   let waited = 0;
-  while (!S.pendingMarket && waited++ < 60 * 4) {
+  while (!S.pendingPortal && waited++ < 60 * 4) {
     S.pendingLevels = 0;
     S.player.x = S.portal ? S.portal.x : 0;
     S.player.y = S.portal ? S.portal.y : 0;
     update(1 / 60, bigView);
   }
-  check(S.pendingMarket, 'walking into the portal did not open the market');
-  check(S.pendingMarket?.bossName === name, 'the market does not know who died');
+  check(S.pendingPortal, 'walking into the portal did not offer the two doors');
+  check(!S.pendingMarket, 'the portal went straight to the market without asking');
+  check(S.pendingPortal?.bossName === name, 'the portal does not know who died');
+
+  // The onward door is a transit inside the run: it moves you a long way into
+  // fresh country, keeps the run going, and does not strand what you had not
+  // picked up yet.
+  {
+    const from = { x: S.player.x, y: S.player.y };
+    S.pickups.length = 0;
+    S.pickups.push({ x: from.x + 40, y: from.y, kind: 'gem1', xp: 1, life: 30, vx: 0, vy: 0 });
+    const took = pressOn();
+    check(took.bossName === name, 'pressing on forgot who died');
+    const moved = Math.hypot(S.player.x - from.x, S.player.y - from.y);
+    check(moved > 2000, `pressing on moved the player only ${Math.round(moved)}px`);
+    check(!S.portal && !S.pendingPortal && !S.pendingMarket, 'the portal outlived being used');
+    check(S.running && !S.player.dead, 'pressing on ended the run');
+    check(S.enemies.length === 0, 'the far side came with a crowd');
+    check(S.player.invuln > 1, 'no grace period on the far side');
+    check(Math.hypot(S.cam.x - S.player.x, S.cam.y - S.player.y) < 1,
+      'the camera stayed on the far side of the world');
+    check(S.pickups.length === 1 &&
+      Math.hypot(S.pickups[0].x - S.player.x, S.pickups[0].y - S.player.y) < 60,
+      'a dropped gem was stranded on the other side');
+  }
+
+  // Back to a state where the market door is what was taken.
+  S.pendingMarket = { bossName: name };
 
   // And standing clear of it leaves you in the run.
   {
@@ -123,7 +158,7 @@ console.log(`layout            ok (${marketLayout.stalls.length} stalls, ${marke
     S.player.x = 400 + PORTAL_RADIUS + 30;
     S.player.y = 400;
     for (let i = 0; i < 60; i++) update(1 / 60, bigView);
-    check(!S.pendingMarket, 'the portal reached out and grabbed the player');
+    check(!S.pendingPortal && !S.pendingMarket, 'the portal reached out and grabbed the player');
     check(S.portal && !S.portal.taken, 'the portal closed on its own');
   }
 

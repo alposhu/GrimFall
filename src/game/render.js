@@ -81,36 +81,65 @@ export function render(ctx, canvas, zoom, opts = {}) {
   drawGrading(ctx, w, h, biome, lowFx);
 }
 
-// A portal you cannot see is a portal you cannot find. Once it is off-screen,
-// a chevron rides the edge of the view pointing at it, with the distance under
-// it — the same job a quest marker does, without a minimap to maintain.
+// A portal you cannot see is a portal you cannot find, so an arrow points at it
+// from the moment it opens until you step through. Off-screen it rides the edge
+// of the view with the distance under it; on-screen it hangs over the portal
+// itself, so following the arrow and arriving are one continuous motion rather
+// than an arrow that vanishes and leaves you looking for what it meant.
+//
+// The marker is eased towards where it belongs rather than placed there. A
+// clamped edge marker is extremely twitchy at close range - the angle to
+// something twenty pixels away swings wildly as you walk - and easing is the
+// difference between an arrow you can follow and one that flickers.
+let markerX = 0, markerY = 0, markerReady = false;
+
 function drawPortalMarker(ctx, w, h, zoom) {
   const g = S.portal;
-  if (!g || g.taken) return;
+  if (!g || g.taken) { markerReady = false; return; }
 
   const dx = g.x - S.cam.x;
   const dy = g.y - S.cam.y;
   const sx = w / 2 + dx * zoom;
   const sy = h / 2 + dy * zoom;
   const pad = 46;
-  if (sx > pad && sx < w - pad && sy > pad && sy < h - pad) return;   // visible
-
+  const onScreen = sx > pad && sx < w - pad && sy > pad && sy < h - pad;
   const a = Math.atan2(dy, dx);
-  // Push out to the view rectangle rather than to a circle, so the marker sits
-  // against the edge you are actually looking at.
-  const hw = w / 2 - pad, hh = h / 2 - pad;
-  const scale = Math.min(hw / Math.abs(Math.cos(a) || 1e-6), hh / Math.abs(Math.sin(a) || 1e-6));
-  const mx = w / 2 + Math.cos(a) * scale;
-  const my = h / 2 + Math.sin(a) * scale;
+
+  let tx, ty, point;
+  if (onScreen) {
+    // Over the portal, pointing down at it.
+    tx = sx;
+    ty = sy - 54;
+    point = Math.PI / 2;
+  } else {
+    // Out to the view RECTANGLE rather than to a circle, so the marker sits
+    // against the edge you are actually looking at.
+    const hw = w / 2 - pad, hh = h / 2 - pad;
+    const reach = Math.min(hw / Math.abs(Math.cos(a) || 1e-6), hh / Math.abs(Math.sin(a) || 1e-6));
+    tx = w / 2 + Math.cos(a) * reach;
+    ty = h / 2 + Math.sin(a) * reach;
+    point = a;
+  }
+
+  if (!markerReady) { markerX = tx; markerY = ty; markerReady = true; }
+  else {
+    // Fixed per-frame ease. This runs in the render pass, which has no dt of
+    // its own; at 60fps it settles in about six frames, and a faster screen
+    // only makes it smoother.
+    markerX += (tx - markerX) * 0.22;
+    markerY += (ty - markerY) * 0.22;
+  }
+
   const metres = Math.round(Math.hypot(dx, dy) / 10);
+  const bob = onScreen ? Math.sin(S.time * 5) * 4 : 0;
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.translate(mx, my);
+  ctx.translate(markerX, markerY + bob);
   ctx.globalAlpha = 0.55 + Math.sin(S.time * 4) * 0.18;
 
   ctx.save();
-  ctx.rotate(a);
+  ctx.rotate(point);
   ctx.fillStyle = '#9ad4ff';
   ctx.beginPath();
   ctx.moveTo(15, 0);
@@ -121,11 +150,14 @@ function drawPortalMarker(ctx, w, h, zoom) {
   ctx.fill();
   ctx.restore();
 
-  ctx.globalAlpha = 0.8;
-  ctx.fillStyle = '#c9e8ff';
-  ctx.font = '600 11px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${metres} m`, 0, 24);
+  // The distance only helps while the thing itself is out of sight.
+  if (!onScreen) {
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#c9e8ff';
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${metres} m`, 0, 24);
+  }
   ctx.restore();
 }
 

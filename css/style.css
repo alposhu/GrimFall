@@ -631,8 +631,41 @@ kbd {
    because these two can outgrow a phone in landscape, and a centred flex item
    taller than its own scroll container puts its top out of reach - auto
    margins collapse to zero instead. */
-#shopScreen, #savesScreen { align-items: center; }
-#shopScreen > .panel, #savesScreen > .panel { margin-block: auto; }
+#shopScreen, #savesScreen, #portalScreen { align-items: center; }
+#shopScreen > .panel, #savesScreen > .panel, #portalScreen > .panel { margin-block: auto; }
+
+/* --- the portal's two doors ---------------------------------------------- */
+.portal-panel { width: min(680px, 94vw); }
+.portal-kicker {
+  font: 400 10px/1 var(--font-display);
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ember-2);
+  margin-bottom: 8px;
+}
+.portal-doors {
+  display: grid; gap: 12px; margin-top: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.door {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 18px 16px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.08s, background 0.12s;
+}
+.door:hover, .door:focus-visible {
+  border-color: rgba(154, 212, 255, 0.55);
+  background: rgba(154, 212, 255, 0.06);
+  transform: translateY(-1px);
+}
+.door:active { transform: none; }
+.door-name { font: 400 14px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--ink); }
+.door-desc { font-size: 12px; line-height: 1.5; color: var(--ink-2); }
 .panel {
   width: min(460px, 92vw);
   padding: 26px;

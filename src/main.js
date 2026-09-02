@@ -23,13 +23,13 @@ import { budgieSprite, BUDGIE_IDS, BUDGIE_FRAMES } from './art/familiars.js';
 import { FOOD_IDS, foodSprite } from './art/food.js';
 import { BIOMES } from './game/world.js';
 import { WEAPONS, WEAPON_IDS, PASSIVES, PASSIVE_IDS } from './game/config.js';
-import { S } from './game/state.js';
+import { S, showBanner } from './game/state.js';
 import { render, renderBackdrop } from './game/render.js';
 import { renderCutscene, skipCutscene } from './game/cutscene.js';
 import { playIntro } from './game/intro.js';
 import {
   startRun, startArena, endRun, update, updateCamera, computeView, on,
-  suspendForMarket, resumeFromMarket, saveRun, loadRun,
+  suspendForMarket, resumeFromMarket, pressOn, saveRun, loadRun,
 } from './game/game.js';
 import { M, enterMarket, updateMarket, interact, closeShop } from './game/market.js';
 import { renderMarket } from './game/marketRender.js';
@@ -49,6 +49,7 @@ let mode = 'boot';           // 'boot' | 'intro' | 'menu' | 'run' | 'market'
 let lastTime = 0;
 let attractT = 0;
 let levelUpOpen = false;
+let portalOpen = false;      // the portal's two doors are up
 
 // ---------------------------------------------------------------------------
 // Canvas sizing
@@ -163,6 +164,7 @@ async function boot() {
       if (r?.kind === 'vendor') ui.openShop(r.vendor);
     },
     onLeaveShop: closeShop,
+    onPortalChoice: choosePortal,
     onDrinkFlask: drinkFlask,
     // saves
     onSaveRun: (slot) => saveRun(slot),
@@ -286,6 +288,7 @@ function resumeSaved(slot) {
   if (!loadRun(slot)) return false;
   mode = 'run';
   levelUpOpen = false;
+  portalOpen = false;
   ui.showHUD(true);
   showJoystick(IS_TOUCH);
   clearPressed();
@@ -317,6 +320,25 @@ function toMarket() {
     },
   });
   ui.announceMarket(info, saved);
+}
+
+/**
+ * Which door was taken. `market` hands off to the existing market flow;
+ * `onward` is a transit inside the run, so the HUD never leaves the screen.
+ */
+function choosePortal(door) {
+  portalOpen = false;
+  const info = S.pendingPortal;
+  if (!info) return;
+  if (door === 'market') {
+    S.pendingMarket = { bossName: info.bossName };
+    S.pendingPortal = null;
+    sfx('select');
+    return;                      // the loop picks it up next frame
+  }
+  pressOn();
+  clearPressed();
+  showBanner('OPEN COUNTRY', '#9ad4ff', 'The hunt goes on');
 }
 
 function setPaused(on) {
@@ -394,8 +416,14 @@ function loop(now) {
       resetStick();
       ui.openLevelUp();
     }
-    // A defeated boss clears the road to the market — but only once the
-    // level-ups its death earned have been taken.
+    // Stepping into the portal asks where it lets you out — but only once the
+    // level-ups the boss's death earned have been taken, so the two overlays
+    // can never be up at the same time.
+    if (S.pendingPortal && !portalOpen && !levelUpOpen && S.pendingLevels === 0 && S.running && !S.paused) {
+      portalOpen = true;
+      resetStick();
+      ui.openPortal(S.pendingPortal.bossName);
+    }
     if (S.pendingMarket && !levelUpOpen && S.pendingLevels === 0 && S.running && !S.paused) {
       toMarket();
     }

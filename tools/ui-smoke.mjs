@@ -34,7 +34,7 @@ const check = (c, m) => { if (!c) problems.push(m); };
 let started = null;
 
 let arenaStarted = null;
-const fired = { interact: 0, leaveShop: 0, drank: [], saved: [], loaded: [] };
+const fired = { interact: 0, leaveShop: 0, drank: [], saved: [], loaded: [], doors: [] };
 ui.initUI({
   onStart: (id, diff) => { started = { id, diff }; },
   onStartArena: (id, diff, bossId) => { arenaStarted = { id, diff, bossId }; },
@@ -46,6 +46,7 @@ ui.initUI({
   onSetting: () => {},
   onInteract: () => { fired.interact++; },
   onLeaveShop: () => { fired.leaveShop++; },
+  onPortalChoice: (door) => { fired.doors.push(door); },
   onDrinkFlask: (id) => { fired.drank.push(id); },
   onSaveRun: (slot) => { fired.saved.push(slot); return saveRun(slot); },
   onLoadRun: (slot) => { fired.loaded.push(slot); return loadRun(slot); },
@@ -243,6 +244,21 @@ byId.shopLeaveBtn.click();
 check(fired.leaveShop === 1, 'the leave button is not wired');
 console.log('vendor screen     ok');
 
+// The portal screen is modal with no back button and no Escape route — the two
+// doors are the ONLY way out of it, so a door that is not wired is a run that
+// cannot continue. Both are clicked here for exactly that reason.
+{
+  for (const [btn, want] of [['portalMarketBtn', 'market'], ['portalOnwardBtn', 'onward']]) {
+    ui.openPortal('The Hollow Magus');
+    check(ui.portalIsOpen(), `openPortal did not open before ${want}`);
+    byId[btn].click();
+    check(!ui.portalIsOpen(), `the ${want} door left the screen up`);
+  }
+  check(fired.doors.join(',') === 'market,onward',
+    `the doors reported [${fired.doors.join(', ')}]`);
+  console.log('portal doors      ok (both wired, both close the screen)');
+}
+
 // `hidden` has to actually hide. The stub applies no CSS, so this is a static
 // check of the stylesheet: every element the markup hides is styled with a
 // `display` of its own somewhere, which silently beats the browser's own
@@ -269,14 +285,14 @@ console.log('vendor screen     ok');
   const rules = [...bare.matchAll(/([^{}]*)\{([^}]*)\}/g)];
   const declFor = (sel) => rules.filter((m) => m[1].split(',').some((p) => p.trim() === sel))
     .map((m) => m[2]).join(';');
-  for (const id of ['#pauseScreen', '#resultScreen', '#shopScreen', '#savesScreen']) {
+  for (const id of ['#pauseScreen', '#resultScreen', '#shopScreen', '#savesScreen', '#portalScreen']) {
     const own = declFor(id);
     const child = declFor(`${id} > .panel`);
     check(/align-items:\s*center/.test(own), `${id} does not centre its panel horizontally`);
     check(/justify-content:\s*center/.test(own) || /margin-block:\s*auto|margin:\s*auto/.test(child),
       `${id} does not centre its panel vertically`);
   }
-  console.log('screen centring   ok (4 single-panel screens, all centred)');
+  console.log('screen centring   ok (5 single-panel screens, all centred)');
 }
 
 // --- the flask belt -------------------------------------------------------

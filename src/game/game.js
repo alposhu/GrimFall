@@ -55,7 +55,8 @@ export function startRun(charId, difficulty) {
     rerolls: lvl('m_reroll'), banishes: lvl('m_banish'),
     revives: lvl('m_revive') + (ch.stats.revives || 0),
     finalDefeated: false,
-    inventory: {}, purchases: [], marketVisits: 0, pendingMarket: null, portal: null,
+    inventory: {}, purchases: [], marketVisits: 0,
+    pendingMarket: null, pendingPortal: null, portal: null,
     vacuumT: 0,
   });
   setWorldSeed(S.seed);
@@ -294,6 +295,7 @@ export function update(dt, view) {
 export function suspendForMarket() {
   const info = S.pendingMarket;
   S.pendingMarket = null;
+  S.pendingPortal = null;
   S.portal = null;
   S.marketVisits++;
   S.hostileShots.length = 0;
@@ -398,14 +400,67 @@ function updatePortal(dt) {
   if (d > PORTAL_RADIUS) return;
 
   g.taken = true;
-  S.pendingMarket = { bossName: g.bossName };
+  // Stepping in does not commit you to the market any more — it asks. `main`
+  // sees `pendingPortal` and puts the two doors up; whichever you pick sets
+  // what actually happens next.
+  S.pendingPortal = { bossName: g.bossName };
   ring(g.x, g.y, 90, '#9ad4ff', { life: 0.5 });
   addShake(4);
   sfx('market-open');
 }
 
+// How far the far side of the portal is. The biome field runs at 1/1700, so
+// four thousand-odd pixels is reliably different country rather than the same
+// clearing with the trees moved.
+const PRESS_ON = 4600;
+
+/**
+ * Take the other door: straight through, no market.
+ *
+ * The world is one continuous field rather than a set of maps, so "the next
+ * level" is a long walk the portal saves you — you come out deep in fresh
+ * country, in a different biome, with the ground clear. What you had earned and
+ * not yet picked up comes through with you rather than being stranded on the
+ * far side, which is the whole reason this is a choice and not a punishment.
+ */
+export function pressOn() {
+  const info = S.pendingPortal;
+  S.pendingPortal = null;
+  S.portal = null;
+  const p = S.player;
+
+  const a = Math.random() * Math.PI * 2;
+  const dx = Math.cos(a) * PRESS_ON;
+  const dy = Math.sin(a) * PRESS_ON;
+  p.x += dx; p.y += dy;
+  p.vx = 0; p.vy = 0;
+
+  for (const it of S.pickups) { it.x += dx; it.y += dy; }
+
+  S.enemies.length = 0;
+  S.shots.length = 0;
+  S.hostileShots.length = 0;
+  S.zones.length = 0;
+  S.sweeps.length = 0;
+  S.champion = null;
+  clearFamiliars();
+
+  // The camera goes with him. Without this it would pan four thousand pixels
+  // across the world at its usual follow speed, which is several seconds of
+  // scenery going past at a blur.
+  S.cam.x = p.x; S.cam.y = p.y;
+  S.cam.tx = p.x; S.cam.ty = p.y;
+
+  // A moment of air on the far side: you have no idea what is standing there.
+  p.invuln = Math.max(p.invuln || 0, 2.5);
+  ring(p.x, p.y, 120, '#9ad4ff', { life: 0.6 });
+  addShake(6);
+  sfx('market-open');
+  return { bossName: info?.bossName || '' };
+}
+
 /** Close the portal without using it — the run has ended, or you went through. */
-export function clearPortal() { S.portal = null; }
+export function clearPortal() { S.portal = null; S.pendingPortal = null; }
 
 function decayPresentation(dt) {
   if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 26);

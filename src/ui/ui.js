@@ -71,6 +71,7 @@ export function initUI(callbacks) {
     'belt', 'marketBar', 'marketBelt', 'marketGold', 'interactBtn', 'interactLabel',
     'shopScreen', 'shopFace', 'shopName', 'shopTrade', 'shopGold', 'shopLine',
     'shopGrid', 'shopBelt', 'shopLeaveBtn',
+    'portalScreen', 'portalKicker', 'portalMarketBtn', 'portalOnwardBtn',
     'savesScreen', 'savesTitle', 'savesSub', 'slotList',
     'savesNote', 'exportSaveBtn', 'importSaveBtn', 'importSaveInput',
     'continueBtn', 'continueSub', 'loadBtn',
@@ -145,6 +146,11 @@ From ${when}
     reader.readAsText(file);
   });
   el.shopLeaveBtn.addEventListener('click', () => { closeShop(); hooks.onLeaveShop?.(); });
+
+  // The portal's two doors. Both close the screen first, so whichever the
+  // caller does next is not racing an open overlay.
+  el.portalMarketBtn.addEventListener('click', () => { closePortal(); hooks.onPortalChoice?.('market'); });
+  el.portalOnwardBtn.addEventListener('click', () => { closePortal(); hooks.onPortalChoice?.('onward'); });
 
   el.startRunBtn.addEventListener('click', () => {
     const ch = characterById(selectedHero);
@@ -258,7 +264,7 @@ function stopDemos() {
 // ---------------------------------------------------------------------------
 // Screen routing
 // ---------------------------------------------------------------------------
-const SCREENS = ['bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen', 'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen', 'shopScreen', 'savesScreen'];
+const SCREENS = ['bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen', 'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen', 'shopScreen', 'savesScreen', 'portalScreen'];
 
 export function go(name, remember = true) {
   const current = SCREENS.find((s) => el[s]?.classList.contains('active'));
@@ -942,6 +948,26 @@ export function openShop(vendor) {
   buildShop();
   go('shopScreen', false);
 }
+
+// ---------------------------------------------------------------------------
+// The portal
+// ---------------------------------------------------------------------------
+let portalOpen = false;
+
+/** Ask where the portal should let you out. `bossName` is only for the kicker. */
+export function openPortal(bossName) {
+  portalOpen = true;
+  el.portalKicker.textContent = bossName ? `${bossName} is dead` : 'The way is open';
+  go('portalScreen', false);
+}
+
+export function closePortal() {
+  if (!portalOpen) return;
+  portalOpen = false;
+  hideAll();
+}
+
+export const portalIsOpen = () => portalOpen;
 
 export function closeShop() {
   if (!openVendor) return;

@@ -70,7 +70,8 @@ export const S = {
   // A killed boss leaves a way out rather than teleporting you: the portal
   // stands where it fell and you walk into it when you are ready.
   portal: null,              // { x, y, t, bossName, taken }
-  pendingMarket: null,       // { bossName } — set on stepping through, consumed by main
+  pendingPortal: null,       // { bossName } — you stepped in; main asks which door
+  pendingMarket: null,       // { bossName } — the market door was chosen, consumed by main
 };
 
 export const diff = () => DIFFICULTIES[S.difficulty] || DIFFICULTIES.normal;
