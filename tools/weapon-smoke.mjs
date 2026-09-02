@@ -24,6 +24,8 @@ const { S } = await import('../src/game/state.js');
 const store = await import('../src/core/storage.js');
 const { startRun, update, computeView } = await import('../src/game/game.js');
 const { WEAPONS, WEAPON_IDS, WEAPON_MAX_LEVEL, PASSIVES } = await import('../src/game/config.js');
+const { ENEMY_TYPES } = await import('../src/game/config.js');
+const { makeEnemy } = await import('../src/game/enemies.js');
 const { hasIcon } = await import('../src/art/props.js');
 
 store.load();
@@ -47,14 +49,21 @@ function crowd() {
   for (let i = 0; i < N; i++) {
     const a = (i / N) * Math.PI * 2;
     const ring = RINGS[i % RINGS.length];
-    dummies.push({
-      x: S.player.x + Math.cos(a) * ring,
-      y: S.player.y + Math.sin(a) * ring,
-      vx: 0, vy: 0, hp: DUMMY_HP, maxHp: DUMMY_HP, dmg: 0, speed: 0, size: 16, scale: 2,
-      xp: 0, sprite: 'slime', dead: false, hitT: 0, frozen: 0, stun: 0,
-      knockX: 0, knockY: 0, animT: 0, frame: 0, type: 'slime', dummy: true,
+    // Built through `makeEnemy` rather than by hand. A hand-written dummy had
+    // `knockX`/`knockY` where the real thing has `kx`/`ky`, so every knockback
+    // did `undefined + n` and quietly turned the enemy's position into NaN.
+    // Nothing caught it because the loop below resets each dummy every frame -
+    // it only surfaced once a test ran one for longer than a frame. Deriving
+    // the shape from the game means it cannot drift again.
+    const d = makeEnemy(ENEMY_TYPES[0],
+      S.player.x + Math.cos(a) * ring,
+      S.player.y + Math.sin(a) * ring);
+    Object.assign(d, {
+      hp: DUMMY_HP, maxHp: DUMMY_HP, damage: 0, speed: 0, xp: 0,
+      size: 16, scale: 2, knockResist: 1, dummy: true,
       ringAngle: a, ringR: ring,
     });
+    dummies.push(d);
   }
   S.enemies.length = 0;
   S.enemies.push(...dummies);
@@ -172,6 +181,58 @@ for (const [id, , maxed] of rows) {
   check(maxed > median / 12, `${id} at level 8 deals ${maxed | 0}, far under the median ${median | 0}`);
 }
 console.log(`balance           ok (level 8 median ${(median | 0).toLocaleString()}, none below a twelfth of it)`);
+
+// --- the flock ---------------------------------------------------------------
+// Familiars are the only weapons that persist between attacks, which makes them
+// the only ones that can leak. All four are equipped at once, evolved, and flown
+// for two minutes against a crowd that keeps being rebuilt.
+{
+  const { FAMILIAR_WEAPONS, WEAPONS: W } = await import('../src/game/config.js');
+  const { clearFamiliars } = await import('../src/game/familiars.js');
+  check(FAMILIAR_WEAPONS.length === 4, `${FAMILIAR_WEAPONS.length} familiars, expected 4`);
+
+  startRun('ranger', 'normal');
+  S.player.weapons = FAMILIAR_WEAPONS.map((id) => ({ id, level: 8, cd: 0, evolved: true }));
+  S.player.passives = {};
+  S.player.invuln = 999;
+  crowd();
+
+  // How many birds the loadout implies, so "leaked" can be measured rather than
+  // guessed at.
+  const expected = FAMILIAR_WEAPONS
+    .reduce((n, id) => n + Math.max(1, Math.round(W[id].evolution.base.birds || 1)), 0);
+
+  let peak = 0, strayed = 0;
+  const step = 1 / 60;
+  for (let i = 0; i < 60 * 120; i++) {
+    // Walk in a circle: stations are defined relative to a moving player, and a
+    // bird that only works standing still is a bird that does not work.
+    S.player.x = Math.cos(i / 90) * 300;
+    S.player.y = Math.sin(i / 90) * 300;
+    S.player.faceAngle = i / 90 + Math.PI / 2;
+    update(step, computeView(1280, 720, 1.4));
+    S.pendingLevels = 0;
+    peak = Math.max(peak, S.familiars.length);
+    for (const b of S.familiars) {
+      if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) { strayed++; break; }
+      // The roamer is allowed to leave; nothing is allowed to leave the county.
+      if (Math.hypot(b.x - S.player.x, b.y - S.player.y) > 4000) { strayed++; break; }
+    }
+    if (i % 240 === 0) crowd();
+  }
+
+  check(strayed === 0, `a bird reached a non-finite or absurd position on ${strayed} frames`);
+  check(peak === expected, `the flock peaked at ${peak} birds, expected ${expected}`);
+  check(S.familiars.length === expected, `${S.familiars.length} birds at the end, expected ${expected}`);
+
+  clearFamiliars();
+  check(S.familiars.length === 0, 'clearFamiliars left birds behind');
+  // And they come back on their own, because the flock is derived, not stored.
+  update(step, computeView(1280, 720, 1.4));
+  check(S.familiars.length === expected, 'the flock did not rebuild itself after being cleared');
+
+  console.log(`flock             ok (${expected} birds, 2 min flown, none lost, none leaked)`);
+}
 
 if (problems.length) {
   console.error('\nFAILED:');
