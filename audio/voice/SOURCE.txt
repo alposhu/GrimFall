@@ -1,0 +1,29 @@
+Voice clips in this folder are from "Super Dialogue Audio Pack v1",
+produced by Dillon Becker.
+  https://dillonbecker.com
+
+LICENCE
+  Creative Commons Attribution 4.0 International (CC BY 4.0)
+  https://creativecommons.org/licenses/by/4.0/
+
+  You are free to share and adapt the material, including commercially,
+  provided you give appropriate credit, link to the licence, and indicate
+  if changes were made.
+
+CHANGES MADE (required by the licence)
+  The originals are 32-bit float stereo WAV at 44.1 kHz. For use on the web,
+  each clip here has been:
+    - downmixed to mono
+    - resampled to 22.05 kHz
+    - converted to 16-bit PCM
+    - trimmed of leading and trailing silence
+    - peak-normalised
+  No clip has been re-recorded, pitch-shifted, or altered in content.
+  Only a curated subset of the pack's 1090 clips is included.
+
+VOICE ACTORS
+  Alex Brodie, Ian Lampert, Karen Cenon, Meghan Christian, Sean Lenhart
+  Each is cast as one of the game's five playable heroes.
+
+Credit is given in-game (title screen, and How to Play -> Credits) and in the
+project README. This project is not endorsed by Dillon Becker or by the actors.

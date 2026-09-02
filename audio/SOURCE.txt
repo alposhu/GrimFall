@@ -1,0 +1,31 @@
+Music in this folder is from "28 High Quality 16-bit RPG Music" by HydroGene.
+https://hydrogene.itch.io/high-quality-16-bit-music
+
+From the pack's readme:
+  "As explained in the itch.io page, credits are not mandatory, so feel free
+   to use it in any way you want. However, I am curious to know which projects
+   are using any of these tracks, so let me know if you have made something
+   with it!"
+
+Credit is given in-game (How to Play -> Credits, and the title screen) and in
+the project README. Only the tracks the game actually uses are included here;
+the full pack contains 28.
+
+
+-------------------------------------------------------------------------------
+market.wav
+-------------------------------------------------------------------------------
+The Long Market's crowd ambience is not from the pack above. It is the project
+owner's own field recording of a marketplace, supplied for this game.
+
+CHANGES MADE
+  The source is 231 s of 24-bit stereo at 44.1 kHz (58 MB). For the web it has
+  been:
+    - cut to the steadiest 48 s of the recording, chosen by scanning the whole
+      file for the window with the highest and most even level, so no single
+      slam or shout stands out on every repeat
+    - downmixed to mono, resampled to 22.05 kHz, converted to 16-bit PCM
+    - wrapped with a 2 s equal-power crossfade so the loop point is inaudible
+    - levelled to sit under the game rather than over it
+  Result: 2.0 MB. The 58 MB original is kept outside this folder, beside the
+  project, as marketplace-source.wav.

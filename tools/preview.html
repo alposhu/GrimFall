@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimfall — sprite sheet</title>
+<style>
+  body { margin: 0; padding: 28px; background: #0b0812; color: #f2ecff;
+         font: 14px/1.5 'Chakra Petch', system-ui, sans-serif; }
+  h1 { font-size: 20px; letter-spacing: 0.1em; margin: 0 0 4px; }
+  p.lede { color: #7d7496; margin: 0 0 26px; max-width: 60ch; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.16em;
+       color: #ff8a2a; margin: 30px 0 12px; border-bottom: 1px solid rgba(255,236,210,0.12);
+       padding-bottom: 7px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .cell { background: #171022; border: 1px solid rgba(255,236,210,0.1); border-radius: 10px;
+          padding: 10px; text-align: center; min-width: 92px; }
+  .cell canvas { image-rendering: pixelated; display: block; margin: 0 auto 7px; }
+  .cell span { font-size: 11px; color: #b9b0cf; }
+  .row { display: flex; gap: 4px; justify-content: center; }
+  .swatch { display: inline-block; width: 100%; height: 60px; border-radius: 6px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<h1>Grimfall sprite sheet</h1>
+<p class="lede">Every sprite in the game, rasterised by the same code the game uses.
+Open this after changing any pixel map to check the result. Development only —
+this page is not part of the deployed build.</p>
+<div id="out"></div>
+
+<script type="module">
+import { CHARACTERS, heroSprites, heroPortrait } from '../src/art/hero.js';
+import { MOB_KEYS, CHAMPION_KEYS, mobSprite, championSprite } from '../src/art/bestiary.js';
+import { REDESIGNED, drawBossFigure } from '../src/art/bosses.js';
+import { propSprite, pickupSprite, iconSprite, PROP_KINDS, DECO_KINDS } from '../src/art/props.js';
+import { dragonParts, drawParduin } from '../src/art/dragon.js';
+import { FOOD_IDS, FOODS, foodSprite } from '../src/art/food.js';
+import { ITEM_ICONS, itemIcon, goodIcon } from '../src/art/items.js';
+import { VENDORS } from '../src/game/shop.js';
+import { FOLK_VARIANTS, folkSprites } from '../src/art/folk.js';
+import { BALLOON_KINDS, balloonGlyph, balloonBubble, drawBalloon } from '../src/art/balloons.js';
+// props.js already exports a PROP_KINDS (world scenery); the market has its own.
+import { STALL_KINDS, PROP_KINDS as MARKET_PROPS, VENDOR_IDS, stallSprite, marketProp, vendorSprite, cobbleTile } from '../src/art/market.js';
+import { BIOMES } from '../src/game/world.js';
+import {
+  preloadRtp, loadedAtlases, RTP_FOLK_COUNT, RTP_VENDOR, RTP_CROWD_POOL,
+  RTP_ACTOR_COUNT, rtpFolkSprites, rtpActorSprites, rtpActorFace,
+} from '../src/art/rtp.js';
+import { preloadHeroSheets } from '../src/art/sheets.js';
+
+// The sheeted art has to decode before anything is drawn, or this page would
+// only ever show the code-drawn fallbacks — which is the opposite of useful
+// when the whole point is reviewing the artwork.
+await Promise.all([preloadRtp(), preloadHeroSheets()]);
+
+const out = document.getElementById('out');
+
+function section(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  out.appendChild(h);
+  const g = document.createElement('div');
+  g.className = 'grid';
+  out.appendChild(g);
+  return g;
+}
+
+function cell(grid, label, ...canvases) {
+  const c = document.createElement('div');
+  c.className = 'cell';
+  const row = document.createElement('div');
+  row.className = 'row';
+  canvases.forEach((cv) => row.appendChild(cv));
+  const s = document.createElement('span');
+  s.textContent = label;
+  c.append(row, s);
+  grid.appendChild(c);
+}
+
+// --- heroes: every direction, every walk frame ---
+for (const ch of CHARACTERS) {
+  const g = section(`Hero — ${ch.name}`);
+  const set = heroSprites(ch.id, 3);
+  for (const dir of ['south', 'north', 'east', 'west']) {
+    cell(g, dir, ...set[dir]);
+  }
+  cell(g, 'portrait', heroPortrait(ch.id, 4));
+}
+
+// --- Parduin: the composed dragon, plus his parts ---
+{
+  const g = section('Parduin, the Drake God — composed');
+  const states = [
+    ['wings down', { t: 0.0, flap: 0.6 }],
+    ['wings level', { t: 0.65, flap: 0.6 }],
+    ['wings up', { t: 1.3, flap: 0.6 }],
+    ['airborne', { t: 0.4, flap: 1, airborne: true }],
+    ['drawing breath', { t: 0.8, flap: 0.3, breath: 1 }],
+    ['enraged', { t: 1.1, flap: 0.5, rage: 1, breath: 0.4 }],
+  ];
+  for (const [label, st] of states) {
+    const c = document.createElement('canvas');
+    c.width = 300; c.height = 250;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    drawParduin(cx, 150, 128, 0.95, st);
+    cell(g, label, c);
+  }
+
+  const gp = section('Parduin — parts');
+  const P = dragonParts(2);
+  cell(gp, 'body', P.body);
+  cell(gp, 'wing (right)', P.wing);
+  cell(gp, 'wing (left)', P.wingL);
+  cell(gp, 'tail', P.tail);
+}
+
+const mobs = section('Enemies');
+MOB_KEYS.forEach((k) => cell(mobs, k, mobSprite(k, 3)));
+
+const champs = section('Champions');
+CHAMPION_KEYS.forEach((k) => cell(champs, k, championSprite(k, 3)));
+
+// --- the four hierarchs, in several states ---
+{
+  const g = section('Bosses — composed');
+  const states = [
+    ['idle', { t: 0.4 }],
+    ['mid-sway', { t: 1.6 }],
+    ['casting', { t: 2.4, casting: 1 }],
+    ['enraged', { t: 3.1, casting: 0.5, rage: 1 }],
+  ];
+  for (const id of REDESIGNED) {
+    for (const [label, st] of states) {
+      const c = document.createElement('canvas');
+      c.width = 300; c.height = 300;
+      const cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = false;
+      drawBossFigure(cx, id, 150, 150, 1, st);
+      cell(g, id + ' · ' + label, c);
+    }
+  }
+}
+
+const foods = section('Food');
+FOOD_IDS.forEach((k) => cell(foods, FOODS[k].name + ' · +' + FOODS[k].heal, foodSprite(k, 4)));
+
+const shopIcons = section('Shop items');
+ITEM_ICONS.forEach((k) => cell(shopIcons, k, itemIcon(k, 4)));
+
+// What the shop actually shows: one picture per good, keyed by good id.
+{
+  const sec = section('Shop goods — the sheeted icon each good is sold under');
+  for (const [vid, v] of Object.entries(VENDORS)) {
+    for (const g of v.goods) cell(sec, `${g.name} (${vid})`, goodIcon(g.id, 4));
+  }
+}
+
+{
+  const s = section(`Loaded atlases — ${loadedAtlases().join(', ') || 'none'}`);
+  s.style.opacity = loadedAtlases().length ? '1' : '0.5';
+}
+
+// The sheeted cast: everyone the market and the party screen can show you.
+const castSec = section(`Merchants — from the townsfolk sheets`);
+for (const [id, i] of Object.entries(RTP_VENDOR)) {
+  const set = rtpFolkSprites(i, 1);
+  if (set) cell(castSec, `${id} (#${i})`, set.south[0]);
+}
+
+const crowdSec = section(`Townsfolk — ${RTP_CROWD_POOL.length} faces the crowd deals from`);
+for (const i of RTP_CROWD_POOL) {
+  const set = rtpFolkSprites(i, 1);
+  if (set) cell(crowdSec, `#${i}`, set.south[0]);
+}
+
+const actorSec = section(`Party sheet — ${RTP_ACTOR_COUNT} adventurers`);
+for (let b = 0; b < RTP_ACTOR_COUNT; b++) {
+  const set = rtpActorSprites(b, 1);
+  if (set) cell(actorSec, `block ${b}`, set.south[0]);
+}
+const faceSec = section('Party sheet — portraits');
+for (let b = 0; b < RTP_ACTOR_COUNT; b++) {
+  const f = rtpActorFace(b, 96);
+  if (f) cell(faceSec, `block ${b}`, f);
+}
+
+const folkSec = section('Townsfolk — 5 code-drawn silhouettes (the fallback)');
+FOLK_VARIANTS.forEach((v, i) => cell(folkSec, `${v.body} ${v.pal}`, folkSprites(i, 3).south[0]));
+const folkWalk = section('Townsfolk — walk cycles, facing south');
+FOLK_VARIANTS.forEach((v, i) => {
+  if (v.pal !== 0) return;                    // one palette per body is enough
+  folkSprites(i, 3).south.forEach((f, n) => cell(folkWalk, `${v.body} ${n}`, f));
+});
+const folkSides = section('Townsfolk — each body, four directions');
+FOLK_VARIANTS.forEach((v, i) => {
+  if (v.pal !== 0) return;
+  const set = folkSprites(i, 3);
+  for (const d of ['south', 'north', 'east', 'west']) cell(folkSides, `${v.body} ${d}`, set[d][1]);
+});
+
+const balloonSec = section('Expression balloons');
+BALLOON_KINDS.forEach((k) => cell(balloonSec, k, balloonGlyph(k, 4)));
+cell(balloonSec, 'bubble', balloonBubble(4));
+{
+  // The balloons animate, so a still frame under-sells them: this cell plays
+  // every expression through its pop-in, hold and pop-out on a loop.
+  const host = section('Balloons — animated');
+  const wrap = document.createElement('div');
+  wrap.className = 'cell';
+  const cv = document.createElement('canvas');
+  cv.width = 640; cv.height = 120;
+  cv.style.width = '640px';
+  wrap.appendChild(cv);
+  const cap = document.createElement('span');
+  cap.textContent = 'all ten, looping';
+  wrap.appendChild(cap);
+  host.appendChild(wrap);
+  const bctx = cv.getContext('2d');
+  const start = performance.now();
+  (function spin(now) {
+    requestAnimationFrame(spin);
+    const t = (now - start) / 1000;
+    bctx.clearRect(0, 0, cv.width, cv.height);
+    bctx.fillStyle = '#241a1e';
+    bctx.fillRect(0, 0, cv.width, cv.height);
+    BALLOON_KINDS.forEach((k, i) => {
+      const p = ((t * 0.42 + i * 0.1) % 1);
+      drawBalloon(bctx, 34 + i * 62, 96, k, p, 2);
+    });
+  })(start);
+}
+
+const marketSec = section('Market — stalls');
+STALL_KINDS.forEach((k) => cell(marketSec, k, stallSprite(k, 3)));
+const propSec = section('Market — props');
+MARKET_PROPS.forEach((k) => cell(propSec, k, marketProp(k, 3)));
+const vendSec = section('Market — vendors');
+VENDOR_IDS.forEach((k) => cell(vendSec, k, vendorSprite(k, 5)));
+const cobbleSec = section('Market — paving');
+[0, 1, 2, 3].forEach((v) => cell(cobbleSec, `variant ${v}`, cobbleTile(v, 32)));
+
+const picks = section('Pickups');
+['gem1', 'gem2', 'gem3', 'coin', 'heart', 'magnet', 'bombpick', 'chest']
+  .forEach((k) => cell(picks, k, pickupSprite(k, 4)));
+
+const icons = section('Icons');
+['bolt', 'slash', 'orb', 'firebomb', 'aura', 'lightning', 'nova', 'orbit', 'glaive', 'brambles',
+ 'bolt_evo', 'slash_evo', 'orb_evo', 'firebomb_evo', 'aura_evo', 'lightning_evo', 'nova_evo',
+ 'orbit_evo', 'glaive_evo', 'brambles_evo',
+ 'might', 'wrath', 'area', 'velocity', 'caliber', 'cooldown', 'amount', 'swiftness',
+ 'magnet', 'vitality', 'armor', 'regen', 'fortune', 'luck']
+  .forEach((k) => cell(icons, k, iconSprite(k, 4)));
+
+for (const b of BIOMES) {
+  const g = section(`Biome — ${b.name}`);
+  const sw = document.createElement('div');
+  sw.className = 'cell';
+  sw.innerHTML = `<div class="swatch" style="background:linear-gradient(135deg, ${b.ground}, ${b.ground2}, ${b.dirt})"></div><span>ground</span>`;
+  g.appendChild(sw);
+  for (const [kind] of b.props) cell(g, kind, propSprite(kind, 0, b.tint, 3), propSprite(kind, 2, b.tint, 3));
+  for (const [kind] of b.decor) cell(g, kind, propSprite(kind, 0, b.tint, 4));
+}
+</script>
+</body>
+</html>

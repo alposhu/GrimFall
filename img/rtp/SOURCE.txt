@@ -1,0 +1,53 @@
+RPG Maker MZ material
+=====================
+
+These eight files are derived from the Runtime Package that ships with RPG
+Maker MZ, from the project owner's own licensed installation. They are not
+loose copies of the RTP: `tools/assets/build-rtp-art.py` cuts out only the
+slices the game actually draws, tones the ground and props down for a market
+lit by braziers rather than by noon, and packs the result into atlases. Re-run
+that script to rebuild them.
+
+COPYRIGHT
+  RPG Maker MZ and its Runtime Package are (c) Gotcha Gotcha Games / KADOKAWA.
+
+LICENCE
+  The owner holds a licence for RPG Maker MZ. Under the 2023 Gotcha Gotcha
+  Games terms update, MZ's bundled Runtime Package assets may be used in games
+  built with other engines. This is the owner's determination under their own
+  licence; nothing here is sourced from a pirated copy or from anyone else's
+  project. Only MZ defaults are used - no older Maker, no third-party DLC.
+
+WHAT IS HERE
+  ground.png    240x48   Five 48px paving stones (Outside_A5), darkened.
+  props.png     1152x576 32 market props on a 144px grid, bottom-anchored in
+                         their cell so a tall prop just occupies more of it.
+                         Sources: Outside_B.
+  signs.png     432x48   Nine hanging trade signs (Outside_B rows 8-9).
+  banners.png   192x96   Four hanging cloth banners (Outside_C).
+  folk.png      864x576  The market's cast: fifteen ordinary townsfolk then
+                         the three merchants, as 3x4-cell blocks six to a row.
+                         Cut from People1-4, but NOT all of them - People3 is
+                         a royal court and the other sheets carry more nobles,
+                         a bride and a priestess. Somebody haggling over
+                         turnips in ermine is absurd, so only people who look
+                         like they buy their own food are included.
+  actors.png    576x384  Actor2 - the eight adventurers. Five of the seven
+                         heroes wear one; Ada and Leon do not.
+  actor_faces.png 576x288  Actor2 portraits, in the same order.
+  balloons.png  384x480  Balloon - ten expressions, eight frames each.
+  items.png     192x96   One icon per shop good, cut from IconSet and keyed
+                         by the good's own id - so a Whetstone is a smith's
+                         hammer, a Commission is a sword, a Clockwork Spring
+                         is an hourglass and a Wax Effigy is a doll. No two
+                         goods share a picture.
+
+HOW THE GAME USES THEM
+  `src/art/rtp.js` decodes these during boot and hands out slices. Every one of
+  them has a code-drawn equivalent that predates it - `src/art/market.js`,
+  `folk.js`, `balloons.js`, `items.js` - and that is what draws if a file is
+  missing, blocked, or still loading. The market never waits on artwork.
+
+  The rest of the game stays code-drawn. These are the market's art, not the
+  game's: the field, the enemies, the bosses and the heroes are all still
+  generated from pixel maps at boot.

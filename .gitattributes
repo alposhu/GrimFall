@@ -1,0 +1,17 @@
+# The project is authored with LF endings; keep it that way on every platform.
+* text=auto eol=lf
+
+# Binaries, named explicitly. Git's auto-detection is usually right, but a
+# mis-detected binary gets its line endings "normalised" on checkout, which
+# corrupts it silently — and a corrupt font or video only shows up in a browser.
+*.png  binary
+*.gif  binary
+*.ico  binary
+*.mp3  binary
+*.ogg  binary
+*.wav  binary
+*.mp4  binary
+*.woff2 binary
+*.pdf  binary
+
+*.svg text eol=lf

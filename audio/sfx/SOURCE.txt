@@ -1,0 +1,28 @@
+Sound effects in this folder are from "Pixel Combat SFX",
+created by Helton Yan.
+  https://heltonyan.itch.io/pixelcombat
+
+LICENCE
+  Creative Commons Attribution 4.0 International (CC BY 4.0)
+  https://creativecommons.org/licenses/by/4.0/
+
+  You are free to share and adapt the material, including commercially,
+  provided you give appropriate credit, link to the licence, and indicate
+  if changes were made.
+
+CHANGES MADE (required by the licence)
+  The originals are 96 kHz / 24-bit stereo WAV. For use on the web, each clip
+  here has been:
+    - downmixed to mono
+    - resampled to 32 kHz
+    - converted to 16-bit PCM
+    - trimmed of leading and trailing silence
+    - length-capped with a short fade for the sounds that fire most often
+    - peak-normalised
+  No clip has been re-recorded, pitch-shifted on disk, or altered in content.
+  The game does apply a small random playback-rate variation at runtime so a
+  sound heard several times a second does not sound pasted.
+  Only 66 of the pack's 2100 clips are included.
+
+Credit is given in-game (title screen, and How to Play -> Credits) and in the
+project README. This project is not endorsed by Helton Yan.

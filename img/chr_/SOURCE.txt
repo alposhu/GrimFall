@@ -1,0 +1,42 @@
+Character artwork — Ada and Leon
+================================
+
+These sheets are the work of the project owner (alper.kby@gmail.com), supplied
+for this game and included here at their direction. They were previously kept
+inside an RPG Maker MZ project, which is why the files carry that editor's sheet
+layout and naming.
+
+The owner holds a licence for RPG Maker MZ. Under the 2023 Gotcha Gotcha Games
+terms update, MZ's bundled Runtime Package assets may be used in games built
+with other engines, so nothing here depends on the distinction between drawn and
+assembled art — either way these ship legitimately.
+
+They are the only images in this project that are game art. Everything else —
+every sprite, every prop, the whole world — is generated in code at boot.
+
+LAYOUT
+  <name>_walking.png   576 x 384. A 12 x 8 grid of 48 x 48 cells. One character
+                       occupies the top-left block: three walk frames across,
+                       four facings down, in the order down, left, right, up.
+                       The figure sits flush with the bottom of its cell.
+  <name>_face.png      576 x 288. A 4 x 2 grid of 144 x 144 portraits, with one
+                       portrait in the first cell.
+  <name>_battler.png   576 x 384, 9 x 6 cells of 64 x 64.
+  <name>_damaged.png   576 x 384, three 64 x 64 cells on the first row.
+
+WHAT THE GAME USES
+  Only `_walking.png` and `_face.png` are loaded. `src/art/sheets.js` decodes
+  them during boot and slices the walk sheet into the same four-direction,
+  four-frame structure the code-drawn heroes use, padding six transparent
+  pixels above each cell so both kinds of sprite bottom-align identically and
+  no drawing code needs to know which it was handed.
+
+  The `_battler` and `_damaged` sheets are kept alongside for completeness but
+  are not referenced: this game has no side-view battle mode.
+
+IF A SHEET FAILS TO LOAD
+  Ada and Leon both also exist as code-drawn pixel-map characters in
+  `src/art/hero.js`, built from the same designs. If the artwork cannot be
+  decoded — offline, a bad path, a file:// origin — the game silently falls
+  back to those, so the characters are never missing. `tools/sheet-smoke.mjs`
+  tests that path, because in Node the artwork never decodes at all.

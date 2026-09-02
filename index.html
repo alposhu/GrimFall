@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Grimfall — Survive the Long Hour</title>
+<meta name="description" content="A free browser roguelite: survive twenty minutes against an endless horde, evolve your arsenal, and bring down Parduin, the Drake God.">
+<meta name="theme-color" content="#0d0a14">
+<link rel="icon" href="img/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- Touch stick -->
+  <div id="joystick" class="joystick" style="display:none">
+    <div id="joyBase" class="joy-base"><div id="joyThumb" class="joy-thumb"></div></div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ HUD -->
+  <div id="hud" class="hud" hidden>
+    <div class="hud-top">
+      <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
+      <div class="hud-row">
+        <div class="chip chip-level"><span id="hudLevel">LV 1</span></div>
+        <div class="chip chip-time"><span id="hudTime">00:00</span></div>
+        <div class="chip chip-gold"><i class="dot-gold"></i><span id="hudGold">0</span></div>
+        <div class="chip chip-kills"><i class="dot-kill"></i><span id="hudKills">0</span></div>
+      </div>
+      <div class="boss-bar" id="bossBar" hidden>
+        <div class="boss-name" id="bossName">—</div>
+        <div class="boss-track"><div class="boss-fill" id="bossFill"></div></div>
+      </div>
+    </div>
+
+    <button id="pauseBtn" class="icon-btn" aria-label="Pause">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+
+    <div class="hud-bottom">
+      <div class="hp-wrap">
+        <div class="hp-fill" id="hpFill"></div>
+        <span class="hp-text" id="hpText">100 / 100</span>
+      </div>
+      <div class="slots" id="slots"></div>
+      <div class="belt" id="belt"></div>
+    </div>
+
+    <button id="skipCutBtn" class="skip-btn" hidden>Skip ▸</button>
+
+    <div class="toast" id="toast" hidden></div>
+    <div class="banner" id="banner" hidden><div class="banner-main" id="bannerMain"></div><div class="banner-sub" id="bannerSub"></div></div>
+  </div>
+
+  <!-- ------------------------------------------------------- Marketplace -->
+  <div id="marketBar" class="market-bar" hidden>
+    <div class="market-head">
+      <span class="market-title">The Long Market</span>
+      <span class="market-purse"><i class="dot-gold"></i><span id="marketGold">0</span></span>
+    </div>
+    <div class="belt" id="marketBelt"></div>
+    <button id="interactBtn" class="interact-btn" hidden>
+      <span class="interact-key">E</span><span id="interactLabel">Talk</span>
+    </button>
+  </div>
+
+  <!-- -------------------------------------------------------------- Screens -->
+  <div id="screens">
+
+    <!-- Boot -->
+    <section id="bootScreen" class="screen active boot">
+      <img class="boot-mark" src="img/icon-192.png" alt="" width="96" height="96">
+      <div class="boot-title">GRIMFALL</div>
+      <div class="boot-track"><div class="boot-fill" id="bootFill"></div></div>
+      <div class="boot-note">forging the world…</div>
+    </section>
+
+    <!-- Title -->
+    <section id="titleScreen" class="screen">
+      <div class="title-wrap">
+        <h1 class="logo">
+          <picture>
+            <source media="(max-width: 620px)" srcset="img/logo-small.png">
+            <img src="img/logo.png" alt="Grimfall" width="900" height="657" fetchpriority="high" decoding="async">
+          </picture>
+        </h1>
+        <p class="tagline">Twenty minutes. One hero. Everything else wants you dead.</p>
+        <nav class="menu">
+          <button class="menu-btn primary" id="continueBtn" data-action="continue" hidden><span>Continue</span><small id="continueSub"></small></button>
+          <button class="menu-btn primary" data-action="play"><span>Begin a Run</span></button>
+          <button class="menu-btn" id="loadBtn" data-action="load" hidden><span>Load Run</span></button>
+          <button class="menu-btn" data-action="heroes"><span>Heroes</span></button>
+          <button class="menu-btn" data-action="arena"><span>Boss Arena</span></button>
+          <button class="menu-btn" data-action="sanctuary"><span>Sanctuary</span></button>
+          <button class="menu-btn" data-action="options"><span>Options</span></button>
+          <button class="menu-btn" data-action="help"><span>How to Play</span></button>
+        </nav>
+        <div class="title-foot">
+          <span id="titleGold">0 gold</span>
+          <span class="dotsep">•</span>
+          <span id="titleBest">no runs yet</span>
+        </div>
+        <div class="title-credit"><strong>Grimfall</strong> &mdash; a game by Alperen Karabıyık</div>
+        <div class="title-credit">Music by <a href="https://hydrogene.itch.io/high-quality-16-bit-music" target="_blank" rel="noopener">HydroGene</a>
+        &middot; Voices by <a href="https://dillonbecker.com" target="_blank" rel="noopener">Dillon Becker</a>
+        &middot; SFX by <a href="https://heltonyan.itch.io/pixelcombat" target="_blank" rel="noopener">Helton Yan</a></div>
+      </div>
+    </section>
+
+    <!-- Hero select -->
+    <section id="heroScreen" class="screen">
+      <header class="screen-head">
+        <button class="ghost-btn" data-action="back">‹ Back</button>
+        <h2>Choose your hero</h2>
+        <div class="gold-pill"><i class="dot-gold"></i><span id="heroGold">0</span></div>
+      </header>
+      <div class="hero-grid" id="heroGrid"></div>
+      <footer class="screen-foot">
+        <div class="diff-picker">
+          <span class="label">Difficulty</span>
+          <div class="seg" id="diffSeg"></div>
+        </div>
+        <button class="menu-btn primary wide" id="startRunBtn"><span>Descend</span></button>
+      </footer>
+    </section>
+
+    <!-- Boss arena -->
+    <section id="arenaScreen" class="screen">
+      <header class="screen-head">
+        <button class="ghost-btn" data-action="back">‹ Back</button>
+        <h2>Boss Arena</h2>
+        <div class="seg" id="arenaDiffSeg"></div>
+      </header>
+      <p class="screen-note">Fight any boss on demand, with a loadout matched to the point in a run
+      where you would normally meet it. Practice only — no gold is banked and no records are set.</p>
+      <div class="boss-grid" id="bossGrid"></div>
+    </section>
+
+    <!-- Sanctuary (meta upgrades) -->
+    <section id="sanctuaryScreen" class="screen">
+      <header class="screen-head">
+        <button class="ghost-btn" data-action="back">‹ Back</button>
+        <h2>Sanctuary</h2>
+        <div class="gold-pill"><i class="dot-gold"></i><span id="sanctGold">0</span></div>
+      </header>
+      <p class="screen-note">Gold you carry out of a run is permanent. Spend it here — every upgrade applies to every future run.</p>
+      <div class="upgrade-grid" id="upgradeGrid"></div>
+      <footer class="screen-foot">
+        <button class="ghost-btn danger" id="resetProgressBtn">Reset all progress</button>
+      </footer>
+    </section>
+
+    <!-- Options -->
+    <section id="optionsScreen" class="screen">
+      <header class="screen-head">
+        <button class="ghost-btn" data-action="back">‹ Back</button>
+        <h2>Options</h2>
+        <div></div>
+      </header>
+      <div class="options" id="optionsBody"></div>
+    </section>
+
+    <!-- Help -->
+    <section id="helpScreen" class="screen">
+      <header class="screen-head">
+        <button class="ghost-btn" data-action="back">‹ Back</button>
+        <h2>How to Play</h2>
+        <div></div>
+      </header>
+      <div class="help">
+        <div class="help-card" data-demo="move">
+          <h3>Move</h3>
+          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys. On a phone, drag anywhere on the lower half of the screen. A gamepad stick works too.</p>
+        </div>
+        <div class="help-card" data-demo="attack">
+          <h3>Attack</h3>
+          <p>You never attack manually. Your weapons fire on their own — positioning <em>is</em> the combat. Keep moving, keep the horde in front of you.</p>
+        </div>
+        <div class="help-card" data-demo="grow">
+          <h3>Grow</h3>
+          <p>Green shards level you up. Each level offers three upgrades: a new weapon, a stronger one, or a passive. Six weapons and six passives is the cap, so choose a build and commit. Most passives cap at five levels; <strong>health and armour go to twenty-five</strong>.</p>
+          <p>An enemy sometimes drops a <strong>lodestone</strong>. Pick it up and for seven seconds every shard, coin, heart and meal on the field comes to you at speed &mdash; walk into a boss's leavings and let it clear the ground for you.</p>
+        </div>
+        <div class="help-card" data-demo="evolve">
+          <h3>Evolve</h3>
+          <p>Take a weapon to level 8 while its paired passive is at level 3 or more, and an <strong>evolution</strong> appears in your next level-up. Evolutions are dramatically stronger.</p>
+        </div>
+        <div class="help-card" data-demo="survive">
+          <h3>Survive</h3>
+          <p>Champions arrive every 85 seconds, and a boss lands every four minutes — each with its own entrance. At twenty minutes the sky opens for <strong>Parduin, the Drake God</strong>. Kill him and the run is won.</p>
+          <p>A dead boss tears a <strong>portal</strong> where it fell. It waits: sweep up what it dropped first, then step through to the market when you are ready.</p>
+        </div>
+        <div class="help-card" data-demo="arena">
+          <h3>Boss Arena</h3>
+          <p>Want to see a boss without playing to it? <strong>Boss Arena</strong> on the main menu drops you straight into any fight, with a loadout matched to where you would normally meet it. Practice only — no gold is banked.</p>
+        </div>
+        <div class="help-card">
+          <h3>Credits</h3>
+          <p><strong>Fonts</strong> &mdash; Silkscreen by Jason Kottke and Chakra Petch by Cadson Demak,
+          licensed <a href="https://scripts.sil.org/OFL" target="_blank" rel="noopener noreferrer">SIL OFL 1.1</a>
+          and served from this game rather than from a third party.</p>
+          <p><strong>Grimfall</strong> &mdash; designed, written and built by <strong>Alperen Karabıyık</strong>.
+          &copy; 2026 Alperen Karabıyık. The code is MIT licensed; see LICENSE.</p>
+          <p><strong>Music</strong> &mdash; &ldquo;28 High Quality 16-bit RPG Music&rdquo; by
+          <a href="https://hydrogene.itch.io/high-quality-16-bit-music" target="_blank" rel="noopener">HydroGene</a>.</p>
+          <p><strong>Hero voices</strong> &mdash; &ldquo;Super Dialogue Audio Pack v1&rdquo;, produced by
+          <a href="https://dillonbecker.com" target="_blank" rel="noopener">Dillon Becker</a>, licensed
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+          Clips were trimmed, downmixed to mono and resampled for the web.
+          Voiced by Alex Brodie, Ian Lampert, Karen Cenon, Meghan Christian and Sean Lenhart.</p>
+          <p><strong>Sound effects</strong> &mdash; &ldquo;Pixel Combat SFX&rdquo; by
+          <a href="https://heltonyan.itch.io/pixelcombat" target="_blank" rel="noopener">Helton Yan</a>, licensed
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+          Clips were trimmed, downmixed to mono and resampled for the web.</p>
+          <p><strong>Market ambience</strong> &mdash; a field recording of a marketplace, supplied by the
+          project owner. Cut to a seamless 48-second loop, downmixed and levelled for the web.</p>
+          <p><strong>The Long Market</strong> &mdash; its paving, stalls, signs, crowd, expression balloons
+          and shop icons are RPG Maker MZ material, used under the project owner&rsquo;s own MZ licence.
+          Boss roars and several sound effects come from the same library.
+          &copy; Gotcha Gotcha Games / KADOKAWA.</p>
+          <p>Everything else &mdash; every other sprite, the whole world, the code &mdash; is generated
+          in code at boot, from pixel maps rather than image files.</p>
+        </div>
+        <div class="help-card" data-demo="food">
+          <h3>Eat</h3>
+          <p>The horde sometimes drops a meal — etli ekmek, dumplings, seven kinds of sushi, and rarer things like a slab of lasagna, a heaven persimmon or a pinch of Delice salt. Food is the only thing that restores health, and none of it is ever wasted: whatever it cannot heal because you are already full turns into experience instead. Champions and bosses always leave some behind.</p>
+        </div>
+        <div class="help-card" data-demo="market">
+          <h3>The Long Market</h3>
+          <p>Kill a boss and the traders come back out. Walk the square, talk to Oswin, Marta and the Coinweigher, and spend your run gold on weapons, draughts and charms. Gold spent here never reaches the Sanctuary — that is the trade: this run, or the next one.</p>
+        </div>
+        <div class="help-card" data-demo="saves">
+          <h3>Save &amp; Resume</h3>
+          <p>Walking into the market writes an autosave, so a long run survives a closed tab. You can also save to one of three slots from the pause menu, and pick any of them back up from the title screen.</p>
+        </div>
+        <div class="help-card" data-demo="meta">
+          <h3>Carry it out</h3>
+          <p>Gold survives death. Spend it in the Sanctuary on permanent upgrades and new heroes, then go again.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pause -->
+    <section id="pauseScreen" class="screen">
+      <div class="panel">
+        <h2>Paused</h2>
+        <div class="run-stats" id="pauseStats"></div>
+        <div class="panel-actions">
+          <button class="menu-btn primary" id="resumeBtn"><span>Resume</span></button>
+          <button class="menu-btn" data-action="saveRun"><span>Save Run</span></button>
+          <button class="menu-btn" data-action="options"><span>Options</span></button>
+          <button class="menu-btn danger" id="abandonBtn"><span>Abandon Run</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Level up -->
+    <section id="levelScreen" class="screen level-up">
+      <div class="level-head">
+        <div class="level-kicker">Level <span id="levelNum">2</span></div>
+        <h2 id="levelTitle">Choose an upgrade</h2>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="level-actions">
+        <button class="chip-btn" id="rerollBtn">Reroll <b id="rerollCount">0</b></button>
+        <button class="chip-btn" id="banishBtn">Banish <b id="banishCount">0</b></button>
+        <button class="chip-btn" id="skipBtn">Skip (+heal)</button>
+      </div>
+    </section>
+
+    <!-- Vendor -->
+    <section id="shopScreen" class="screen shop">
+      <div class="panel shop-panel">
+        <header class="shop-head">
+          <img id="shopFace" class="shop-face" alt="" width="96" height="96">
+          <div class="shop-who">
+            <h2 id="shopName">Oswin</h2>
+            <p class="shop-trade" id="shopTrade">Ironmonger</p>
+          </div>
+          <div class="shop-purse"><i class="dot-gold"></i><span id="shopGold">0</span></div>
+        </header>
+        <p class="shop-line" id="shopLine"></p>
+        <div class="shop-grid" id="shopGrid"></div>
+        <div class="shop-foot">
+          <div class="belt" id="shopBelt"></div>
+          <button class="menu-btn" id="shopLeaveBtn"><span>Leave</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Saved runs -->
+    <section id="savesScreen" class="screen">
+      <div class="panel">
+        <h2 class="panel-title" id="savesTitle">Saved Runs</h2>
+        <p class="panel-sub" id="savesSub">The market writes to Auto every time you walk in.</p>
+        <div class="slot-list" id="slotList"></div>
+        <div class="saves-transfer">
+          <p class="saves-note" id="savesNote">Your progress lives in this browser. Clearing site data, a private window, or a different device will not have it — keep a copy on your own machine.</p>
+          <div class="saves-buttons">
+            <button class="chip-btn" id="exportSaveBtn">Save to my device</button>
+            <button class="chip-btn" id="importSaveBtn">Load from a file</button>
+          </div>
+          <input type="file" id="importSaveInput" accept=".grimsave,.json,application/json" hidden>
+        </div>
+        <button class="menu-btn" data-action="back"><span>Back</span></button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="resultScreen" class="screen">
+      <div class="panel result">
+        <div class="result-kicker" id="resultKicker">The run ends</div>
+        <h2 id="resultTitle">You fell</h2>
+        <div class="result-stats" id="resultStats"></div>
+        <div class="result-gold"><i class="dot-gold"></i><span id="resultGold">0</span> gold banked</div>
+        <div class="panel-actions">
+          <button class="menu-btn primary" id="againBtn"><span>Run it back</span></button>
+          <button class="menu-btn" id="toTitleBtn"><span>Main menu</span></button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript">Grimfall needs JavaScript enabled to run.</div>
+</noscript>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

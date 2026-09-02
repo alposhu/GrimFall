@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimfall — the Long Market</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #07050c; color: #f2ecff;
+         font: 14px/1.5 'Chakra Petch', system-ui, sans-serif; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px;
+         display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center;
+         background: linear-gradient(transparent, rgba(5,3,10,0.92)); z-index: 5; }
+  button { padding: 9px 15px; border-radius: 99px; cursor: pointer;
+           background: rgba(22,16,32,0.9); border: 1px solid rgba(255,236,210,0.2);
+           color: #b9b0cf; font: 600 13px 'Chakra Petch', system-ui, sans-serif; }
+  button:hover { color: #fff; border-color: #ff8a2a; }
+  .hint { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+          color: #7d7496; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+          z-index: 5; text-align: center; }
+  .readout { position: fixed; top: 12px; left: 12px; z-index: 5; font-size: 12px;
+             color: #7d7496; background: rgba(10,6,14,0.7); padding: 8px 12px;
+             border-radius: 8px; white-space: pre; line-height: 1.6; }
+  .shop { position: fixed; inset: 0; display: none; place-items: center; z-index: 6;
+          background: rgba(6,4,10,0.72); }
+  .shop.on { display: grid; }
+  .panel { width: min(720px, 92vw); background: rgba(22,16,32,0.97); padding: 20px;
+           border-radius: 14px; border: 1px solid rgba(255,236,210,0.13); }
+  .panel h2 { margin: 0 0 2px; }
+  .trade { margin: 0 0 12px; color: #ffd75e; font-size: 12px; letter-spacing: 0.06em;
+           text-transform: uppercase; }
+  .line { color: #b9b0cf; font-style: italic; min-height: 2.4em; }
+  .goods { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .good { text-align: left; padding: 11px; border-radius: 9px; background: rgba(30,22,44,0.9);
+          border: 1px solid rgba(255,236,210,0.13); color: #f2ecff; cursor: pointer; }
+  .good:disabled { opacity: 0.42; cursor: not-allowed; }
+  .good b { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .good .good-nm { flex: 1; }
+  .good .good-pic { width: 26px; height: 26px; image-rendering: pixelated; flex: none; }
+  .good b i { font-style: normal; color: #ffd75e; font-family: 'Silkscreen', monospace; font-size: 12px; }
+  .good small { display: block; color: #b9b0cf; font-size: 12px; margin-top: 4px; }
+
+  /* The touch stick, so the preview is usable on a phone too. */
+  #joystick { position: absolute; inset: 0; z-index: 4; touch-action: none; display: none; }
+  #joystick.dynamic { display: block; }
+  .joy-base { position: absolute; left: 0; top: 0; width: 132px; height: 132px;
+              margin: -66px 0 0 -66px; border-radius: 50%; opacity: 0;
+              border: 2px solid rgba(255,236,210,0.22); pointer-events: none;
+              background: radial-gradient(circle at 50% 50%, rgba(255,138,42,0.07), rgba(255,255,255,0.05)); }
+  .joy-base.active { opacity: 0.6; }
+  .joy-thumb { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
+               margin: -27px 0 0 -27px; border-radius: 50%;
+               background: radial-gradient(circle at 35% 30%, #ffb867, #ff8a2a); }
+
+  /* A module that throws leaves a black canvas and no clue why, which is
+     exactly what happened the first time this page was opened. */
+  #err { position: fixed; inset: 20px; z-index: 20; display: none; overflow: auto;
+         background: rgba(20,6,10,0.95); border: 1px solid #ff4d6a; border-radius: 12px;
+         padding: 18px; color: #ffb8c4; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
+  #err.on { display: block; }
+  #err b { color: #ff4d6a; font: 700 14px 'Chakra Petch', system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="joystick" class="dynamic"><div id="joyBase" class="joy-base"><div id="joyThumb" class="joy-thumb"></div></div></div>
+<div id="err"></div>
+<div class="hint">WASD / arrows to walk &nbsp;·&nbsp; E or Space at a counter &nbsp;·&nbsp; the arch at the bottom is the way out</div>
+<div class="readout" id="readout"></div>
+<div class="shop" id="shop"><div class="panel">
+  <h2 id="sName"></h2>
+  <p class="trade" id="sTrade"></p>
+  <p class="line" id="sLine"></p>
+  <div class="goods" id="sGoods"></div>
+  <p style="margin:14px 0 0"><button id="sLeave">Leave</button></p>
+</div></div>
+<div class="bar" id="bar"></div>
+
+<script>
+// Plain script, so it is installed before the module below is even parsed.
+(function () {
+  const box = document.getElementById('err');
+  function show(what, lines) {
+    box.textContent = '';
+    const head = document.createElement('b');
+    head.textContent = what;
+    box.appendChild(head);
+    box.appendChild(document.createTextNode(lines.filter(Boolean).join('\n\n')));
+    box.classList.add('on');
+  }
+  addEventListener('error', function (e) {
+    const where = (e.filename || '') + (e.lineno ? ':' + e.lineno : '');
+    show('This page threw and stopped.', [
+      String(e.message || e.error || 'unknown error'),
+      where,
+      e.error && e.error.stack,
+    ]);
+  });
+  addEventListener('unhandledrejection', function (e) {
+    show('A promise rejected.', [String((e.reason && e.reason.stack) || e.reason)]);
+  });
+})();
+</script>
+<script type="module">
+/*
+ * Development preview — never shipped.
+ *
+ * The market is normally reached by killing a boss four minutes into a run,
+ * which is a long walk for a look at the art. This drops straight into it with
+ * a stocked purse, and lets you re-enter at any visit number to see the shelves
+ * restock and the crowd grow.
+ */
+import { S } from '../src/game/state.js';
+import { startRun } from '../src/game/game.js';
+import { M, enterMarket, updateMarket, interact, closeShop } from '../src/game/market.js';
+import { renderMarket } from '../src/game/marketRender.js';
+import { VENDORS, goodById, buy, purchaseBlocked, FLASK_IDS } from '../src/game/shop.js';
+import { goodIcon } from '../src/art/items.js';
+import { initInput, pollInput } from '../src/core/input.js';
+import { initAudio } from '../src/core/audio.js';
+import { preloadRtp, loadedAtlases } from '../src/art/rtp.js';
+import { preloadHeroSheets } from '../src/art/sheets.js';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let zoom = 1;
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+  zoom = dpr * Math.max(0.85, Math.min(1.6, Math.min(innerWidth, innerHeight) / 480));
+  ctx.imageSmoothingEnabled = false;
+}
+addEventListener('resize', resize);
+resize();
+
+initInput({
+  zoneEl: document.getElementById('joystick'),
+  baseEl: document.getElementById('joyBase'),
+  thumbEl: document.getElementById('joyThumb'),
+});
+initAudio({ musicOn: true, musicVol: 0.5, sfxOn: true, sfxVol: 0.7, voiceOn: true, voiceVol: 0.85 });
+
+// The market's art and the hero sheets decode before the first frame, exactly
+// as they do in the game — otherwise this page would only ever show the
+// code-drawn fallback and be useless for reviewing the artwork.
+await Promise.all([preloadRtp(), preloadHeroSheets()]);
+{
+  const note = loadedAtlases();
+  document.getElementById('readout').dataset.art =
+    note.length ? `market art: ${note.join(', ')}` : 'market art: none loaded — showing the drawn fallback';
+  if (!note.length) {
+    const e = document.getElementById('err');
+    e.textContent = 'img/rtp/*.png did not load — the market is drawing its code-drawn fallback.';
+    e.style.display = 'block';
+  }
+}
+
+let visit = 1;
+function go(n) {
+  visit = n;
+  startRun(S.player?.charId || 'ranger', 'normal');
+  S.gold = 5000;
+  S.marketVisits = n;
+  enterMarket({ visit: n, bossName: 'The Hollow Magus', onExit: () => go(visit) });
+}
+
+// --- controls ---------------------------------------------------------------
+const bar = document.getElementById('bar');
+for (const n of [1, 2, 3, 4]) {
+  const b = document.createElement('button');
+  b.textContent = `Visit ${n}`;
+  b.onclick = () => go(n);
+  bar.appendChild(b);
+}
+for (const id of ['ranger', 'warden', 'pyromancer', 'frostwarden', 'leon', 'ada', 'revenant']) {
+  const b = document.createElement('button');
+  b.textContent = id;
+  b.onclick = () => { S.player.charId = id; };
+  bar.appendChild(b);
+}
+{
+  const b = document.createElement('button');
+  b.textContent = '+5000 gold';
+  b.onclick = () => { S.gold += 5000; };
+  bar.appendChild(b);
+}
+
+// --- a minimal stand-in for the real shop UI --------------------------------
+const shopEl = document.getElementById('shop');
+let open = null;
+
+function openShop(v) {
+  open = v;
+  const def = VENDORS[v.id];
+  document.getElementById('sName').textContent = def.name;
+  document.getElementById('sTrade').textContent = def.trade;
+  document.getElementById('sLine').textContent = def.greeting[0];
+  draw();
+  shopEl.classList.add('on');
+}
+
+function draw() {
+  const host = document.getElementById('sGoods');
+  host.innerHTML = '';
+  for (const entry of open.stock) {
+    const good = goodById(open.id, entry.id);
+    const why = purchaseBlocked(open.id, entry);
+    const b = document.createElement('button');
+    b.className = 'good';
+    b.disabled = !!why;
+
+    // The good's own picture, the same one the real shop shows. Appended as an
+    // element rather than written into the innerHTML below, because it is a
+    // canvas and there is nothing to serialise it into.
+    const row = document.createElement('b');
+    const pic = goodIcon(entry.id, 3);
+    if (pic) { pic.className = 'good-pic'; row.appendChild(pic); }
+    const nm = document.createElement('span');
+    nm.className = 'good-nm';
+    nm.textContent = good.name;
+    const pr = document.createElement('i');
+    pr.textContent = `${entry.price}g`;
+    row.append(nm, pr);
+
+    const d1 = document.createElement('small');
+    d1.textContent = good.desc;
+    const d2 = document.createElement('small');
+    d2.style.color = '#7d7496';
+    d2.textContent = why || `${entry.left} left`;
+    b.append(row, d1, d2);
+    b.onclick = () => { if (buy(open.id, entry)) draw(); };
+    host.appendChild(b);
+  }
+}
+
+document.getElementById('sLeave').onclick = () => {
+  shopEl.classList.remove('on');
+  open = null;
+  closeShop();
+};
+
+addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && open) { document.getElementById('sLeave').click(); return; }
+  if (['KeyE', 'Space', 'Enter'].includes(e.code) && !open) {
+    const r = interact();
+    if (r?.kind === 'vendor') openShop(r.vendor);
+  }
+});
+
+// --- loop -------------------------------------------------------------------
+const readout = document.getElementById('readout');
+let last = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000 || 0);
+  last = now;
+  pollInput();
+  updateMarket(dt, { w: canvas.width / zoom, h: canvas.height / zoom });
+  renderMarket(ctx, canvas, zoom);
+
+  const counts = {};
+  for (const f of M.folk) counts[f.state] = (counts[f.state] || 0) + 1;
+  readout.textContent =
+    `visit ${visit}   gold ${S.gold}\n` +
+    `crowd ${M.folk.length}  ` + Object.entries(counts).map(([k, v]) => `${k} ${v}`).join('  ') + '\n' +
+    `belt  ` + FLASK_IDS.map((id) => `${id.slice(6)} ${S.inventory[id] || 0}`).join('  ') + '\n' +
+    (M.prompt ? `→ ${M.prompt.label}` : '');
+}
+
+go(1);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

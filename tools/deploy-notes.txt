@@ -1,0 +1,93 @@
+GRIMFALL - how to put this online
+==========================================================
+
+This folder is the finished game. It is entirely static: no server code, no
+build step, no environment variables, no database. Anything that can serve
+files can host it.
+
+CHECKING IT FIRST
+  From the project folder (not from inside this one):
+     npm run preview        -> http://localhost:5173
+  That serves this folder with live-reload off, so what you see in the browser
+  is exactly what will be uploaded.
+
+
+ITCH.IO
+  1. `npm run build:zip` writes grimfall-web.zip beside the project. Its
+     index.html is at the top level of the zip, which is what itch requires.
+  2. New project -> Kind of project: HTML.
+  3. Upload the zip and tick "This file will be played in the browser".
+  4. Embed options:
+       Viewport size          1280 x 720
+       Fullscreen button      ON   - the game fills whatever it is given
+       Mobile friendly        ON   - there is a touch stick and the layout
+                                     reflows; orientation "any" is fine
+       SharedArrayBuffer      OFF  - see below
+       Enable scrollbars      OFF  - see below
+  5. Store art is in art-source/itch/ in the project, not in this folder,
+     because players never download it: banner.png for the cover image, and
+     preview.gif for the screenshot strip.
+
+  WHY SharedArrayBuffer SHOULD BE OFF
+    That switch makes itch serve the game with COOP and COEP headers. They
+    exist so a page may use SharedArrayBuffer, which multithreaded WebAssembly
+    needs - Unity and Godot exports, mostly. This game is plain JavaScript,
+    canvas and Web Audio; it never allocates one. Turning it on gains nothing
+    and costs something: COEP refuses to load any cross-origin subresource
+    that has not explicitly opted in, and that class of breakage shows up as
+    silently missing audio rather than as an error you would notice.
+
+  WHY Enable scrollbars SHOULD BE OFF
+    It lets the page inside the frame scroll. The game already sizes itself to
+    whatever frame it is given, and its body is deliberately set to
+    `touch-action: none` and `overscroll-behavior: none` so that on a phone a
+    drag is read as moving your character. Allowing scrollbars means a drag can
+    scroll the page under the game instead, which feels exactly like the
+    controls sticking.
+
+
+GITHUB PAGES
+  The project ships a workflow at .github/workflows/deploy.yml that runs the
+  tests, builds, and publishes on every push to main. Set it up once:
+
+     1. Push the PROJECT (not this folder) to a repository.
+     2. Settings -> Pages -> Source: GitHub Actions.
+     3. Push to main. It is served at https://<user>.github.io/<repo>/.
+
+  dist/ is deliberately gitignored: the repository holds the sources and the
+  site is built from them, so the two cannot drift apart, and nobody has to
+  remember to rebuild before committing.
+
+  To publish by hand instead, commit the CONTENTS of this folder to a branch
+  and point Pages at it. Paths are all relative, so a project subdirectory
+  works with no changes. The .nojekyll file must stay: without it Pages hides
+  every file whose name begins with an underscore.
+
+
+ANY OTHER HOST
+  Upload as-is. If you are serving it yourself, two headers are worth adding,
+  since a meta tag cannot set them:
+     X-Content-Type-Options: nosniff
+     Referrer-Policy: no-referrer
+  and make sure .wav, .ogg, .mp3 and .mp4 are served with their real content
+  types.
+
+
+WHAT IT NEEDS FROM THE BROWSER
+  ES modules, canvas, and Web Audio. Anything from the last several years.
+  If the audio cannot be decoded the game synthesises its own music and sound
+  effects; if the artwork cannot load it draws its own; if the opening film
+  cannot play it draws a cinematic instead. It degrades rather than breaking.
+
+
+PLAYERS' SAVES
+  Progress lives in the browser's local storage, which is per-origin. A game
+  uploaded to a different itch project, or moved between itch and GitHub
+  Pages, cannot see saves made on the other, and clearing site data erases
+  them. That is why Saved Runs has "Save to my device" and "Load from a file".
+  It is worth saying so on the store page.
+
+
+FILES YOU MUST NOT DELETE
+  CREDITS.txt and every SOURCE.txt. Two of the audio packs and both fonts are
+  licensed on the condition that the attribution travels with the files.

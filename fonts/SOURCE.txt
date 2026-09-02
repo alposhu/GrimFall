@@ -1,0 +1,24 @@
+Fonts
+=====
+
+Two typefaces, served from this project rather than from Google, so the game
+has no third-party origin at all: nothing is requested from another server
+while you play, no font request blocks first paint on a phone, and the whole
+thing works offline.
+
+  Silkscreen     by Jason Kottke      - the display face (menus, numbers)
+                 https://fonts.google.com/specimen/Silkscreen
+  Chakra Petch   by Cadson Demak      - the body face
+                 https://fonts.google.com/specimen/Chakra+Petch
+
+LICENCE
+  Both are licensed under the SIL Open Font License, Version 1.1, which
+  permits bundling and redistribution with software. The full licence text is
+  in OFL.txt beside this file and must ship with these files.
+
+WHAT WAS CHANGED
+  Nothing was changed in the fonts themselves. Only the latin and latin-ext
+  subsets are included, because the interface uses no other scripts; the other
+  eight subsets Google offers were not downloaded. Regenerate with:
+
+      python tools/assets/fetch-fonts.py

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimfall — boss entrances</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #07050c; color: #f2ecff;
+         font: 14px/1.5 'Chakra Petch', system-ui, sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px;
+         display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+         background: linear-gradient(transparent, rgba(5,3,10,0.92)); z-index: 5; }
+  button { padding: 10px 16px; border-radius: 99px; cursor: pointer;
+           background: rgba(22,16,32,0.9); border: 1px solid rgba(255,236,210,0.2);
+           color: #b9b0cf; font: 600 13px 'Chakra Petch', system-ui, sans-serif; }
+  button:hover { color: #fff; border-color: #ff8a2a; }
+  button.on { background: #ff8a2a; color: #1a0d04; border-color: #ff8a2a; }
+  .hint { position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+          color: #7d7496; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; z-index: 5; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c"></canvas></div>
+<div class="hint" id="hint">pick a boss — entrances loop</div>
+<div class="bar" id="bar"></div>
+
+<script type="module">
+import { BOSSES } from '../src/game/config.js';
+import { startCutscene, updateCutscene, renderCutscene, cutsceneActive } from '../src/game/cutscene.js';
+import { S } from '../src/game/state.js';
+import { updateParticles, drawParticles, clearParticles } from '../src/game/particles.js';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// The cutscene reads S.player for nothing, but state.js expects it to exist for
+// the shake/flash helpers — a stand-in is enough for a preview.
+S.player = { x: 0, y: 0, hp: 100, hpBase: 100, weapons: [], passives: {}, showDamage: false };
+S.time = 0;
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+  ctx.imageSmoothingEnabled = false;
+}
+addEventListener('resize', resize);
+resize();
+
+let current = BOSSES[0];
+const bar = document.getElementById('bar');
+const hint = document.getElementById('hint');
+
+for (const def of BOSSES) {
+  const b = document.createElement('button');
+  b.textContent = def.cutsceneName || def.name;
+  b.addEventListener('click', () => {
+    current = def;
+    [...bar.children].forEach((c) => c.classList.toggle('on', c === b));
+    hint.textContent = `${def.cutscene} entrance`;
+    clearParticles();
+    startCutscene(def);
+  });
+  bar.appendChild(b);
+}
+bar.children[0].classList.add('on');
+startCutscene(current);
+
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000 || 0);
+  last = now;
+  S.time += dt;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#141020';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // A faint grid so the letterbox and dimming read against something.
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 64) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 64) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+
+  updateParticles(dt);
+  drawParticles(ctx, false);
+
+  if (cutsceneActive()) {
+    updateCutscene(dt);
+    renderCutscene(ctx, canvas.width, canvas.height);
+  } else {
+    startCutscene(current);        // loop
+  }
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
