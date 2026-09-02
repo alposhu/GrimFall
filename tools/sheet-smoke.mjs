@@ -202,6 +202,7 @@ const ATLAS_SHAPE = {
   folk:     [144, 192, 6],
   actors:   [576, 384, 1],
   actor_faces: [576, 288, 1],
+  vendor_faces: [144, 144, 3],
 };
 
 for (const [name, [cw, ch, cols]] of Object.entries(ATLAS_SHAPE)) {
@@ -339,7 +340,7 @@ for (const ch of CHARACTERS) {
   check(mapped.has(ch.id) || SHEET_HEROES.includes(ch.id),
     `hero '${ch.id}' has neither a party-sheet block nor a drawn sheet`);
 }
-console.log(`atlases           ok (9 files, ${rtp.RTP_PROPS.length} props, ${rtp.RTP_ICONS.length} icons, ` +
+console.log(`atlases           ok (${Object.keys(ATLAS_SHAPE).length} files, ${rtp.RTP_PROPS.length} props, ${rtp.RTP_ICONS.length} icons, ` +
   `${rtp.RTP_CROWD_POOL.length} townsfolk + 3 merchants, ${actorBlock.length} heroes on the party sheet)`);
 
 // As with the character sheets, Node decodes nothing — so this is the

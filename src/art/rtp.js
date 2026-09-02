@@ -40,7 +40,7 @@ const LOAD_TIMEOUT = 6000;       // matches sheets.js: art must never hang boot
 
 const ATLASES = [
   'ground', 'props', 'signs', 'banners', 'items', 'balloons',
-  'folk', 'actors', 'actor_faces',
+  'folk', 'actors', 'actor_faces', 'vendor_faces',
 ];
 const img = new Map();
 
@@ -252,16 +252,16 @@ export const RTP_FOLK = [
   'young woman, cream frock',
   'old man in a green cap',
   'old woman',
-  'serving girl with a headband',
-  'tinker with goggles',
+  'old man in white and gold',
   'grey-haired man in a brown coat',
+  'white-haired woman in an apron',
   'man in a plaid waistcoat',
   'farmer in a straw hat',
   'woman in an orange headscarf',
   'woman in a brown work coat',
   'oswin — bearded, sleeves rolled up',
-  'marta — white-haired, in an apron',
-  'coinweigher — an old man in gold',
+  'marta — headband and apron',
+  'coinweigher — goggles pushed up',
 ];
 
 export const RTP_FOLK_COUNT = RTP_FOLK.length;
@@ -322,6 +322,34 @@ function cutBlock(src, bx, by, cw, ch, scale) {
     });
   });
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// The merchants' faces
+// ---------------------------------------------------------------------------
+// `vendor_faces.png` is three 144px cells cut from People2's face sheet, in
+// vendor order. It is a separate atlas from `actor_faces` because it is a
+// different sheet, and separate from `folk` because a portrait is not a walk
+// cycle — but the indices below are deliberately the SAME order as the walking
+// merchants in `folk`, since People2's portraits are index-matched to its
+// characters. The face on the shop card is the person standing at the stall.
+const VENDOR_FACE = { oswin: 0, marta: 1, coinweigher: 2 };
+const VENDOR_FACE_COUNT = 3;
+
+export const hasRtpVendorFaces = () => img.has('vendor_faces');
+
+/**
+ * A merchant's portrait, square, at `size` pixels. Null until the atlas has
+ * decoded — callers fall back to the code-drawn portrait, which is why a
+ * blocked file costs the shop card its photograph and nothing else.
+ */
+export function rtpVendorFace(id, size = 144) {
+  const src = img.get('vendor_faces');
+  const i = VENDOR_FACE[id];
+  if (!src || i === undefined) return null;
+  return sprite(`rtp:vendorface:${id}:${size}`, () => cut(
+    src, i * FACE, 0, FACE, FACE, size, size,
+  ));
 }
 
 // ---------------------------------------------------------------------------

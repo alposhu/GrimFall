@@ -155,9 +155,9 @@ CROWD = [
     ("People1", 5, "young woman, cream frock"),
     ("People1", 6, "old man in a green cap"),
     ("People1", 7, "old woman"),
-    ("People2", 3, "serving girl with a headband"),
-    ("People2", 6, "tinker with goggles"),
+    ("People2", 0, "old man in white and gold"),
     ("People3", 4, "grey-haired man in a brown coat"),
+    ("People4", 1, "white-haired woman in an apron"),
     ("People4", 0, "man in a plaid waistcoat"),
     ("People4", 4, "farmer in a straw hat"),
     ("People4", 5, "woman in an orange headscarf"),
@@ -166,9 +166,15 @@ CROWD = [
 # The three traders, after the crowd so the crowd's indices stay 0..14.
 MERCHANTS = [
     ("People2", 4, "oswin - bearded, sleeves rolled up"),
-    ("People4", 1, "marta - white-haired, in an apron"),
-    ("People2", 0, "coinweigher - an old man in gold"),
+    ("People2", 3, "marta - headband and apron"),
+    ("People2", 6, "coinweigher - goggles pushed up"),
 ]
+
+# The three of them come off ONE sheet now, which is what makes the faces
+# below possible: People2's portraits are index-matched to its characters, so
+# the merchant you talk to is the merchant standing at the stall. People2/3 and
+# People2/6 were townsfolk until this change and had to leave CROWD above -
+# the market must not contain a second copy of a person you can talk to.
 
 BLOCK_W, BLOCK_H = 3 * T, 4 * T
 folk_cells = []
@@ -184,6 +190,27 @@ save(sheet(folk_cells, 6, BLOCK_W, BLOCK_H), "folk.png")
 # the owner's own drawings and go through src/art/sheets.js instead.
 save(load("characters/Actor2.png"), "actors.png")
 save(load("faces/Actor2.png"), "actor_faces.png")
+
+# --- the merchants' faces -------------------------------------------------
+# People2's face sheet, in the stock 4x2 grid of 144px cells. Only the three
+# the shop card shows are cut, in vendor order, so this atlas is 3 cells wide
+# and `src/art/rtp.js` indexes it the same way it indexes everything else.
+#
+# Faces are NOT toned. Every other slice in this file is pulled towards brazier
+# light because it sits in the world; a portrait sits on a dark UI panel, where
+# dimming it only makes it muddy.
+FACE = 144
+VENDOR_FACES = [
+    ("oswin",       4),   # bottom left  - bearded, sleeves rolled up
+    ("marta",       3),   # top right    - headband and apron
+    ("coinweigher", 6),   # bottom, 3rd  - goggles pushed up
+]
+fsrc = load("faces/People2.png")
+cells = []
+for _who, idx in VENDOR_FACES:
+    c, r = idx % 4, idx // 4
+    cells.append(fsrc.crop((c * FACE, r * FACE, c * FACE + FACE, r * FACE + FACE)))
+save(sheet(cells, len(cells), FACE, FACE), "vendor_faces.png")
 
 # --- balloons -------------------------------------------------------------
 # Ten expressions, eight frames each. The empty first frame is kept: it is the

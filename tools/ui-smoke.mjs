@@ -261,6 +261,22 @@ console.log('vendor screen     ok');
     .filter((m) => /display:\s*[a-z-]+/i.test(m[2]) && !/display:\s*none/.test(m[2]));
   check(bad.length === 0, `a rule gives a hidden element a display: ${bad[0]?.[1]?.trim()}`);
   console.log('hidden attribute  ok (one global rule, nothing overrides it)');
+
+  // `.screen` is a bare flex column, so a lone panel inside one sits at the top
+  // LEFT unless the screen says otherwise. Three screens said otherwise and two
+  // did not, which is how the vendor card ended up in the corner. Assert every
+  // single-panel screen is centred, so a fourth cannot be added and forgotten.
+  const rules = [...bare.matchAll(/([^{}]*)\{([^}]*)\}/g)];
+  const declFor = (sel) => rules.filter((m) => m[1].split(',').some((p) => p.trim() === sel))
+    .map((m) => m[2]).join(';');
+  for (const id of ['#pauseScreen', '#resultScreen', '#shopScreen', '#savesScreen']) {
+    const own = declFor(id);
+    const child = declFor(`${id} > .panel`);
+    check(/align-items:\s*center/.test(own), `${id} does not centre its panel horizontally`);
+    check(/justify-content:\s*center/.test(own) || /margin-block:\s*auto|margin:\s*auto/.test(child),
+      `${id} does not centre its panel vertically`);
+  }
+  console.log('screen centring   ok (4 single-panel screens, all centred)');
 }
 
 // --- the flask belt -------------------------------------------------------

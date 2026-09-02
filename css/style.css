@@ -624,6 +624,15 @@ kbd {
 
 /* --------------------------------------------------------------- panels */
 #pauseScreen, #resultScreen { align-items: center; justify-content: center; }
+
+/* The vendor and saves screens are single panels like the two above, and were
+   pinned to the top left by nothing more than `.screen` being a bare flex
+   column. They get `margin-block: auto` rather than `justify-content: center`
+   because these two can outgrow a phone in landscape, and a centred flex item
+   taller than its own scroll container puts its top out of reach - auto
+   margins collapse to zero instead. */
+#shopScreen, #savesScreen { align-items: center; }
+#shopScreen > .panel, #savesScreen > .panel { margin-block: auto; }
 .panel {
   width: min(460px, 92vw);
   padding: 26px;

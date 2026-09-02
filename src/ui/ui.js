@@ -23,6 +23,7 @@ import { mostRecent, slotSummaries, clearSlot } from '../core/saves.js';
 import * as backup from '../core/backup.js';
 import { VENDORS, goodById, buy, purchaseBlocked, FLASKS, FLASK_IDS, flaskCount } from '../game/shop.js';
 import { vendorPortrait } from '../art/market.js';
+import { rtpVendorFace } from '../art/rtp.js';
 import { goodIcon } from '../art/items.js';
 import { M, vendorReact, playerReact } from '../game/market.js';
 
@@ -927,7 +928,14 @@ export function openShop(vendor) {
   if (!vendor) return;
   openVendor = vendor;
   const def = VENDORS[vendor.id];
-  el.shopFace.src = spriteUrl(`vendorface:${vendor.id}`, () => vendorPortrait(vendor.id, 6));
+  // The merchant's own portrait if the atlas decoded, the code-drawn one if
+  // not. The cache key carries which of the two it is, so the fallback drawn
+  // during a slow first load cannot be handed out again once the real face has
+  // arrived.
+  const face = rtpVendorFace(vendor.id, 192);
+  el.shopFace.src = face
+    ? spriteUrl(`vendorface:rtp:${vendor.id}`, () => face)
+    : spriteUrl(`vendorface:drawn:${vendor.id}`, () => vendorPortrait(vendor.id, 6));
   el.shopName.textContent = def.name;
   el.shopTrade.textContent = def.trade;
   el.shopLine.textContent = def.greeting[Math.min(def.greeting.length - 1, S.marketVisits - 1)] || def.greeting[0];
