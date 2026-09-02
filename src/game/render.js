@@ -12,6 +12,7 @@ import { heroSprites } from '../art/hero.js';
 import { mobSprite, championSprite } from '../art/bestiary.js';
 import { drawBossFigure } from '../art/bosses.js';
 import { pickupSprite } from '../art/props.js';
+import { budgieSprite, BUDGIES } from '../art/familiars.js';
 import { foodSprite } from '../art/food.js';
 import { drawParduin } from '../art/dragon.js';
 import { drawGround, drawDecor, collectProps, biomeAt } from './world.js';
@@ -69,6 +70,7 @@ export function render(ctx, canvas, zoom, opts = {}) {
   }
 
   drawAirEffects(ctx, lowFx);
+  drawFamiliars(ctx, lowFx);
   drawParticles(ctx, lowFx);
   if (q.ambient) drawAmbient(ctx, biome.ambientColor, S.time, biome.ambient);
   drawTexts(ctx);
@@ -441,6 +443,31 @@ function drawGroundEffects(ctx, lowFx) {
         break;
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The flock
+// ---------------------------------------------------------------------------
+// Birds are drawn in the air layer rather than sorted with the actors: they
+// fly, so a budgie passing in front of a tree should stay in front of it, and
+// depth-sorting one against the ground it is not standing on looks wrong in
+// exactly the way you would expect.
+function drawFamiliars(ctx, lowFx) {
+  for (const b of S.familiars) {
+    const def = BUDGIES[b.kind];
+    if (!def) continue;
+    const y = b.y + b.bob;
+
+    // The shadow stays on the ground while the bird bobs above it. That gap is
+    // the only cue that says "flying" rather than "walking".
+    drawShadow(ctx, b.x, b.y + 16, 7, 0.22 - b.bob * 0.004);
+
+    if (!lowFx) {
+      const heat = b.kind === 'wraith' && b.mode === 'hunt' ? 0.34 : 0.18;
+      glow(ctx, b.x, y, 26, b.evolved ? def.glow : def.trail, heat);
+    }
+    blit(ctx, budgieSprite(b.kind, b.frame, 2, b.west, b.evolved), b.x, y, { scale: 1 });
   }
 }
 

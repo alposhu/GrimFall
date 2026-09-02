@@ -12,7 +12,7 @@
 // settings and meta progression down with it.
 // ---------------------------------------------------------------------------
 
-import { DIFFICULTY_ORDER } from '../game/config.js';
+import { DIFFICULTY_ORDER, WEAPONS } from '../game/config.js';
 
 const KEY = 'grimfall.slots.v1';
 export const VERSION = 3;
@@ -98,9 +98,13 @@ export function restoreRun(S, data) {
   S.purchases = [...(data.purchases || [])];
   S.inventory = { ...(data.inventory || {}) };
   for (const k of PLAYER_FIELDS) if (data.player[k] !== undefined) p[k] = data.player[k];
-  p.weapons = (data.player.weapons || []).map((w) => ({
-    id: w.id, level: w.level, evolved: !!w.evolved, cd: 0.3,
-  }));
+  // A save can outlive the weapon table it was written against — Lash was
+  // retired for the familiars, and an id nothing answers to would take the run
+  // down on its first frame in `weaponStats`. Drop what no longer exists rather
+  // than refusing to load a run somebody had an hour in.
+  p.weapons = (data.player.weapons || [])
+    .filter((w) => w && WEAPONS[w.id])
+    .map((w) => ({ id: w.id, level: w.level, evolved: !!w.evolved, cd: 0.3 }));
   if (!p.weapons.length) p.weapons = [{ id: 'bolt', level: 1, cd: 0.3, evolved: false }];
   p.passives = { ...(data.player.passives || {}) };
   // A loaded run should not immediately die to something standing on the spawn.

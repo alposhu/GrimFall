@@ -51,6 +51,7 @@ export function makeEnemy(type, x, y, opts = {}) {
     scale: type.scale * (opts.sizeMult || 1),
     tint: MOB_TINT[type.sprite] || '#ffffff',
     flash: 0, slow: 0, slowT: 0, stun: 0, root: 0, burn: 0, burnT: 0,
+    shred: 0, shredT: 0, reapCd: 0,
     frozen: 0, orbCd: 0, contactCd: 0, wobble: rand(0, TAU),
     knockResist: type.knockResist || 0,
     elite: null, dead: false,
@@ -199,7 +200,9 @@ export function updateEnemies(dt) {
     // --- status effects ---
     if (e.flash > 0) e.flash -= dt;
     if (e.orbCd > 0) e.orbCd -= dt;
+    if (e.reapCd > 0) e.reapCd -= dt;
     if (e.contactCd > 0) e.contactCd -= dt;
+    if (e.shredT > 0) { e.shredT -= dt; if (e.shredT <= 0) e.shred = 0; }
     if (e.frozen > 0) e.frozen -= dt;
     if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 0; }
     if (e.stun > 0) e.stun -= dt;

@@ -9,6 +9,7 @@ import { TAU, rand, angleTo, angleDelta, clamp, swapRemove } from '../core/util.
 import { sfx } from '../core/audio.js';
 import { q } from '../core/quality.js';
 import { burst, ring, emit, smoke } from './particles.js';
+import { WEAPONS } from './config.js';
 import {
   S, resolvedStats, damageEnemy, nearestEnemy, nearestEnemies, forEachNear,
   spawnShot, spawnZone, spawnSweep, addShake, damagePlayer,
@@ -190,25 +191,6 @@ const FIRE = {
     sfx('slash');
   },
 
-  // A whip is a slash that does not choose a side. The lashes are spread evenly
-  // around the player's facing, so two cover front and back and six cover
-  // everything — which is what the evolution is for.
-  whip(s, w) {
-    const p = S.player;
-    const n = Math.max(1, Math.round(s.count));
-    const base = p.faceAngle;
-    for (let i = 0; i < n; i++) {
-      spawnSweep({
-        x: p.x, y: p.y, angle: base + (i / n) * TAU,
-        arc: 0.9 * clamp(s.area, 0.6, 2.4),
-        radius: (w.evolved ? 138 : 112) * s.area,
-        life: s.duration, maxLife: s.duration, dmg: s.damage,
-        knockback: s.knockback, color: w.evolved ? '#c9f26a' : '#e8c98a',
-      });
-    }
-    sfx('slash');
-  },
-
   // Mjolnir does not fly straight and it does not come back on its own line.
   // It is thrown, it picks a target, it turns towards it like a missile, and
   // when it connects it picks another — so what you watch is a hammer touring
@@ -304,6 +286,8 @@ export function updateWeapons(dt) {
     const s = resolvedStats(w);
     if (!s) continue;
     if (w.id === 'orbit') { updateOrbits(dt, w, s); continue; }
+    // Familiars are not fired: the bird decides when, in familiars.js.
+    if (WEAPONS[w.id]?.familiar) continue;
     w.cd -= dt;
     if (w.cd <= 0) {
       w.cd += Math.max(0.06, s.cooldown);
@@ -666,6 +650,7 @@ export function updateZones(dt) {
         if (z.shatter) e.shatter = z.shatter;
         damageEnemy(e, z.dmg, {
           slow: z.slow, slowTime: z.slowTime, stun: z.stun || 0,
+          shred: z.shred || 0, shredTime: z.shredTime || 4,
           knockback: z.knockback || 60, fromX: z.x, fromY: z.y,
         });
         if (z.slowTime) e.frozen = Math.max(e.frozen || 0, z.slowTime * 0.6);

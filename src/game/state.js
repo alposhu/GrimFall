@@ -26,6 +26,7 @@ export const S = {
   zones: [],                // lingering ground effects
   pickups: [],
   orbs: [],                 // orbiting weapon nodes (recomputed each frame)
+  familiars: [],            // the budgies — derived from owned weapons, never saved
   sweeps: [],               // short-lived melee arcs
 
   cam: { x: 0, y: 0, tx: 0, ty: 0 },
@@ -252,6 +253,9 @@ export function damageEnemy(e, amount, opts = {}) {
   if (crit === undefined && Math.random() < critChance()) crit = true;
   if (crit) dmg *= 2;
   if (e.shatter && e.frozen > 0) dmg *= e.shatter;
+  // The chime budgie's shred. Enemies here carry no armour value to remove, so
+  // stripping it is expressed the only way it can be: everything hurts more.
+  if (e.shred > 0) dmg *= 1 + e.shred;
 
   e.hp -= dmg;
   e.flash = 0.12;
@@ -268,6 +272,7 @@ export function damageEnemy(e, amount, opts = {}) {
     e.slowT = Math.max(e.slowT, opts.slowTime || 1.2);
   }
   if (opts.stun) e.stun = Math.max(e.stun, opts.stun);
+  if (opts.shred) { e.shred = Math.max(e.shred || 0, opts.shred); e.shredT = Math.max(e.shredT || 0, opts.shredTime || 4); }
   if (opts.root) e.root = Math.max(e.root, opts.root);
   if (opts.burn) { e.burn = Math.max(e.burn, opts.burn * mightMult()); e.burnT = Math.max(e.burnT, 2.5); }
 

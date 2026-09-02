@@ -143,16 +143,100 @@ export const WEAPONS = {
       base: { damage: 26, cooldown: 1.9, count: 7, area: 1.8, duration: 5.0, root: 0.9 },
     },
   },
-  whip: {
-    name: 'Lash', icon: 'whip', tag: 'Both sides',
-    desc: 'A flat crack of leather to left and right at once.',
-    base: { damage: 15, cooldown: 0.9, count: 2, area: 1, duration: 0.16, knockback: 190 },
-    perLevel: { damage: 6, cooldown: -0.035, area: 0.1 },
-    atLevel: { 3: { area: 0.2 }, 5: { count: 1 }, 7: { count: 1, area: 0.25 } },
+  // --- the familiars -------------------------------------------------------
+  // Four budgies, and they are weapons in every sense the rest of this table
+  // means it: they draw from the same level-up pool, take the same passives,
+  // and resolve through the same `weaponStats`. What makes them familiars is
+  // that they persist — the bird is on screen between attacks, not only during
+  // one — and their flight is described separately in FAMILIARS below.
+  //
+  // Each one's four named upgrades land at levels 2, 3, 4 and 5, which is the
+  // curve asked for; `perLevel` carries them to the table-wide cap of 8.
+  storm: {
+    name: 'Storm Budgie', icon: 'budgie_storm', tag: 'Familiar',
+    desc: 'A blue budgie rings you close and drops lightning on whatever stands nearest.',
+    familiar: 'storm',
+    base: { damage: 15, cooldown: 1.25, birds: 1, area: 1, chain: 0, stun: 0, range: 300 },
+    perLevel: { damage: 6.5, cooldown: -0.055, range: 12 },
+    atLevel: {
+      2: { cooldown: -0.14 },            // strikes faster
+      3: { chain: 1 },                   // it starts bouncing
+      4: { stun: 0.22 },                 // and briefly pins what it hits
+      5: { birds: 1, chain: 1 },         // a second bird
+      7: { chain: 1, cooldown: -0.1 },
+    },
     evolution: {
-      id: 'serpentcoil', name: 'Serpent Coil', icon: 'whip_evo', requires: 'swiftness',
-      desc: 'Six lashes at once, all the way around you.',
-      base: { damage: 46, cooldown: 0.62, count: 6, area: 1.7, duration: 0.2, knockback: 260 },
+      id: 'thunderhead', name: 'Thunderhead Budgie', icon: 'budgie_storm_evo', requires: 'cooldown',
+      desc: 'Three of them, ringing you, and the lightning does not stop.',
+      base: { damage: 44, cooldown: 0.5, birds: 3, area: 1.4, chain: 3, stun: 0.34, range: 380 },
+    },
+  },
+
+  chime: {
+    name: 'Chime Budgie', icon: 'budgie_chime', tag: 'Familiar',
+    desc: 'Rides your shoulder and sings. What the song touches slows, and keeps slowing.',
+    familiar: 'chime',
+    base: { damage: 9, cooldown: 2.2, birds: 1, area: 1, radius: 132, slow: 0.18, shred: 0 },
+    perLevel: { damage: 3.6, cooldown: -0.1, radius: 9, slow: 0.03 },
+    atLevel: {
+      2: { radius: 26 },                 // wider song
+      3: { cooldown: -0.28 },            // sung more often
+      4: { slow: 0.1 },                  // and it bites deeper
+      5: { shred: 0.18 },                // armour comes apart
+      7: { radius: 30, shred: 0.1 },
+    },
+    evolution: {
+      id: 'knell', name: 'Knell Budgie', icon: 'budgie_chime_evo', requires: 'area',
+      desc: 'A ring that reaches the edge of sight, and nothing inside it keeps its armour.',
+      base: { damage: 30, cooldown: 1.05, birds: 1, area: 1.9, radius: 270, slow: 0.52, shred: 0.5 },
+    },
+  },
+
+  ember: {
+    name: 'Ember Budgie', icon: 'budgie_ember', tag: 'Familiar',
+    desc: 'Flies at your back and lobs fire into whichever crowd is thickest.',
+    familiar: 'ember',
+    base: { damage: 22, cooldown: 2.0, birds: 1, count: 1, speed: 300, area: 1, puddle: 0, range: 460 },
+    perLevel: { damage: 9, cooldown: -0.09, speed: 16 },
+    atLevel: {
+      2: { speed: 90 },                  // the shot travels
+      3: { cooldown: -0.3 },             // and comes more often
+      4: { area: 0.45 },                 // the blast widens
+      5: { puddle: 2.6 },                // and leaves fire behind
+      7: { area: 0.3, puddle: 1.2 },
+    },
+    evolution: {
+      id: 'wildfire', name: 'Wildfire Budgie', icon: 'budgie_ember_evo', requires: 'area',
+      desc: 'Three shells at a time, and the ground burns for a long while after.',
+      base: { damage: 66, cooldown: 1.15, birds: 1, count: 3, speed: 460, area: 1.9, puddle: 5.0, range: 560 },
+    },
+  },
+
+  wraith: {
+    name: 'Wraith Budgie', icon: 'budgie_wraith', tag: 'Familiar',
+    desc: 'The white one does not stay with you. It hunts, and what it touches simply stops.',
+    familiar: 'wraith',
+    // `execute` is the health fraction below which ordinary enemies are taken
+    // outright; `bossMult` is what it does to anything too big to execute;
+    // `rehit` is how soon it may touch the same enemy again, which is the real
+    // rate limit on a weapon whose pacing is its flight.
+    //
+    // It needs a damage curve as well as an execute curve. Execution is worth
+    // nothing against a boss, and a familiar that scaled only by threshold
+    // would stop contributing at exactly the moment a run gets hard.
+    base: { damage: 44, cooldown: 0, birds: 1, speed: 250, area: 1, execute: 0.35, bossMult: 1.0, uptime: 5.0, rest: 3.4, rehit: 0.26 },
+    perLevel: { damage: 24, speed: 14, execute: 0.035, bossMult: 0.16, uptime: 0.3, rehit: -0.011 },
+    atLevel: {
+      2: { speed: 60 },                  // it moves like it means it
+      3: { uptime: 1.4, rest: -0.7 },    // and is out far more of the time
+      4: { bossMult: 0.6 },              // champions start to feel it
+      5: { execute: 0.14 },              // and the trash barely registers
+      7: { bossMult: 0.7, uptime: 1.0 },
+    },
+    evolution: {
+      id: 'reaper', name: 'Reaper Budgie', icon: 'budgie_wraith_evo', requires: 'might',
+      desc: 'It never rests, and very little survives being noticed by it.',
+      base: { damage: 240, cooldown: 0, birds: 2, speed: 430, area: 1.5, execute: 0.6, bossMult: 3.4, uptime: 999, rest: 0, rehit: 0.16 },
     },
   },
   mjolnir: {
@@ -222,6 +306,61 @@ export function weaponStats(id, level, evolved = false) {
 }
 
 export const WEAPON_MAX_LEVEL = 8;
+
+// ---------------------------------------------------------------------------
+// Familiars
+// ---------------------------------------------------------------------------
+// Everything about how a budgie MOVES lives here, separately from what it does
+// for damage. The split is deliberate: damage numbers get rebalanced often and
+// flight almost never, and mixing them means every balance pass risks making a
+// bird fly wrong.
+//
+// `station` is what the bird is doing when it has nothing else to do:
+//   ring      circles the player at `radius`
+//   shoulder  holds a fixed offset and bobs
+//   trail     hangs behind the direction of travel
+//   roam      goes where the enemies are and ignores the player entirely
+//
+// The ids match `WEAPONS[id].familiar` and `BUDGIES` in art/familiars.js.
+export const FAMILIARS = {
+  storm: {
+    station: 'ring',
+    radius: 62, spin: 1.9,             // px, and radians/sec around you
+    bob: 5, bobRate: 3.1,              // vertical float, px and Hz
+    flap: 11,                          // animation frames per second
+    ease: 9,                           // how hard it corrects toward station
+  },
+  chime: {
+    station: 'shoulder',
+    offset: { x: 20, y: -30 },
+    bob: 7, bobRate: 2.3,
+    flap: 7,
+    ease: 7,
+  },
+  ember: {
+    station: 'trail',
+    distance: 40, lift: -22,           // behind you, and above your head
+    bob: 4, bobRate: 2.7,
+    flap: 9,
+    ease: 5.5,
+    recoil: 90,                        // px/s kicked back when it fires
+  },
+  wraith: {
+    station: 'roam',
+    hunt: 520,                         // how far it will look for a crowd
+    leash: 900,                        // beyond this it gives up and comes back
+    bob: 3, bobRate: 4.4,
+    flap: 15,
+    ease: 4,
+    restEase: 6,                       // it returns to your shoulder to rest
+    restOffset: { x: -24, y: -34 },
+  },
+};
+
+export const FAMILIAR_IDS = Object.keys(FAMILIARS);
+
+/** Weapon ids that spawn a bird, in table order. */
+export const FAMILIAR_WEAPONS = WEAPON_IDS.filter((id) => WEAPONS[id].familiar);
 
 // ---------------------------------------------------------------------------
 // Passives

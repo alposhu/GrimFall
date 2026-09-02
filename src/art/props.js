@@ -8,6 +8,7 @@
 
 import { rasterize, sprite, PAL, pixelSurface, outlinePixels, upscale } from './pixel.js';
 import { makeRng, TAU } from '../core/util.js';
+import { BUDGIES, budgieIcon } from './familiars.js';
 
 /** "aa/bb/cc" -> ['aa','bb','cc'] — keeps the icon tables readable. */
 const m = (s) => s.split('/');
@@ -242,7 +243,6 @@ const ICONS = {
   orbit:     { pal: { a: '#ffe07a', b: '#c9922a', w: '#ffffff' }, map: m('...aaa..../..a...a.../.a..w..a../a..www..a/a..www..a/.a..w..a../..a...a.../...aaa..../........../..........') },
   glaive:    { pal: { a: '#d9e2f0', b: '#5ee8d0' }, map: m('..oooo..../.oaaaabo./oaao..obo/oao....oo/oao....../oaao...../.oaaao..../..oaaao.../...oaao.../....oo....') },
   brambles:  { pal: { a: '#4f9a3c', b: '#2f6a26', y: '#c9f26a' }, map: m('..a....a../.aa.a.aa./a.aaaaa.a/.aabbbaa./aabbbbbaa/.aabbbaa./a.aaaaa.a/.aa.a.aa./..a....a../..........') },
-  whip:      { pal: { a: '#e8c98a', b: '#8a5a33' }, map: m('.......oo./......oaao/.....oaao./..oooaao../.oaaaao.../oaao....../oao......./.oao....../..ooo...../..........') },
   mjolnir:   { pal: { a: '#c9d2e0', b: '#5a6274', y: '#9ad4ff' }, map: m('..oooooo../.obbbbbbo./.obaaaabo./.obbbbbbo./..oo.aoo../..y..a..y./.....a..../..y..a..y./....oo..../..........') },
   censer:    { pal: { a: '#8fd8ff', b: '#5a6274', y: '#ffd75e' }, map: m('....o...../....b...../....b...../..oaaao.../.oayyyao../.oaaaaao../..oaaao.../...ooo..../..y...y.../..........') },
   pike:      { pal: { a: '#c9d2e0', b: '#8a5a33' }, map: m('........oo/.......oao/......oao./.....oao../....oao.../...oao..../..bao...../.bbo....../bo......../..........') },
@@ -257,7 +257,6 @@ const ICONS = {
   orbit_evo:     { pal: { a: '#ffffff', b: '#ffd75e', w: '#fff3c4' }, map: m('..aaaaa.../.a.....a./a..bbb..a/a.bbbbb.a/a.bbbbb.a/a.bbbbb.a/a..bbb..a/.a.....a./..aaaaa.../..........') },
   glaive_evo:    { pal: { a: '#c9f2ff', b: '#5ee8d0' }, map: m('.oooooo.../oaaaaabo./oaao.obo./oao...oo../oao....../oaao....../.oaaaoo.../..oaaaao../...oaaao../....ooo...') },
   brambles_evo:  { pal: { a: '#c9f26a', b: '#2f6a26', y: '#ffffff' }, map: m('a.a....a.a/.aa.a.aa./a.aaaaa.a/.aabbbaa./aabbybbaa/.aabbbaa./a.aaaaa.a/.aa.a.aa./a.a....a.a/..........') },
-  whip_evo:      { pal: { a: '#c9f26a', b: '#4f9a3c' }, map: m('..oaaao.../.oa...ao../oa..o..ao./a..oao..a./a.oaaao.a./a..oao..a./oa..o..ao./.oa...ao../..oaaao.../..........') },
   mjolnir_evo:   { pal: { a: '#ffe86a', b: '#8d97a8', y: '#ffffff' }, map: m('y.oooooo.y/.obbbbbbo./.obaaaabo./.obbbbbbo./y.oo.aoo.y/.y...a...y/y....a...y/.y...a...y/y...oo...y/..........') },
   censer_evo:    { pal: { a: '#ffd75e', b: '#8a5a33', y: '#ff8a2a' }, map: m('..y.o.y.../....b...../..y.b.y.../..oaaao.../.oayyyao../.oayyyao../..oaaao.../..oooooo../.yyyyyyyy./..........') },
   pike_evo:      { pal: { a: '#ffe86a', b: '#ff8a2a' }, map: m('......ooo./.....oaao./....oaao../...oaao..o/..oaao..oa/.oaao..oa./.bao..oa../bbo..oa.../o...oa..../....o.....') },
@@ -278,11 +277,29 @@ const ICONS = {
   luck:      { pal: { a: '#9dff8f', b: '#ffffff' }, map: m('..aa.aa.../.aaaaaaa../.aaaaaaa../..aaaaa.../.aa.a.aa../aa..a..aa/....a...../....a...../....a...../..........') },
 };
 
+// The four familiars are not drawn here. Their icon IS the bird, taken from
+// the same sheet the one flying beside you comes off, so the card in the
+// level-up screen and the thing it gives you are visibly the same animal.
+// `budgie_storm` / `budgie_storm_evo` are the naming shape.
+const FAMILIAR_ICON = /^budgie_([a-z]+?)(_evo)?$/;
+
+function familiarIcon(name, scale) {
+  const hit = FAMILIAR_ICON.exec(name);
+  if (!hit || !BUDGIES[hit[1]]) return null;
+  return budgieIcon(hit[1], !!hit[2], scale);
+}
+
 export function iconSprite(name, scale = 3) {
   return sprite(`icon:${name}:${scale}`, () => {
+    const bird = familiarIcon(name, scale);
+    if (bird) return bird;
     const d = ICONS[name] || ICONS.bolt;
     return rasterize(d.map, { scale, palette: { ...PAL, ...d.pal } });
   });
 }
 
-export const hasIcon = (name) => !!ICONS[name];
+export const hasIcon = (name) => {
+  if (ICONS[name]) return true;
+  const hit = FAMILIAR_ICON.exec(name);
+  return !!(hit && BUDGIES[hit[1]]);
+};

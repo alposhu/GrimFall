@@ -19,6 +19,7 @@ import { MOB_KEYS, CHAMPION_KEYS, mobSprite, championSprite } from './art/bestia
 import { REDESIGNED, bossArt, bossPortraitArt } from './art/bosses.js';
 import { dragonParts } from './art/dragon.js';
 import { propSprite, pickupSprite, iconSprite } from './art/props.js';
+import { budgieSprite, BUDGIE_IDS, BUDGIE_FRAMES } from './art/familiars.js';
 import { FOOD_IDS, foodSprite } from './art/food.js';
 import { BIOMES } from './game/world.js';
 import { WEAPONS, WEAPON_IDS, PASSIVES, PASSIVE_IDS } from './game/config.js';
@@ -111,6 +112,18 @@ function* bootTasks() {
   // a new weapon cannot be added without its icon being warmed with it.
   for (const id of WEAPON_IDS) { iconSprite(WEAPONS[id].icon, 4); iconSprite(WEAPONS[id].evolution.icon, 4); yield; }
   for (const id of [...PASSIVE_IDS, 'luck']) { iconSprite(PASSIVES[id]?.icon || id, 4); yield; }
+  // The flock. Every frame, both facings, both palettes — a budgie appears the
+  // instant its card is taken, and rasterising sixteen frames on that frame is
+  // exactly the hitch you would notice.
+  for (const id of BUDGIE_IDS) {
+    for (let f = 0; f < BUDGIE_FRAMES; f++) {
+      for (const west of [false, true]) {
+        budgieSprite(id, f, 2, west, false);
+        budgieSprite(id, f, 2, west, true);
+      }
+    }
+    yield;
+  }
 }
 
 async function boot() {
@@ -174,7 +187,7 @@ async function boot() {
     REDESIGNED.length + 1 + BIOMES.length + 8 + FOOD_IDS.length +
     WEAPON_IDS.length + PASSIVE_IDS.length + 1 +
     4 + STALL_KINDS.length + PROP_KINDS.length + VENDOR_IDS.length + FOLK_COUNT +
-    ITEM_ICONS.length + GOOD_IDS.length + BALLOON_KINDS.length;
+    ITEM_ICONS.length + GOOD_IDS.length + BALLOON_KINDS.length + BUDGIE_IDS.length;
   let done = 0;
   await new Promise((resolve) => {
     const step = () => {

@@ -1,0 +1,31 @@
+Budgie spritesheets
+===================
+
+The four bird sheets these came from, kept here as the source of the familiar
+art. They are NOT loaded by the game and are not in the shipped build:
+`tools/build.mjs` ships an allowlist of folders and art-source is not on it.
+
+WHAT THE GAME ACTUALLY USES
+  `src/art/familiars.js` holds one flight cycle as a pixel map plus four
+  palettes. The four sheets turned out to be palette swaps of a single drawing
+  - identical alpha, identical pixel counts - so keeping four copies of the
+  same geometry would have been four times the bytes for no extra art. The
+  extraction was verified pixel-for-pixel before the maps were written.
+
+  Only the first column is used: a four-frame flight cycle at 16x15, east
+  facing. The perched and standing poses in columns 1 and 2, `branches.png`
+  and `Bungie Case.png` are unused.
+
+PROVENANCE
+  Supplied by the project owner as `Budgies_Spritesheets.zip`. The archive
+  carried no licence file, no readme and no author credit.
+
+  ---> ACTION NEEDED BEFORE RELEASE <---
+  Unlike every other asset in this project, the terms for this one are not
+  recorded. Find where the pack came from and confirm what it permits. If it
+  needs attribution, add it to the in-game credits alongside the audio; if it
+  is not licensed for use in a released game, the art has to come out.
+
+  Everything else in Grimfall has its provenance written down - see
+  audio/SOURCE.txt, fonts/SOURCE.txt and img/rtp/SOURCE.txt. This file exists
+  so that this one does not quietly become the exception.

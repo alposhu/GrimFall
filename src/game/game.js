@@ -23,6 +23,7 @@ import {
   killEnemy, resolvedStats, addShake, screenFlash,
 } from './state.js';
 import { updateWeapons, updateShots, updateSweeps, updateZones } from './weapons.js';
+import { updateFamiliars, clearFamiliars } from './familiars.js';
 import { updateSpawning, updateEnemies, updateHostileShots, updateHazards, spawnPendingBoss } from './enemies.js';
 import { updateCutscene, startCutscene } from './cutscene.js';
 import { characterById } from '../art/hero.js';
@@ -44,6 +45,7 @@ export function startRun(charId, difficulty) {
     time: 0, running: true, paused: false, outcome: null,
     difficulty, seed: (Math.random() * 1e9) | 0,
     enemies: [], shots: [], hostileShots: [], zones: [], pickups: [], orbs: [], sweeps: [],
+    familiars: [],
     kills: 0, gold: 0, damageDealt: 0,
     shake: 0, hitStop: 0, flashAlpha: 0,
     boss: null, champion: null, championTimer: CHAMPION_FIRST,
@@ -237,6 +239,7 @@ export function update(dt, view) {
   if (regen) healPlayer(regen * dt);
 
   // --- systems ---
+  updateFamiliars(dt);
   updateWeapons(dt);
   updateSpawning(dt);
   updateEnemies(dt);
@@ -296,6 +299,7 @@ export function suspendForMarket() {
   S.hostileShots.length = 0;
   S.zones.length = 0;
   S.champion = null;
+  clearFamiliars();
   stopVoice();
   return { visit: S.marketVisits, bossName: info?.bossName || '' };
 }
