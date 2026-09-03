@@ -339,6 +339,17 @@ check(byId.continueSub.textContent.includes(savedHero), 'Continue does not descr
 saves.resetSaves();
 ui.showTitle();
 check(byId.continueBtn.hidden, 'Continue is offered with no save to continue');
+
+// A fresh browser has to be able to reach "Load from a file". The saves screen
+// is the ONLY route to it, so hiding Load when there is nothing saved stranded
+// anyone arriving on a second device with a .grimsave in hand — the one case
+// the transfer feature exists for. Continue may hide; Load may not.
+check(!byId.loadBtn.hidden, 'Load is hidden on a fresh browser, so a backup cannot be imported');
+ui.openSaves('load');
+check(!byId.importSaveBtn.hidden, 'the import button is unreachable with no saves');
+check(byId.savesSub.textContent.toLowerCase().includes('file'),
+  'the empty saves screen does not mention loading from a file');
+ui.showTitle();
 console.log('save / load       ok');
 
 // Skip path.

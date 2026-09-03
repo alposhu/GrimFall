@@ -303,11 +303,20 @@ export function showTitle() {
   refreshContinue();
 }
 
-/** Continue and Load only exist when there is actually something to resume. */
+/**
+ * Continue needs something to resume, so it comes and goes with the saves.
+ *
+ * Load does NOT, and used to. The saves screen is the only route to "Load from
+ * a file", so hiding Load when the browser has no saves meant a player who
+ * exported a .grimsave on one device and opened the game on another had no way
+ * back in: no saves, so no button, so no import. The one situation the transfer
+ * feature exists for was the one situation it could not be reached in. It is
+ * always offered now, and the screen explains itself when it is empty.
+ */
 function refreshContinue() {
   const recent = mostRecent();
   el.continueBtn.hidden = !recent;
-  el.loadBtn.hidden = !recent;
+  el.loadBtn.hidden = false;
   if (recent) {
     const ch = characterById(recent.charId);
     el.continueSub.textContent =
@@ -1057,7 +1066,10 @@ export function openSaves(mode) {
   el.savesTitle.textContent = mode === 'save' ? 'Save Run' : 'Saved Runs';
   el.savesSub.textContent = mode === 'save'
     ? 'Pick a slot. Saving overwrites whatever is in it.'
-    : 'The market writes to Auto every time you walk in.';
+    : mostRecent()
+      ? 'The market writes to Auto every time you walk in.'
+      : 'Nothing saved in this browser yet. If you carried a run off another '
+        + 'device, load it from a file below.';
   buildSaves();
   go('savesScreen');
 }
