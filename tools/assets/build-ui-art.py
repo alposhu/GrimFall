@@ -5,17 +5,27 @@
 #
 # Run offline. The game ships only what this writes into img/ui/.
 #
-# Two packs, used for different things:
+# THE THEME
 #
-#   Tiny RPG "Mana Soul" GUI (CC0) is the frame language - navy and violet with
-#   gold filigree. It was chosen over the flatter, brighter packs because it is
-#   already Grimfall's palette: the menus and the world agree without either
-#   being recoloured, which is the difference between an interface that belongs
-#   to a game and one that was dropped on top of it.
+#   "Free Basic Pixel Art UI for RPG" (CraftPix) is the interface: a wood frame
+#   round a parchment body, a green header bar carrying the title and a close
+#   button, and solid green buttons. It is a complete kit rather than a set of
+#   frames, which matters - the settings rows, the checkboxes, the dropdown and
+#   the slot squares are all drawn by the same hand as the panel they sit in,
+#   and an interface assembled from four packs never quite looks like one thing.
 #
-#   Icons Essential (CC BY 4.0) supplies the 16x16 glyphs. Only the ones the
-#   interface actually uses are packed, in a fixed order the stylesheet indexes
-#   by background-position.
+#   It also reads better. The old theme was pale type on dark violet; this is
+#   near-black on parchment, which is the contrast every guide on game UI asks
+#   for and which survives being played on a phone in daylight.
+#
+# WHAT ELSE IS HERE, AND WHY IT IS NOT FROM THAT PACK
+#
+#   Travel Book (CC BY 4.0) supplies the market's slot frames and the mouse
+#   pointer. The Long Market is the one place in this game that is a PLACE
+#   rather than a menu, and leather against parchment says so.
+#
+#   Icons Essential (CC BY 4.0) supplies the 16x16 glyphs, packed in a fixed
+#   order the stylesheet indexes by background-position.
 #
 # Nothing is tinted. Every other art pipeline here tones its source down for
 # brazier light, because that art sits in the world; interface art sits on a
@@ -36,7 +46,7 @@ PACKS = os.environ.get(
     r"C:\Users\alper\AppData\Local\Temp\claude\c--Users-alper-Documents-ThY-GAme"
     r"\23adc581-ca73-4acd-ada0-e08e6e89e55d\scratchpad\ui",
 )
-TINY = os.path.join(PACKS, "tinyRPG_manaSoulGUI_v_1_0")
+RPG = os.path.join(PACKS, "basicrpg", "PNG")
 ICONS = os.path.join(PACKS, "Icons_Essential", "Icons_Essential", "v1.2", "Icons")
 BOOK = os.path.join(PACKS, "Complete_UI_Book_Styles_Pack_Free",
                     "Complete_UI_Book_Styles_Pack_Free_v1.0", "01_TravelBookLite", "Sprites")
@@ -48,7 +58,7 @@ def load(path):
     if not os.path.exists(path):
         sys.exit(
             f"missing source: {path}\n\n"
-            "Unpack the four UI packs somewhere and point GRIMFALL_UI_PACKS at the\n"
+            "Unpack the UI packs somewhere and point GRIMFALL_UI_PACKS at the\n"
             "folder holding them. See img/ui/SOURCE.txt for the download links."
         )
     return Image.open(path).convert("RGBA")
@@ -60,114 +70,169 @@ def save(img, name):
     print(f"  {name:22s} {img.width:>4}x{img.height:<4} {os.path.getsize(p) // 1024:>4}kb")
 
 
-# ---------------------------------------------------------------------------
-# Frames
-# ---------------------------------------------------------------------------
-# Each is a 96x96 nine-slice. Twelve is the inset the stylesheet slices them at,
-# measured rather than guessed: at twelve the corner flourish is whole and the
-# edge ornament tiles seamlessly, and past about sixteen the source's own
-# interior colour starts bleeding into the border strip and reads as a seam
-# against the flat fill behind it.
+def punch(im, inset):
+    """Clear the middle so the interior is a flat CSS colour, not a tiled image."""
+    im = im.copy()
+    im.paste(Image.new("RGBA", (im.width - inset * 2, im.height - inset * 2), (0, 0, 0, 0)),
+             (inset, inset))
+    return im
+
+
+def scale(im, k):
+    return im.resize((im.width * k, im.height * k), Image.NEAREST)
+
+
+# The kit is DRAWN small and MEANT to be shown big: its wood frame is four
+# pixels and its buttons are twelve tall. At 1:1 in a browser that frame is a
+# hairline and the whole thing reads as a thin cartoon outline rather than the
+# chunky woodwork in the reference screenshots - which are all of this kit at
+# about 3x.
 #
-# The centres are punched out. The interior is a flat CSS background instead, so
-# a panel's fill is one value in the stylesheet rather than a colour baked into
-# nine separate images - and so nothing tiles a gradient.
-INSET = 12
+# So the frames are exported pre-scaled with nearest-neighbour rather than left
+# for CSS to enlarge. `border-image` does NOT honour `image-rendering:
+# pixelated` consistently when it scales slices, so letting CSS do it gives
+# smoothed, half-pixel edges - the exact failure this interface is built to
+# avoid. Scaling here, once, with a known-integer factor, cannot go soft.
+UI = 3
 
-FRAMES = [
-    ("panel",    "20250420manaSoul9SlicesA-Sheet.png"),  # navy, flourished top and bottom
-    ("card",     "20250420manaSoul9SlicesB-Sheet.png"),  # violet, ornament all round
-    ("card-on",  "20250420manaSoul9SlicesC-Sheet.png"),  # the same, lit gold: selected
-]
-
-print("frames")
-for name, src in FRAMES:
-    im = load(os.path.join(TINY, src))
-    w, h = im.size
-    hole = Image.new("RGBA", (w - INSET * 2, h - INSET * 2), (0, 0, 0, 0))
-    im.paste(hole, (INSET, INSET))          # paste, not alpha_composite: replace
-    save(im, f"{name}.png")
-
-# The interior colours, reported so the stylesheet's fills can be kept honest
-# against the art rather than eyeballed.
-print("\n  interior colours (for the stylesheet's --panel-fill etc.)")
-for name, src in FRAMES:
-    c = load(os.path.join(TINY, src)).getpixel((48, 48))
-    print(f"    {name:10s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
 
 # ---------------------------------------------------------------------------
-# Buttons
+# The panel, and its header
 # ---------------------------------------------------------------------------
-# One 384x22 strip of four 96x22 states, in the pack's order: rest, hover,
-# pressed, disabled. They are split into four files because `border-image-source`
-# takes one image, and a sprite sheet would mean re-deriving the offset in every
-# rule that uses one.
-print("\nbuttons")
-BUTTON_STATES = ["", "-hover", "-down", "-off"]
-strip = load(os.path.join(TINY, "20250421manaSoulButtonB-Sheet.png"))
-bw = strip.width // 4
-for i, suffix in enumerate(BUTTON_STATES):
-    save(strip.crop((i * bw, 0, (i + 1) * bw, strip.height)), f"button{suffix}.png")
+# Both are cut out of the empty Settings panel, which is the kit's canonical
+# window. Measured off the source rather than eyeballed:
+#
+#   x 7..10    wood border, 4px          y 0..13    the green header bar
+#   x 11..100  parchment body            y 14..148  the body, wood-framed
+#   x 101..104 wood border, 4px
+#
+# The header's own X sits at x 92..101, so the header is cut to the LEFT of it
+# and the close button is a separate sprite. Baking a button into a nine-slice
+# would put it in the middle of every wide panel.
+SET = load(os.path.join(RPG, "Settings.png"))
+
+print(f"panel (everything exported at {UI}x)")
+PANEL_INSET = 8            # comfortably past the 4px border, whole corner
+save(scale(punch(SET.crop((7, 14, 105, 149)), PANEL_INSET), UI), "panel.png")
+save(scale(SET.crop((7, 0, 92, 14)), UI), "head.png")
+
+print("\n  key colours (the stylesheet's fills are these, not values near them)")
+for label, xy in [("parchment", (56, 80)), ("head", (56, 6)),
+                  ("wood", (8, 80)), ("wood-lit", (10, 80))]:
+    c = SET.getpixel(xy)
+    print(f"    {label:11s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
 
 # ---------------------------------------------------------------------------
 # The close button
 # ---------------------------------------------------------------------------
-# A 128x32 strip of four 32x32 states, same order as the buttons. Every panel
-# in the game gets one, which is the single most recognisable convention in
-# this genre's interfaces and, more usefully, means no screen is ever a room
-# without a door.
+# Lifted out of the header and doubled, because at 10x12 it is below the size a
+# finger can reliably hit. The pack draws no second state for it, so hover is
+# the same sprite on a lit plate, done in CSS.
 print("\nclose button")
-strip = load(os.path.join(TINY, "20250425closeButton-Sheet.png"))
-cw = strip.width // 4
-for i, suffix in enumerate(BUTTON_STATES):
-    save(strip.crop((i * cw, 0, (i + 1) * cw, strip.height)), f"close{suffix}.png")
+save(scale(SET.crop((92, 1, 102, 13)), UI), "close.png")
 
 # ---------------------------------------------------------------------------
-# Bars
+# Buttons
 # ---------------------------------------------------------------------------
-# The empty track for health, experience and boss bars. The fill behind it is a
-# flat CSS colour, so one frame serves every bar in the game.
-print("\nbars")
-save(load(os.path.join(TINY, "20250421barA-Sheet.png")), "bar.png")
-save(load(os.path.join(TINY, "20250420manaSoulHeaderB-Sheet.png")), "header.png")
+# The kit ships buttons at fixed widths with their labels drawn in. These are
+# the four plain ones, which nine-slice to any width:
+#
+#   rest    medium green with the tan underline
+#   hover   light green with the tan underline
+#   down    medium green with NO underline - the button has sunk onto the page
+#   off     rest, desaturated, since the pack draws no disabled state
+#
+# All four are padded to the same height so a button does not change size when
+# the pointer touches it.
+BTN = load(os.path.join(RPG, "Buttons.png"))
+BTN_H = 12
+
+def button(box):
+    im = BTN.crop((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+    if im.height < BTN_H:                      # the no-underline variants are 11px
+        pad = Image.new("RGBA", (im.width, BTN_H), (0, 0, 0, 0))
+        pad.paste(im, (0, 0))
+        im = pad
+    return im
+
+def desaturate(im, keep=0.25, dim=0.72):
+    out = im.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            grey = int(0.299 * r + 0.587 * g + 0.114 * b)
+            px[x, y] = (int((grey + (r - grey) * keep) * dim),
+                        int((grey + (g - grey) * keep) * dim),
+                        int((grey + (b - grey) * keep) * dim), a)
+    return out
+
+print("\nbuttons")
+rest = button((13, 418, 56, 12))
+save(scale(rest, UI), "button.png")
+save(scale(button((173, 434, 56, 12)), UI), "button-hover.png")
+save(scale(button((93, 419, 56, 11)), UI), "button-down.png")
+save(scale(desaturate(rest), UI), "button-off.png")
+
+# ---------------------------------------------------------------------------
+# Slots and controls
+# ---------------------------------------------------------------------------
+# The squares the kit uses for inventory cells and checkboxes. `slot` is the
+# empty one, `slot-on` the filled one; the stylesheet uses the pair for both
+# jobs, which is what the kit does too.
+print("\nslots and controls")
+# The kit draws these squares in two materials: brown for an empty socket and
+# green for a filled or checked one. The first pass took the wrong coordinate
+# and every health bar in the game came out as a green checkbox.
+slot = SET.crop((224, 195, 237, 208))          # brown, empty
+save(scale(punch(slot, 5), UI), "slot.png")
+save(scale(SET.crop((3, 204, 16, 217)), UI), "slot-on.png")   # green, filled
+save(scale(SET.crop((160, 195, 173, 208)), UI), "dropdown.png")
+
+# The bar track is the slot frame. The kit's own health plate is a fixed
+# composite with a portrait socket and an angled end - handsome, and impossible
+# to stretch to an arbitrary width. The slot is the same wood in a shape that
+# nine-slices, so a bar and an inventory cell are visibly the same material.
+save(scale(punch(slot, 5), UI), "bar.png")
+
+# The kit's bar fills, sampled off character_panel.png so the stylesheet's
+# health red is the artist's red rather than one chosen next to it.
+CHAR = load(os.path.join(RPG, "character_panel.png"))
+print("  bar fills")
+for label, xy in [("red", (20, 138)), ("blue", (20, 143)), ("green", (20, 148))]:
+    c = CHAR.getpixel(xy)
+    print(f"    {label:6s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
 
 # ---------------------------------------------------------------------------
 # The market, and the pointer
 # ---------------------------------------------------------------------------
-# These come from a different pack on purpose. The Travel Book set is warm
-# leather and paper where the Mana Soul set is violet and gold, and the Long
-# Market is the one place in this game that is a PLACE rather than an interface
-# — a square with stalls and traders in it. Giving its goods a different
-# material from the menus says that without a word of explanation.
-#
-# Slots are 30x30 nine-slices; six is a comfortable inset, well past the ~3px
-# border, so the corner is whole and the tiled band is flat colour that the CSS
-# fill matches exactly.
+# A different pack on purpose. The Travel Book set is leather and dark paper
+# where the RPG kit is wood and parchment, and the Long Market is the one place
+# in this game that is a PLACE rather than an interface - a square with stalls
+# and traders in it. Giving its wares a different material says that without a
+# word of explanation.
 SLOT_INSET = 6
 
 print("\nmarket")
 for name, src in [("market-card", "UI_TravelBook_Slot01a.png"),
                   ("market-card-on", "UI_TravelBook_Slot01b.png")]:
-    im = load(os.path.join(BOOK, src))
-    w, h = im.size
-    im.paste(Image.new("RGBA", (w - SLOT_INSET * 2, h - SLOT_INSET * 2), (0, 0, 0, 0)),
-             (SLOT_INSET, SLOT_INSET))
-    save(im, f"{name}.png")
+    save(punch(load(os.path.join(BOOK, src)), SLOT_INSET), f"{name}.png")
 
-print("  interior colours (for the stylesheet's market fills)")
+print("  interior colours")
 for name, src in [("market-card", "UI_TravelBook_Slot01a.png"),
                   ("market-card-on", "UI_TravelBook_Slot01b.png")]:
     c = load(os.path.join(BOOK, src)).getpixel((15, 15))
     print(f"    {name:16s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
 
 # The pointer. Doubled, because a 14x16 cursor is a speck on a modern display
-# and browsers will not scale one for you — whatever the file is, is what is
+# and browsers will not scale one for you - whatever the file is, is what is
 # drawn. Nearest-neighbour, so it stays pixel art rather than becoming a smear.
 print("\ncursor")
 for name, src in [("cursor", "UI_TravelBook_Cursor01c.png"),
                   ("cursor-press", "UI_TravelBook_Cursor01d.png")]:
-    im = load(os.path.join(BOOK, src))
-    save(im.resize((im.width * 2, im.height * 2), Image.NEAREST), f"{name}.png")
+    save(scale(load(os.path.join(BOOK, src)), 2), f"{name}.png")
 
 # ---------------------------------------------------------------------------
 # Icons

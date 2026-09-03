@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
-# fetch-fonts.py - vendor the two webfonts so the game has no third-party
-# origin at all.
+# fetch-fonts.py - vendor the webfonts so the game has no third-party origin
+# at all.
 #
 #   python tools/assets/fetch-fonts.py
 #
@@ -23,7 +23,8 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 SRC = ("https://fonts.googleapis.com/css2"
        "?family=Silkscreen:wght@400;700"
-       "&family=Chakra+Petch:wght@400;500;600;700&display=swap")
+       "&family=Chakra+Petch:wght@400;500;600;700"
+       "&family=Pixelify+Sans:wght@400;500;600;700&display=swap")
 KEEP = ("latin", "latin-ext")
 
 os.makedirs(FONT_DIR, exist_ok=True)

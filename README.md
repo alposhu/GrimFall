@@ -114,10 +114,18 @@ sheet layout are in `img/chr_/SOURCE.txt`. Both also exist as code-drawn
 characters built from the same designs, which is what the game falls back to if
 the artwork cannot be decoded.
 
-**Interface art** — the frames, buttons and bars are *"Tiny RPG — Mana Soul
-GUI"* by **Gabriel "tiopalada" Lima**,
-<https://tiopalada.itch.io/tiny-rpg-mana-soul-gui>, marked CC0 1.0. No credit is
-required; it is credited anyway.
+**Interface art** — the panels, title bars, buttons and slots are *"Free Basic
+Pixel Art UI for RPG"* by **CraftPix**,
+<https://craftpix.net/freebies/free-basic-pixel-art-ui-for-rpg/>, under the
+[CraftPix file licence](https://craftpix.net/file-licenses/): free for
+commercial use, modification allowed, no attribution required — credited anyway.
+The market's wares and the mouse pointer are from *"Complete UI Book Styles
+Pack"* by **Crusenho Agus Hennihuno**, <https://crusenho.itch.io>, licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+> *Changes made*: the frames are cut down to the pieces the game uses, their
+> centres punched out so a panel's fill is one CSS value, and exported at 3×
+> with nearest-neighbour. Full detail in `img/ui/SOURCE.txt`.
 
 **Interface icons** — *"Icons Essential"* by **Crusenho Agus Hennihuno**,
 <https://crusenho.itch.io>, licensed

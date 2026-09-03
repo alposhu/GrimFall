@@ -31,56 +31,69 @@
 [hidden] { display: none !important; }
 
 :root {
-  /* Ground. Darker than the frames so a panel reads as lit from within. */
+  /* Ground — the world behind the menus stays dark; only the interface is
+     parchment. */
   --bg:        #0b0812;
   --bg-2:      #120d1c;
 
-  /* Sampled from img/ui/*.png — these ARE the art's own interiors. */
-  --panel:     #111343;   /* panel.png  — navy, the main window */
-  --panel-2:   #421f59;   /* card.png   — violet, cards and wells */
-  --well:      #0d0a24;   /* a plate behind a panel: depth without a shadow */
+  /* Sampled from img/ui/*.png. These ARE the artist's colours, not values
+     chosen to sit near them. */
+  --panel:     #e5d6a1;   /* parchment: the body of every window */
+  --panel-2:   #d8c48c;   /* a shade down, for wells and rows inside one */
+  --head:      #50a978;   /* the green title bar */
+  --head-lit:  #68c97e;   /* its highlight, and the hover state of a button */
+  --wood:      #603928;
+  --wood-lit:  #cda677;
+  --well:      #b99a63;
 
-  --line:      #6c4a86;
-  --line-2:    #3a2450;
+  --line:      #a8845a;
+  --line-2:    #c9ae7d;
 
-  --ink:       #f4eeff;
-  --ink-2:     #b9a9d2;
-  --ink-3:     #8878a4;
+  /* Type ON PARCHMENT. Near-black on cream is the contrast every guide on game
+     interfaces asks for, and it is the one that survives a phone in daylight —
+     the old theme was pale violet-grey on dark violet, which did not. */
+  --ink:       #2e2016;
+  --ink-2:     #5c4530;
+  --ink-3:     #8a7355;
 
-  --ember:     #ff8a2a;
-  --ember-2:   #ffd75e;
-  --gold-deep: #c9922a;
-  --void:      #b76bff;
-  --void-2:    #7b3ff2;
-  --frost:     #7fd8ff;
-  --leaf:      #7fe05a;
-  --blood:     #ff4d6a;
+  /* Type OVER THE WORLD — the HUD, the title screen, toasts. Nothing is behind
+     these but the game, so they invert. */
+  --over:      #f6ecd2;
+  --over-2:    #cdbb99;
+
+  --ember:     #d74427;   /* the kit's own red   */
+  --ember-2:   #ffcf5e;
+  --gold-deep: #a8722a;
+  --frost:     #37a0df;   /* the kit's own blue  */
+  --leaf:      #44a13b;   /* the kit's own green */
+  --blood:     #d74427;
+  --void:      #8a5bc4;
+  --void-2:    #6b3fa0;
+  /* Links, and anything that behaves like one. */
+  --link:      #e0506b;
+  --link-lit:  #ff7b93;
 
   /* Pixel art has no radii. Kept as tokens so nothing has to be hunted down. */
   --radius:    0px;
   --radius-sm: 0px;
 
-  /* Nine-slice frames. 12 is the authored inset — see img/ui/SOURCE.txt. */
-  --frame-inset: 12;
   --frame-panel:   url('../img/ui/panel.png');
-  --frame-card:    url('../img/ui/card.png');
-  --frame-card-on: url('../img/ui/card-on.png');
+  --frame-head:    url('../img/ui/head.png');
+  --frame-slot:    url('../img/ui/slot.png');
   --frame-bar:     url('../img/ui/bar.png');
-  --frame-header:  url('../img/ui/header.png');
   --btn:      url('../img/ui/button.png');
   --btn-over: url('../img/ui/button-hover.png');
   --btn-down: url('../img/ui/button-down.png');
   --btn-off:  url('../img/ui/button-off.png');
 
-  /* The market's own material. Warm leather and paper against the menus'
-     violet and gold, because the Long Market is the one place in this game
-     that is a PLACE rather than an interface. */
+  /* The market keeps its own material — leather, not parchment. */
   --frame-market:    url('../img/ui/market-card.png');
   --frame-market-on: url('../img/ui/market-card-on.png');
   --market:    #45292a;
   --market-on: #4d2a26;
 
-  --font-display: 'Silkscreen', 'Courier New', monospace;
+  --font-display: 'Pixelify Sans', 'Silkscreen', 'Courier New', monospace;
+  --font-pixel: 'Silkscreen', 'Courier New', monospace;
   --font-body: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --safe-t: env(safe-area-inset-top, 0px);
@@ -92,19 +105,14 @@
 /* ---------------------------------------------------------------------------
    Pixel primitives
    ---------------------------------------------------------------------------
-   Four classes the rest of the file builds on. Anything that needs a frame
-   uses one of these rather than inventing a border, so there is exactly one
-   place to change if the art changes.
+   Everything with a frame uses one of these. `border-image` is the native
+   nine-slice: it cuts the source at `slice`, pins the corners and tiles the
+   edges. The centre is deliberately NOT taken from the image — the art has its
+   middle punched out and the interior is a flat colour here, so nothing tiles
+   a gradient and a panel's fill is one value.
 
-   `border-image` is the native nine-slice: it cuts the source at `slice`,
-   pins the four corners, and tiles the four edges. The centre is deliberately
-   NOT filled from the image (no `fill` keyword) — the art's centres are
-   punched out and the interior is a flat colour here, so nothing tiles a
-   gradient and a panel's fill is one value.
-
-   `border-image-repeat: repeat` and not `stretch`: stretching ornament by a
-   non-integer factor is exactly the half-pixel smearing this interface is
-   trying not to have. */
+   `repeat` and not `stretch`: stretching ornament by a fractional amount is
+   exactly the half-pixel smearing this interface exists to avoid. */
 .frame,
 .panel,
 .card,
@@ -112,44 +120,26 @@
 .boss-card,
 .upgrade-card,
 .help-card,
-.good,
 .door,
 .save-slot,
 .stat-box,
 .opt-row {
   border-style: solid;
-  border-width: 12px;
-  border-image-source: var(--frame-card);
-  border-image-slice: 12;
+  border-width: 24px;
+  border-image-source: var(--frame-panel);
+  border-image-slice: 24;
   border-image-repeat: repeat;
   border-radius: 0;
-  background-color: var(--panel-2);
-  background-clip: padding-box;
-}
-
-/* The main window frame: navy, flourished top and bottom. */
-.panel,
-.frame-panel {
-  border-image-source: var(--frame-panel);
   background-color: var(--panel);
+  background-clip: padding-box;
+  color: var(--ink);
 }
 
-/* Selected / hovered: the same frame, lit gold. */
-/* --- the market's goods ---------------------------------------------------
-   Declared after the frame block above so it wins for `.good`, and only for
-   `.good`: the shop panel itself stays the game's own navy, so the shelf reads
-   as objects sitting inside the interface rather than as a differently themed
-   screen. */
-.good {
-  border-width: 6px;
-  border-image-source: var(--frame-market);
-  border-image-slice: 6;
-  background-color: var(--market);
-}
-.good:hover:not(:disabled), .good:focus-visible {
-  border-image-source: var(--frame-market-on);
-  background-color: var(--market-on);
-  outline: none;
+/* A row inside a panel is a shade down, so a list reads as rows rather than as
+   one flat sheet with lines drawn on it. */
+.card, .hero-card, .boss-card, .upgrade-card, .help-card,
+.save-slot, .stat-box, .opt-row {
+  background-color: var(--panel-2);
 }
 
 .frame-on,
@@ -157,9 +147,116 @@
 .boss-card.selected,
 .card:hover,
 .door:hover,
-.door:focus-visible {
-  border-image-source: var(--frame-card-on);
+.door:focus-visible,
+.save-slot:hover:not(.empty),
+.hero-card:hover:not(.locked) {
+  background-color: #f2e6bd;
+  outline: 2px solid var(--head);
+  outline-offset: -2px;
 }
+
+/* --- the market's wares ----------------------------------------------------
+   Declared after the block above so it wins for `.good`, and only for `.good`:
+   the shop panel itself stays parchment, so the shelf reads as objects sitting
+   inside the interface rather than as a differently themed screen. */
+.good {
+  border-style: solid;
+  border-width: 6px;
+  border-image-source: var(--frame-market);
+  border-image-slice: 6;
+  border-image-repeat: repeat;
+  border-radius: 0;
+  background-color: var(--market);
+  background-clip: padding-box;
+  color: #f2e2cf;
+}
+.good:hover:not(:disabled), .good:focus-visible {
+  border-image-source: var(--frame-market-on);
+  background-color: var(--market-on);
+  outline: none;
+}
+
+/* --- the green title bar --------------------------------------------------- */
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  /* Pulled out to the panel's own 24px frame so the bar meets the woodwork,
+     which is how the kit draws it — a header that stops short reads as a
+     coloured strip lying on the page rather than part of the window. */
+  margin: -24px -24px 18px;
+  padding: 8px 14px;
+  min-height: 46px;
+  background-color: var(--head);
+  border: 0;
+  border-bottom: 3px solid #3f7168;
+  box-shadow: inset 0 3px 0 var(--head-lit);
+}
+.panel-head .panel-title {
+  margin: 0; flex: 1;
+  text-align: left;
+  font: 400 15px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  color: #17301f;
+}
+
+.close-btn {
+  width: 30px; height: 36px;
+  flex: none;
+  padding: 0; border: 0;
+  background: url('../img/ui/close.png') center / 30px 36px no-repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+  justify-self: end;
+}
+.close-btn:hover, .close-btn:focus-visible { filter: brightness(1.25); outline: none; }
+.close-btn:active { transform: translateY(1px); }
+.screen-head .close-btn { grid-column: 3; }
+
+/* ---------------------------------------------------------------------------
+   Type
+   ---------------------------------------------------------------------------
+   Pixel faces must not be antialiased. A smoothed pixel font has grey fringes
+   on every stem, which is the most common way a pixel-art interface ends up
+   looking soft - the art is crisp and the words floating over it are not. */
+.menu-btn, .chip-btn, .buy-btn, .ghost-btn, .panel-title,
+.screen-head h2, .hud, .title-foot, .tagline, h1, h2, h3,
+.good-price, .stat-tag, .save-tag, .level-kicker, .result-kicker {
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* --- text that sits over the WORLD, not on a panel -------------------------
+   The HUD, the title screen and the transient overlays have nothing behind
+   them but the game, so they invert: light on dark, with a hard shadow rather
+   than a glow to hold them off a busy background. */
+.hud, .title-wrap, .toast, .banner, .screen-head h2, .screen-note,
+.market-bar, .boss-name {
+  color: var(--over);
+}
+.tagline, .title-foot, .screen-note { color: var(--over-2); }
+.hud .chip, .hp-text, .boss-name, .toast, .banner-main, .banner-sub {
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
+}
+
+/* --- the title screen's footer --------------------------------------------
+   Pixelify Sans, and its links in the interface's pink-red. They are marked
+   with a border rather than an underline: `text-decoration` on a pixel face
+   lands between the stems and reads as a rendering fault. */
+.title-foot {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+a, .title-foot a, .help a {
+  color: var(--link);
+  text-decoration: none;
+  border-bottom: 2px solid rgba(224, 80, 107, 0.45);
+}
+a:hover, .title-foot a:hover, .help a:hover {
+  color: var(--link-lit);
+  border-bottom-color: var(--link-lit);
+}
+
 
 /* ---------------------------------------------------------------------------
    The pointer
@@ -212,12 +309,9 @@
   cursor: pointer;
   justify-self: end;
 }
-.close-btn:hover, .close-btn:focus-visible {
-  background-image: url('../img/ui/close-hover.png');
-  outline: none;
-}
-.close-btn:active { background-image: url('../img/ui/close-down.png'); }
-.close-btn:disabled { background-image: url('../img/ui/close-off.png'); cursor: not-allowed; }
+.close-btn:hover, .close-btn:focus-visible { filter: brightness(1.3); outline: none; }
+.close-btn:active { transform: translateY(2px); }
+.close-btn:disabled { filter: grayscale(1) brightness(0.7); cursor: not-allowed; }
 
 /* On a `.screen-head` the close sits in the third grid column, which was empty
    on every screen that has no gold pill. */
@@ -399,19 +493,20 @@ html, body {
    glow on top. A flat bar inside a drawn frame is what the reference art does
    and it is legible at a glance, which is the only thing a health bar owes
    anybody. */
+/* A bar is a GROOVE, not a framed box. The nine-slice slot was tried here and
+   is the wrong shape for the job: at 15px slices it needs 18px of border, which
+   on an 18px-tall bar leaves exactly nothing for the fill — every bar in the
+   game rendered empty. The kit's own health plate draws a plain dark channel
+   with a wood edge, and that is what this is. */
 .xp-track, .boss-track, .hp-wrap {
   position: relative;
-  border-style: solid;
-  border-width: 6px 10px;
-  border-image-source: var(--frame-bar);
-  border-image-slice: 6 10;
-  border-image-repeat: repeat;
+  border: 3px solid var(--wood);
   border-radius: 0;
-  background-color: #0a0716;
-  background-clip: padding-box;
+  background-color: #2b1d12;
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
-.xp-track { height: 18px; }
+.xp-track { height: 14px; }
 .xp-fill {
   height: 100%; width: 0%;
   background: var(--void);
@@ -444,7 +539,7 @@ i.dot-kill { background: var(--blood); }
   font-family: var(--font-display); font-size: 12px; color: var(--blood);
   text-shadow: 0 0 12px rgba(255,77,106,0.6); margin-bottom: 3px; letter-spacing: 0.06em;
 }
-.boss-track { height: 20px; }
+.boss-track { height: 18px; }
 .boss-fill {
   height: 100%; width: 100%;
   background: var(--blood);
@@ -464,7 +559,7 @@ i.dot-kill { background: var(--blood); }
 
 .hud-bottom { display: flex; flex-direction: column; gap: 8px; }
 
-.hp-wrap { height: 26px; width: min(340px, 62vw); }
+.hp-wrap { height: 24px; width: min(340px, 62vw); }
 .hp-fill {
   position: absolute; inset: 0; width: 100%;
   background: var(--blood);
@@ -647,22 +742,29 @@ i.dot-kill { background: var(--blood); }
 
    There is no shine sweep, no lift on hover and no shadow. The sprite has four
    states drawn by the artist; using them is the whole interaction. */
+/* A button is SOLID. This is the one thing the first pass got flatly wrong:
+   `border-image` without the `fill` keyword leaves the centre transparent, so
+   every button in the game was a frame with the scene showing through it. The
+   sprite is 56x12 of solid green and none of it was reaching the screen.
+
+   `fill` puts the sprite's own middle back, and the background-color underneath
+   is belt and braces — if the image ever fails to load the button is still a
+   green slab with a readable label rather than a hole. */
 .menu-btn,
 .chip-btn,
 .buy-btn,
 .ghost-btn,
-.door,
-.save-slot,
-.opt-row .toggle {
+.door {
   border-style: solid;
-  border-width: 8px 24px;
+  border-width: 15px 30px;
   border-image-source: var(--btn);
-  border-image-slice: 4 12;
+  border-image-slice: 15 30 fill;
   border-image-repeat: repeat;
   border-radius: 0;
-  background: none;
+  background-color: var(--head);
+  background-clip: padding-box;
   cursor: pointer;
-  color: var(--ink);
+  color: #17301f;
   transition: none;
 }
 .menu-btn:hover, .menu-btn:focus-visible,
@@ -670,60 +772,56 @@ i.dot-kill { background: var(--blood); }
 .buy-btn:hover:not(:disabled), .buy-btn:focus-visible,
 .ghost-btn:hover, .ghost-btn:focus-visible {
   border-image-source: var(--btn-over);
+  background-color: var(--head-lit);
   outline: none;
 }
+/* Pressed drops a pixel and loses the underline, which is what the artist drew
+   the third sprite for: the button has sunk onto the page. */
 .menu-btn:active, .chip-btn:active, .buy-btn:active, .ghost-btn:active {
   border-image-source: var(--btn-down);
+  transform: translateY(1px);
 }
 .menu-btn:disabled, .chip-btn:disabled, .buy-btn:disabled, .ghost-btn:disabled {
   border-image-source: var(--btn-off);
-  color: var(--ink-3);
+  background-color: #6f7b6b;
+  color: #3c443a;
   cursor: not-allowed;
-  /* The artist's "off" frame is a desaturated blue that is LIGHTER than the
-     mauve rest state, so on its own it reads as available rather than dead. */
-  opacity: 0.55;
+  transform: none;
 }
 
 .menu-btn {
   position: relative;
-  padding: 2px 4px;
-  min-height: 44px;
-  font-family: var(--font-display); font-size: 13px; letter-spacing: 0.08em;
+  padding: 0 4px;
+  min-height: 48px;
+  font: 500 16px/1 var(--font-display); letter-spacing: 0.04em;
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .menu-btn span { position: relative; }
 /* The primary action is marked by the gold frame the rest of the interface
    uses for "this one", not by being a different colour of button. */
-.menu-btn.primary {
-  border-image-source: var(--frame-card-on);
-  border-image-slice: 12;
-  border-width: 12px;
-  background-color: var(--panel-2);
-  color: var(--ember-2);
-}
+/* The primary action is the same button, lit. The reference kit marks "this
+   one" by brightness, not by a second frame. */
+.menu-btn.primary { border-image-source: var(--btn-over); }
 .menu-btn.primary:hover, .menu-btn.primary:focus-visible {
-  border-image-source: var(--frame-card-on);
-  background-color: #52276d;
+  border-image-source: var(--btn-over);
+  filter: brightness(1.1);
 }
 .menu-btn.danger { color: #ffb8c4; }
 .menu-btn.wide { width: min(320px, 82vw); }
 
 .chip-btn {
-  padding: 2px 4px; min-height: 36px;
-  font-family: var(--font-body); font-weight: 600; font-size: 13px;
-  color: var(--ink-2);
+  padding: 0 4px; min-height: 40px;
+  font: 500 14px/1 var(--font-display);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 }
 .buy-btn {
-  padding: 2px 4px; min-height: 32px;
-  font-family: var(--font-display); font-size: 11px;
-  color: var(--ember-2);
+  padding: 0 4px; min-height: 38px;
+  font: 500 13px/1 var(--font-display);
   white-space: nowrap;
 }
 .ghost-btn {
-  padding: 2px 4px; min-height: 34px;
-  font-family: var(--font-body); font-weight: 600; font-size: 13px;
-  color: var(--ink-2);
+  padding: 0 4px; min-height: 40px;
+  font: 500 14px/1 var(--font-display);
   justify-self: start;
   display: inline-flex; align-items: center; gap: 6px;
 }
@@ -825,7 +923,7 @@ i.dot-kill { background: var(--blood); }
   padding: 16px; border-radius: var(--radius);
   cursor: pointer; transition: none;
 }
-.boss-card:hover { border-image-source: var(--frame-card-on); }
+.boss-card:hover { outline: 2px solid var(--head); outline-offset: -2px; }
 .boss-card canvas { image-rendering: pixelated; flex-shrink: 0; position: relative; }
 .boss-info { position: relative; min-width: 0; }
 .boss-info .when {
@@ -837,7 +935,7 @@ i.dot-kill { background: var(--blood); }
   letter-spacing: 0.03em; line-height: 1.3;
 }
 .boss-info p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
-.boss-card.final { border-image-source: var(--frame-card-on); }
+.boss-card.final { outline: 2px solid var(--ember); outline-offset: -2px; }
 .boss-card.final h3 { color: var(--ember-2); }
 
 /* ------------------------------------------------------------- upgrade grid */
@@ -1042,7 +1140,7 @@ kbd {
 .card:nth-child(4) { animation-delay: 0.2s; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
 
-.card:hover { border-image-source: var(--frame-card-on); }
+.card:hover { outline: 2px solid var(--head); outline-offset: -2px; }
 .card img { width: 46px; height: 46px; image-rendering: pixelated; }
 .card .rarity {
   font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
@@ -1216,9 +1314,15 @@ kbd {
 .shop-panel { max-width: 760px; width: 100%; }
 .shop-head {
   display: flex; align-items: center; gap: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  margin: -24px -24px 18px;
+  padding: 10px 14px;
+  background-color: var(--head);
+  border-bottom: 3px solid #3f7168;
+  box-shadow: inset 0 3px 0 var(--head-lit);
+  color: #17301f;
 }
+.shop-head h2 { color: #17301f; }
+.shop-head .shop-trade { color: #24503a; }
 .shop-face {
   width: 76px; height: 76px;
   image-rendering: pixelated;
@@ -1228,13 +1332,13 @@ kbd {
      makes an interface look assembled rather than designed. */
   border-style: solid;
   border-width: 8px;
-  border-image-source: var(--frame-card);
-  border-image-slice: 12;
+  border-image-source: var(--frame-slot);
+  border-image-slice: 15;
   border-image-repeat: repeat;
 }
 .shop-who { flex: 1; min-width: 0; }
 .shop-who h2 { margin: 0; font-size: 20px; }
-.shop-trade { margin: 2px 0 0; color: var(--ember-2); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.shop-trade { margin: 2px 0 0; color: var(--ink-2); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
 .shop-purse {
   display: flex; align-items: center; gap: 7px;
   padding: 8px 14px;
@@ -1256,7 +1360,9 @@ kbd {
   display: flex; flex-direction: column; gap: 6px;
   padding: 12px;
   text-align: left;
-  color: var(--ink);
+  /* Light on leather. The panel behind is parchment and takes dark type; these
+     do not, and inheriting `--ink` here made every ware unreadable. */
+  color: #f6ead8;
   font-family: var(--font-body);
   cursor: pointer;
   transition: none;
@@ -1266,7 +1372,7 @@ kbd {
 .good-name { font-weight: 600; font-size: 14px; flex: 1; }
 .good-price { font: 700 13px/1 var(--font-display); color: var(--ember-2); white-space: nowrap; }
 .good-price.cant { color: var(--blood); }
-.good-desc { font-size: 12px; color: #d8c2b4; line-height: 1.45; }
+.good-desc { font-size: 12px; color: #e0cbb8; line-height: 1.45; }
 .good-foot { font-size: 11px; color: #a98a7c; letter-spacing: 0.04em; text-transform: uppercase; }
 .shop-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1305,12 +1411,13 @@ kbd {
 .save-body { flex: 1; min-width: 0; }
 .save-title { font-weight: 600; font-size: 14px; }
 .save-meta { font-size: 12px; color: var(--ink-2); }
-.save-when { font-size: 11px; color: var(--ink-3); }
+.save-when { color: var(--ink-3); }
+.save-when { font-size: 11px; }
 .save-tag {
-  font: 400 9px/1 var(--font-display);
-  padding: 4px 7px; border-radius: 0;
-  background: rgba(255, 215, 94, 0.14);
-  color: var(--ember-2);
+  font: 500 11px/1 var(--font-display);
+  padding: 4px 7px;
+  background: var(--head);
+  color: #17301f;
   letter-spacing: 0.06em;
 }
 .save-del {
