@@ -38,6 +38,8 @@ PACKS = os.environ.get(
 )
 TINY = os.path.join(PACKS, "tinyRPG_manaSoulGUI_v_1_0")
 ICONS = os.path.join(PACKS, "Icons_Essential", "Icons_Essential", "v1.2", "Icons")
+BOOK = os.path.join(PACKS, "Complete_UI_Book_Styles_Pack_Free",
+                    "Complete_UI_Book_Styles_Pack_Free_v1.0", "01_TravelBookLite", "Sprites")
 
 os.makedirs(OUT, exist_ok=True)
 
@@ -115,6 +117,44 @@ for i, suffix in enumerate(BUTTON_STATES):
 print("\nbars")
 save(load(os.path.join(TINY, "20250421barA-Sheet.png")), "bar.png")
 save(load(os.path.join(TINY, "20250420manaSoulHeaderB-Sheet.png")), "header.png")
+
+# ---------------------------------------------------------------------------
+# The market, and the pointer
+# ---------------------------------------------------------------------------
+# These come from a different pack on purpose. The Travel Book set is warm
+# leather and paper where the Mana Soul set is violet and gold, and the Long
+# Market is the one place in this game that is a PLACE rather than an interface
+# — a square with stalls and traders in it. Giving its goods a different
+# material from the menus says that without a word of explanation.
+#
+# Slots are 30x30 nine-slices; six is a comfortable inset, well past the ~3px
+# border, so the corner is whole and the tiled band is flat colour that the CSS
+# fill matches exactly.
+SLOT_INSET = 6
+
+print("\nmarket")
+for name, src in [("market-card", "UI_TravelBook_Slot01a.png"),
+                  ("market-card-on", "UI_TravelBook_Slot01b.png")]:
+    im = load(os.path.join(BOOK, src))
+    w, h = im.size
+    im.paste(Image.new("RGBA", (w - SLOT_INSET * 2, h - SLOT_INSET * 2), (0, 0, 0, 0)),
+             (SLOT_INSET, SLOT_INSET))
+    save(im, f"{name}.png")
+
+print("  interior colours (for the stylesheet's market fills)")
+for name, src in [("market-card", "UI_TravelBook_Slot01a.png"),
+                  ("market-card-on", "UI_TravelBook_Slot01b.png")]:
+    c = load(os.path.join(BOOK, src)).getpixel((15, 15))
+    print(f"    {name:16s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
+
+# The pointer. Doubled, because a 14x16 cursor is a speck on a modern display
+# and browsers will not scale one for you — whatever the file is, is what is
+# drawn. Nearest-neighbour, so it stays pixel art rather than becoming a smear.
+print("\ncursor")
+for name, src in [("cursor", "UI_TravelBook_Cursor01c.png"),
+                  ("cursor-press", "UI_TravelBook_Cursor01d.png")]:
+    im = load(os.path.join(BOOK, src))
+    save(im.resize((im.width * 2, im.height * 2), Image.NEAREST), f"{name}.png")
 
 # ---------------------------------------------------------------------------
 # Icons

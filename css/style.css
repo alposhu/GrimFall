@@ -72,6 +72,14 @@
   --btn-down: url('../img/ui/button-down.png');
   --btn-off:  url('../img/ui/button-off.png');
 
+  /* The market's own material. Warm leather and paper against the menus'
+     violet and gold, because the Long Market is the one place in this game
+     that is a PLACE rather than an interface. */
+  --frame-market:    url('../img/ui/market-card.png');
+  --frame-market-on: url('../img/ui/market-card-on.png');
+  --market:    #45292a;
+  --market-on: #4d2a26;
+
   --font-display: 'Silkscreen', 'Courier New', monospace;
   --font-body: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
@@ -127,14 +135,52 @@
 }
 
 /* Selected / hovered: the same frame, lit gold. */
+/* --- the market's goods ---------------------------------------------------
+   Declared after the frame block above so it wins for `.good`, and only for
+   `.good`: the shop panel itself stays the game's own navy, so the shelf reads
+   as objects sitting inside the interface rather than as a differently themed
+   screen. */
+.good {
+  border-width: 6px;
+  border-image-source: var(--frame-market);
+  border-image-slice: 6;
+  background-color: var(--market);
+}
+.good:hover:not(:disabled), .good:focus-visible {
+  border-image-source: var(--frame-market-on);
+  background-color: var(--market-on);
+  outline: none;
+}
+
 .frame-on,
 .hero-card.selected,
 .boss-card.selected,
 .card:hover,
-.good:hover:not(:disabled),
 .door:hover,
 .door:focus-visible {
   border-image-source: var(--frame-card-on);
+}
+
+/* ---------------------------------------------------------------------------
+   The pointer
+   ---------------------------------------------------------------------------
+   A drawn cursor, doubled to 28x32 — browsers draw a cursor file at its own
+   size and will not scale one, so a 14x16 original is a speck on a modern
+   display. The hotspot is the arrow's tip at 2,2 (also doubled), and `auto` is
+   the required fallback: without it a browser that rejects the image has no
+   cursor at all.
+
+   Touch devices have no pointer to replace, and a coarse pointer means a
+   finger, so the whole thing is scoped to devices that actually have one. */
+@media (hover: hover) and (pointer: fine) {
+  body { cursor: url('../img/ui/cursor.png') 2 2, auto; }
+  button, .card, .good, .door, .hero-card, .boss-card, .save-slot, .slot,
+  .belt-slot, .toggle, a, [data-action], input[type=range] {
+    cursor: url('../img/ui/cursor-press.png') 2 2, pointer;
+  }
+  button:disabled, .good:disabled, .card:disabled {
+    cursor: url('../img/ui/cursor.png') 2 2, not-allowed;
+  }
 }
 
 /* Every interface image is art, and art is drawn at whole pixels. */
@@ -1170,22 +1216,18 @@ kbd {
   display: flex; flex-direction: column; gap: 6px;
   padding: 12px;
   text-align: left;
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
   color: var(--ink);
   font-family: var(--font-body);
   cursor: pointer;
-  transition: border-color 0.12s, transform 0.08s;
+  transition: none;
 }
-.good:hover:not(:disabled) { border-color: rgba(255, 215, 94, 0.45); transform: translateY(-1px); }
-.good:active:not(:disabled) { transform: none; }
-.good:disabled { opacity: 0.42; cursor: not-allowed; }
+.good:disabled { opacity: 0.42; }
 .good-top { display: flex; align-items: baseline; gap: 8px; }
 .good-name { font-weight: 600; font-size: 14px; flex: 1; }
 .good-price { font: 700 13px/1 var(--font-display); color: var(--ember-2); white-space: nowrap; }
 .good-price.cant { color: var(--blood); }
-.good-desc { font-size: 12px; color: var(--ink-2); line-height: 1.45; }
-.good-foot { font-size: 11px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.good-desc { font-size: 12px; color: #d8c2b4; line-height: 1.45; }
+.good-foot { font-size: 11px; color: #a98a7c; letter-spacing: 0.04em; text-transform: uppercase; }
 .shop-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-top: 16px;
