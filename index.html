@@ -146,6 +146,7 @@
       <header class="screen-head">
         <button class="ghost-btn" data-action="back">‹ Back</button>
         <h2>Boss Arena</h2>
+        <button class="close-btn" data-action="back" aria-label="Close"></button>
         <div class="seg" id="arenaDiffSeg"></div>
       </header>
       <p class="screen-note">Fight any boss on demand, with a loadout matched to the point in a run
@@ -172,6 +173,7 @@
       <header class="screen-head">
         <button class="ghost-btn" data-action="back">‹ Back</button>
         <h2>Options</h2>
+        <button class="close-btn" data-action="back" aria-label="Close"></button>
         <div></div>
       </header>
       <div class="options" id="optionsBody"></div>
@@ -182,6 +184,7 @@
       <header class="screen-head">
         <button class="ghost-btn" data-action="back">‹ Back</button>
         <h2>How to Play</h2>
+        <button class="close-btn" data-action="back" aria-label="Close"></button>
         <div></div>
       </header>
       <div class="help">
@@ -275,7 +278,8 @@
     <!-- Pause -->
     <section id="pauseScreen" class="screen">
       <div class="panel">
-        <h2>Paused</h2>
+        <header class="panel-head"><h2 class="panel-title">Paused</h2>
+          <button class="close-btn" id="pauseCloseBtn" aria-label="Resume"></button></header>
         <div class="run-stats" id="pauseStats"></div>
         <div class="panel-actions">
           <button class="menu-btn primary" id="resumeBtn"><i class="ui-icon i-play" aria-hidden="true"></i><span>Resume</span></button>
@@ -342,7 +346,8 @@
     <!-- Saved runs -->
     <section id="savesScreen" class="screen">
       <div class="panel">
-        <h2 class="panel-title" id="savesTitle">Saved Runs</h2>
+        <header class="panel-head"><h2 class="panel-title" id="savesTitle">Saved Runs</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
         <p class="panel-sub" id="savesSub">The market writes to Auto every time you walk in.</p>
         <div class="slot-list" id="slotList"></div>
         <div class="saves-transfer">

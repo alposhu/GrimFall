@@ -110,6 +110,19 @@ for i, suffix in enumerate(BUTTON_STATES):
     save(strip.crop((i * bw, 0, (i + 1) * bw, strip.height)), f"button{suffix}.png")
 
 # ---------------------------------------------------------------------------
+# The close button
+# ---------------------------------------------------------------------------
+# A 128x32 strip of four 32x32 states, same order as the buttons. Every panel
+# in the game gets one, which is the single most recognisable convention in
+# this genre's interfaces and, more usefully, means no screen is ever a room
+# without a door.
+print("\nclose button")
+strip = load(os.path.join(TINY, "20250425closeButton-Sheet.png"))
+cw = strip.width // 4
+for i, suffix in enumerate(BUTTON_STATES):
+    save(strip.crop((i * cw, 0, (i + 1) * cw, strip.height)), f"close{suffix}.png")
+
+# ---------------------------------------------------------------------------
 # Bars
 # ---------------------------------------------------------------------------
 # The empty track for health, experience and boss bars. The fill behind it is a

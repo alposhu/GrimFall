@@ -293,6 +293,24 @@ console.log('vendor screen     ok');
       `${id} does not centre its panel vertically`);
   }
   console.log('screen centring   ok (5 single-panel screens, all centred)');
+
+  // No screen should be a room without a door. Two of these had no visible
+  // exit at all and relied on the player guessing at Escape — which a phone
+  // does not have. Every screen must offer a way out that can be clicked.
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const sections = [...html.matchAll(/<section id="(\w+)"[^>]*class="screen[^"]*"[^>]*>([\s\S]*?)<\/section>/g)];
+  check(sections.length >= 10, `only ${sections.length} screens found in index.html`);
+  // The boot screen is not interactive and the portal is a deliberate forced
+  // choice: both of its doors ARE the way out.
+  const NO_EXIT_NEEDED = new Set(['bootScreen', 'titleScreen', 'portalScreen']);
+  for (const [, id, body] of sections) {
+    if (NO_EXIT_NEEDED.has(id)) continue;
+    // `skipBtn` counts: the level-up draft has no back button because taking
+    // nothing is itself one of the choices, and it is a real, clickable exit.
+    const out = /class="close-btn|data-action="back"|data-action="continue"|id="resumeBtn"|id="shopLeaveBtn"|id="toTitleBtn"|id="skipBtn"/.test(body);
+    check(out, `${id} offers no visible way out`);
+  }
+  console.log(`exits             ok (${sections.length} screens, every one has a way out)`);
 }
 
 // --- the flask belt -------------------------------------------------------

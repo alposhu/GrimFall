@@ -61,7 +61,7 @@ export function initUI(callbacks) {
     'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen',
     'hud', 'xpFill', 'hudLevel', 'hudTime', 'hudGold', 'hudKills', 'hpFill', 'hpText',
     'slots', 'bossBar', 'bossName', 'bossFill', 'toast', 'banner', 'bannerMain', 'bannerSub',
-    'pauseBtn', 'resumeBtn', 'abandonBtn', 'againBtn', 'toTitleBtn',
+    'pauseBtn', 'resumeBtn', 'pauseCloseBtn', 'abandonBtn', 'againBtn', 'toTitleBtn',
     'heroGrid', 'heroGold', 'sanctGold', 'titleGold', 'titleBest', 'diffSeg',
     'startRunBtn', 'upgradeGrid', 'optionsBody', 'cards', 'levelNum', 'levelTitle',
     'rerollBtn', 'banishBtn', 'skipBtn', 'rerollCount', 'banishCount',
@@ -147,6 +147,8 @@ From ${when}
     reader.readAsText(file);
   });
   el.shopLeaveBtn.addEventListener('click', () => { closeShop(); hooks.onLeaveShop?.(); });
+  // The pause panel's X is its Resume button wearing different clothes.
+  el.pauseCloseBtn?.addEventListener('click', () => hooks.onResume?.());
 
   // The portal's two doors. Both close the screen first, so whichever the
   // caller does next is not racing an open overlay.

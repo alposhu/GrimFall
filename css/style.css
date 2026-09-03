@@ -183,6 +183,46 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Panel headers, and the way out
+   ---------------------------------------------------------------------------
+   Every panel gets a titled bar with a close button on it. It is the most
+   recognisable convention this genre has, and it earns its place for a plainer
+   reason than familiarity: no screen should be a room without a door. Two of
+   these screens previously had no visible exit at all and relied on the player
+   guessing at Escape.
+
+   The button is a fixed 32x32 diamond, so it is a `background-image` with four
+   states rather than a nine-slice — there is nothing to stretch. */
+.panel-head {
+  display: flex; align-items: center; gap: 12px;
+  margin: -4px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--line-2);
+}
+.panel-head .panel-title { margin: 0; flex: 1; text-align: left; }
+
+.close-btn {
+  width: 32px; height: 32px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: url('../img/ui/close.png') center / 32px 32px no-repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+  justify-self: end;
+}
+.close-btn:hover, .close-btn:focus-visible {
+  background-image: url('../img/ui/close-hover.png');
+  outline: none;
+}
+.close-btn:active { background-image: url('../img/ui/close-down.png'); }
+.close-btn:disabled { background-image: url('../img/ui/close-off.png'); cursor: not-allowed; }
+
+/* On a `.screen-head` the close sits in the third grid column, which was empty
+   on every screen that has no gold pill. */
+.screen-head .close-btn { grid-column: 3; }
+
 /* Every interface image is art, and art is drawn at whole pixels. */
 img,
 .ui-icon,
