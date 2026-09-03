@@ -114,6 +114,26 @@ sheet layout are in `img/chr_/SOURCE.txt`. Both also exist as code-drawn
 characters built from the same designs, which is what the game falls back to if
 the artwork cannot be decoded.
 
+**Interface art** — the frames, buttons and bars are *"Tiny RPG — Mana Soul
+GUI"* by **Gabriel "tiopalada" Lima**,
+<https://tiopalada.itch.io/tiny-rpg-mana-soul-gui>, marked CC0 1.0. No credit is
+required; it is credited anyway.
+
+**Interface icons** — *"Icons Essential"* by **Crusenho Agus Hennihuno**,
+<https://crusenho.itch.io>, licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+> *Changes made*, as CC BY 4.0 requires stating: thirty-two of the pack's eighty
+> icons were selected and packed into a single 128×64 atlas. The artwork itself
+> is unmodified — no recolouring, no rescaling. Full terms in `img/ui/SOURCE.txt`.
+
+**The wordmark** — set in *"{PixelFlag}"* by **NAL**, built with FontStruct,
+<http://fontstruct.com/fontstructions/show/578475>, licensed
+[CC BY 3.0](http://creativecommons.org/licenses/by/3.0/). The logo, both app
+icons and both repository banners are rendered from it by
+`tools/assets/build-logo.py`; the font file itself is not shipped, only its
+output. See `img/SOURCE.txt`.
+
 **Budgie familiars** — the four birds come from the *"Budgie / Parakeet Birds
 Pixel Asset Pack"* by **Pop Shop Packs**,
 <https://pop-shop-packs.itch.io/budgie-parakeet-birds-pixel-asset-pack>. The pack

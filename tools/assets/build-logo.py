@@ -1,170 +1,194 @@
 # ---------------------------------------------------------------------------
-# build-logo.py - turn the logo artwork into the files the game ships.
+# build-logo.py - draw the Grimfall wordmark, and everything cut from it.
 #
-#   python tools/assets/build-logo.py                 rebuild from art-source/
-#   python tools/assets/build-logo.py img/logo.png    adopt a new drawing first
-#   python tools/assets/build-logo.py new.png --lift  ...and invert its ink
+#   python tools/assets/build-logo.py
 #
-# The master lives in art-source/logo.png, which is not shipped. Everything in
-# img/ is generated from it, so dropping a new drawing in and re-running this is
-# the whole workflow.
+# Run offline. Writes img/logo.png, img/logo-small.png, the two app icons and
+# the two repository images.
 #
-# TWO THINGS CAN NEED DOING, and only one of them is automatic.
+# The mark is TYPE, not a picture. It is set in "{PixelFlag}" by NAL, a
+# FontStruct pixel face whose characteristic is a rule running above and below
+# the word - the word arrives already looking like a banner, which is why it can
+# carry a title screen without anything drawn around it.
 #
-#   The plate.  If the artwork arrives on an opaque background it is keyed out
-#               by flood-filling inward from the border, not by thresholding
-#               brightness - a threshold punches holes through light parts of
-#               the artwork itself. If it already has an alpha cutout, it is
-#               left alone. This is detected and needs no flag.
+# Everything here is pixel-exact on purpose:
 #
-#   The ink.    Artwork drawn for print is dark ink on white, and dark ink is
-#               invisible on this game's near-black interface, so it has to be
-#               inverted to bone. Artwork drawn for a dark interface is often
-#               *also* mostly dark - its legibility comes from specular edges
-#               rather than from overall brightness - and inverting that ruins
-#               it. No measurement separates the two reliably: the second logo
-#               this game had was darker than the first by every percentile and
-#               read better. So this is `--lift`, off by default, and the script
-#               writes art-source/logo-preview.png showing the result on the
-#               real interface colour so the choice can be checked by eye.
+#   - the face is rendered at 16px, the size its author specifies for pixel
+#     use, and then upscaled by a whole number with nearest-neighbour. Rendering
+#     large and letting the rasteriser hint it would produce soft, uneven stems,
+#     which is the one thing a pixel logo cannot have.
+#   - the outline is a dilation of the glyph mask by whole pixels at the SOURCE
+#     scale, so it stays exactly one pixel thick after upscaling instead of
+#     becoming one-and-a-bit.
+#
+# There is no glow, no bevel and no gradient. The face has a strong silhouette;
+# lighting effects on top of pixel type are what make a logo look generated.
 # ---------------------------------------------------------------------------
 import os
-import shutil
 import sys
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
-HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-ART = os.path.join(HERE, "art-source")
-IMG = os.path.join(HERE, "img")
-MASTER = os.path.join(ART, "logo.png")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+IMG = os.path.join(ROOT, "img")
+GH = os.path.join(ROOT, ".github")
 
-BONE = (222, 214, 196)      # what near-black ink becomes when lifted
-PLATE_TOL = 26              # how far from the border colour still counts as plate
-UI_BG = (11, 8, 18)         # --bg in css/style.css; what it is judged against
+FONT = os.environ.get(
+    "GRIMFALL_LOGO_FONT",
+    r"C:\Users\alper\AppData\Local\Temp\claude\c--Users-alper-Documents-ThY-GAme"
+    r"\23adc581-ca73-4acd-ada0-e08e6e89e55d\scratchpad\ui\pixelflag\{PixelFlag}.ttf",
+)
+BASE = 16                      # the size the font's author specifies for pixel use
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
-lift = "--lift" in sys.argv
+# Grimfall's palette, so the mark and the interface are the same two colours.
+GOLD = (255, 215, 94)
+GOLD_DEEP = (201, 146, 42)
+INK = (13, 10, 20)
+VOID = (11, 8, 18)
 
-os.makedirs(ART, exist_ok=True)
-
-# --- adopt a new drawing ---------------------------------------------------
-if args:
-    src = os.path.abspath(args[0])
-    if os.path.abspath(MASTER) != src:
-        Image.open(src)                       # fail early if it is not an image
-        shutil.copyfile(src, MASTER)
-        print(f"  adopted          {os.path.relpath(src, HERE)} -> art-source/logo.png")
-
-img = Image.open(MASTER).convert("RGBA")
-w, h = img.size
-print(f"  source           {w}x{h}")
-
-# --- the plate -------------------------------------------------------------
-alpha = img.getchannel("A")
-clear = sum(1 for v in alpha.getdata() if v < 8) / (w * h)
-
-if clear > 0.02:
-    print(f"  plate            already cut out ({clear * 100:.0f}% transparent)")
-else:
-    flat = img.convert("RGB")
-    MARK = (255, 0, 255)
-    for x in range(0, w, 3):
-        for y in (0, h - 1):
-            if flat.getpixel((x, y)) != MARK:
-                ImageDraw.floodfill(flat, (x, y), MARK, thresh=PLATE_TOL)
-    for y in range(0, h, 3):
-        for x in (0, w - 1):
-            if flat.getpixel((x, y)) != MARK:
-                ImageDraw.floodfill(flat, (x, y), MARK, thresh=PLATE_TOL)
-
-    ip, fp = img.load(), flat.load()
-    cut = 0
-    for y in range(h):
-        for x in range(w):
-            if fp[x, y] == MARK:
-                ip[x, y] = (0, 0, 0, 0)
-                cut += 1
-    # Soften the cut edge by a pixel so serifs do not look chewed.
-    img.putalpha(img.getchannel("A").filter(ImageFilter.GaussianBlur(0.6)))
-    print(f"  plate            flood-filled away ({cut * 100 // (w * h)}% of the image)")
-
-# --- the ink ---------------------------------------------------------------
-if lift:
-    ip = img.load()
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = ip[x, y]
-            if a == 0:
-                continue
-            mx, mn = max(r, g, b), min(r, g, b)
-            sat = (mx - mn) / 255.0
-            lum = (r * 299 + g * 587 + b * 114) / 1000.0
-            if sat < 0.16:
-                # Grey ink: invert its darkness into bone, keeping the shading.
-                k = 1.0 - min(1.0, lum / 190.0)
-                t = 0.35 + 0.65 * k
-                ip[x, y] = (int(r + (BONE[0] - r) * t),
-                            int(g + (BONE[1] - g) * t),
-                            int(b + (BONE[2] - b) * t), a)
-            elif lum < 110:
-                # Coloured but dark: brighten without touching the hue.
-                f = 110.0 / max(1.0, lum)
-                ip[x, y] = (min(255, int(r * f)), min(255, int(g * f)),
-                            min(255, int(b * f)), a)
-    print("  ink              lifted to bone (--lift)")
-else:
-    print("  ink              left as drawn (pass --lift if it is dark on white)")
-
-# --- trim, scale, write ----------------------------------------------------
-img = img.crop(img.getbbox())
-print(f"  trimmed to       {img.width}x{img.height}")
+WORD = "GRIMFALL"
 
 
-def fit(im, width):
-    return im.resize((width, max(1, round(im.height * width / im.width))), Image.LANCZOS)
+def face(size=BASE):
+    if not os.path.exists(FONT):
+        sys.exit(
+            f"missing font: {FONT}\n\n"
+            "Point GRIMFALL_LOGO_FONT at {PixelFlag}.ttf. See img/SOURCE.txt for\n"
+            "where it comes from and its licence."
+        )
+    return ImageFont.truetype(FONT, size)
 
 
-def write(im, name, where=IMG):
-    p = os.path.join(where, name)
-    im.save(p, optimize=True)
-    print(f"  {name:20s} {im.width}x{im.height}  {os.path.getsize(p) // 1024}kb")
-    return p
+def draw_word(text, size=BASE):
+    """The bare glyphs, tight-cropped, as a white-on-transparent mask."""
+    f = face(size)
+    probe = Image.new("L", (8, 8))
+    box = ImageDraw.Draw(probe).textbbox((0, 0), text, font=f)
+    pad = 4
+    w = box[2] - box[0] + pad * 2
+    h = box[3] - box[1] + pad * 2
+    m = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(m).text((pad - box[0], pad - box[1]), text, font=f, fill=255)
+    return m.crop(m.getbbox())
 
 
-write(fit(img, 900), "logo.png")
-write(fit(img, 420), "logo-small.png")
+def grow(mask, px):
+    """Dilate a mask by `px` whole pixels — the outline, at source scale."""
+    out = mask.copy()
+    for _ in range(px):
+        w, h = out.size
+        bigger = Image.new("L", (w + 2, h + 2), 0)
+        for dx, dy in ((0, 1), (2, 1), (1, 0), (1, 2), (1, 1)):
+            bigger.paste(out, (dx, dy), out)
+        out = bigger
+    return out
 
-# App icons get the EMBLEM, not the lockup. At 192px the whole logo renders the
-# wordmark as an illegible smear, and an icon has one job: be recognised at the
-# size of a fingernail. These fractions frame the crescent, the sword and both
-# swirls, and stop above the letters - they are tied to this artwork's layout,
-# so a logo with a different arrangement needs them looked at again. The proof
-# below is there to make that obvious rather than subtle.
-MARK_BOX = (0.27, 0.00, 0.73, 0.56)     # left, top, right, bottom, as fractions
 
-lw, lh = img.size
-mark = img.crop((int(lw * MARK_BOX[0]), int(lh * MARK_BOX[1]),
-                 int(lw * MARK_BOX[2]), int(lh * MARK_BOX[3])))
-mark = mark.crop(mark.getbbox())
-print(f"  emblem           {mark.width}x{mark.height} (for the app icons)")
+def wordmark(text=WORD, scale=6):
+    """
+    The mark: gold glyphs on a one-pixel ink outline.
 
-for size in (192, 512):
-    icon = Image.new("RGBA", (size, size), UI_BG + (255,))
-    k = min(size * 0.9 / mark.width, size * 0.9 / mark.height)
-    art = mark.resize((max(1, round(mark.width * k)), max(1, round(mark.height * k))),
-                      Image.LANCZOS)
-    icon.alpha_composite(art, ((size - art.width) // 2, (size - art.height) // 2))
-    write(icon, f"icon-{size}.png")
+    There is no drop shadow. There was, and it was invisible - a near-black
+    offset against a near-black page does nothing but add weight to the file.
+    The outline is what the mark actually needs, and it earns its place: the
+    intro draws this over a field of moving embers, where gold on gold would
+    otherwise dissolve.
 
-# --- the proof -------------------------------------------------------------
-# On the real interface colour, at the real title-screen size. If the wordmark
-# is hard to read here it will be hard to read in the game.
-shown = fit(img, 440)
-proof = Image.new("RGBA", (shown.width + 140 + 192, shown.height + 120), UI_BG + (255,))
-proof.alpha_composite(shown, (60, 60))
-# The 192px icon beside it, at its real size, so both decisions are checked in
-# one look: is the wordmark readable, and is the mark recognisable that small.
-proof.alpha_composite(Image.open(os.path.join(IMG, "icon-192.png")).convert("RGBA"),
-                      (shown.width + 100, 60))
-proof.convert("RGB").save(os.path.join(ART, "logo-preview.png"))
-print("\n  art-source/logo-preview.png  <- title screen size, and the app icon")
+    Assembled at source scale and upscaled once at the end, so every edge lands
+    on a whole pixel.
+    """
+    glyphs = draw_word(text)
+    outline = grow(glyphs, 1)
+    art = Image.new("RGBA", outline.size, (0, 0, 0, 0))
+    art.paste(Image.new("RGBA", outline.size, INK + (255,)), (0, 0), outline)
+    art.paste(Image.new("RGBA", glyphs.size, GOLD + (255,)), (1, 1), glyphs)
+    return art.resize((art.width * scale, art.height * scale), Image.NEAREST)
+
+
+def stacked_mark(scale, box):
+    """
+    A square mark for the app icon. A wide word cannot be an icon, so it is set
+    on two lines and framed - which is also the only place the interface's own
+    frame art appears outside the interface.
+    """
+    top = draw_word("GRIM")
+    bot = draw_word("FALL")
+    gap = 3
+    w = max(top.width, bot.width)
+    h = top.height + gap + bot.height
+    both = Image.new("L", (w, h), 0)
+    both.paste(top, ((w - top.width) // 2, 0))
+    both.paste(bot, ((w - bot.width) // 2, top.height + gap))
+
+    outline = grow(both, 1)
+    art = Image.new("RGBA", outline.size, (0, 0, 0, 0))
+    art.paste(Image.new("RGBA", outline.size, INK + (255,)), (0, 0), outline)
+    art.paste(Image.new("RGBA", both.size, GOLD + (255,)), (1, 1), both)
+    art = art.resize((art.width * scale, art.height * scale), Image.NEAREST)
+
+    icon = Image.new("RGBA", (box, box), VOID + (255,))
+    # A plain double rule rather than the interface's filigree: at 192px the
+    # filigree is one pixel wide and reads as noise.
+    d = ImageDraw.Draw(icon)
+    edge = max(2, box // 32)
+    d.rectangle([edge, edge, box - edge - 1, box - edge - 1], outline=GOLD_DEEP, width=max(1, box // 64))
+    d.rectangle([edge * 2, edge * 2, box - edge * 2 - 1, box - edge * 2 - 1],
+                outline=GOLD, width=max(1, box // 96))
+
+    inner = box - edge * 5
+    if art.width > inner or art.height > inner:
+        k = min(inner / art.width, inner / art.height)
+        art = art.resize((max(1, int(art.width * k)), max(1, int(art.height * k))), Image.NEAREST)
+    icon.paste(art, ((box - art.width) // 2, (box - art.height) // 2), art)
+    return icon
+
+
+def banner(width, height, mark, tag=None):
+    """A wide plate for the repository and the store: the mark, centred, on void."""
+    bg = Image.new("RGB", (width, height), VOID)
+    d = ImageDraw.Draw(bg)
+    rule = max(1, height // 120)
+    d.rectangle([0, 0, width - 1, rule - 1], fill=GOLD_DEEP)
+    d.rectangle([0, height - rule, width - 1, height - 1], fill=GOLD_DEEP)
+
+    k = min((width * 0.74) / mark.width, (height * 0.5) / mark.height)
+    m = mark.resize((max(1, int(mark.width * k)), max(1, int(mark.height * k))), Image.NEAREST)
+    y = (height - m.height) // 2 - (height // 14 if tag else 0)
+    bg.paste(m, ((width - m.width) // 2, y), m)
+
+    if tag:
+        # Set at the face's own pixel size and upscaled by a whole number, for
+        # the same reason the mark is: asked for 15px directly, this face hints
+        # into an uneven mush.
+        t = draw_word(tag)
+        k = max(1, int(width * 0.42 / max(1, t.width)))
+        t = t.resize((t.width * k, t.height * k), Image.NEAREST)
+        plate = Image.new("RGBA", t.size, (185, 176, 207, 255))
+        bg.paste(plate, ((width - t.width) // 2, y + m.height + height // 14), t)
+    return bg
+
+
+def save(img, path, **kw):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path, **kw)
+    print(f"  {os.path.relpath(path, ROOT).replace(os.sep, '/'):32s} "
+          f"{img.width:>4}x{img.height:<4} {os.path.getsize(path) // 1024:>4}kb")
+
+
+print("wordmark")
+mark = wordmark(scale=6)
+save(mark, os.path.join(IMG, "logo.png"))
+save(wordmark(scale=3), os.path.join(IMG, "logo-small.png"))
+
+print("\napp icons")
+save(stacked_mark(scale=4, box=192), os.path.join(IMG, "icon-192.png"))
+save(stacked_mark(scale=10, box=512), os.path.join(IMG, "icon-512.png"))
+
+print("\nrepository")
+save(banner(1280, 400, mark, "Survive twenty minutes"),
+     os.path.join(GH, "banner.jpg"), quality=92, optimize=True)
+save(banner(1280, 640, mark, "A browser roguelite by Alperen Karabiyik"),
+     os.path.join(GH, "social-preview.jpg"), quality=92, optimize=True)
+
+print("\nDone. The wordmark is type, not a drawing: re-run this after any change")
+print("to the face or the palette rather than editing the PNGs.")

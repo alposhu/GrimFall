@@ -1,0 +1,56 @@
+Interface art
+=============
+
+Everything in this folder is cut from two free asset packs by
+`tools/assets/build-ui-art.py`. Only the pieces the interface actually uses are
+copied; nothing is tinted.
+
+FRAMES, BUTTONS AND BARS
+  "Tiny RPG - Mana Soul GUI" by Gabriel "tiopalada" Lima
+  https://tiopalada.itch.io/tiny-rpg-mana-soul-gui
+  Marked CC0 1.0 (public domain). No attribution is required; it is credited
+  in-game and in README.md anyway, which is how this project treats every asset
+  whose author asked for nothing.
+
+  panel.png / card.png / card-on.png are 96x96 nine-slices with their centres
+  punched out. The stylesheet slices them at 12, which was measured, not
+  guessed: at twelve the corner flourish is whole and the edge ornament tiles
+  seamlessly, and past about sixteen the source's own interior colour bleeds
+  into the border strip and reads as a seam. The interior is a flat CSS
+  background instead of being baked in, so a panel's fill is one value in the
+  stylesheet and nothing tiles a gradient.
+
+  button*.png are the four states of one 384x22 strip - rest, hover, pressed,
+  disabled - split into four files because `border-image-source` takes one
+  image.
+
+ICONS
+  "Icons Essential" by Crusenho Agus Hennihuno
+  https://crusenho.itch.io
+  Licensed CC BY 4.0 - https://creativecommons.org/licenses/by/4.0/
+  Attribution is a condition of this one, not a courtesy. It is credited
+  in-game, in README.md and in the shipped CREDITS.txt.
+
+  Changes made, as CC BY 4.0 requires stating: thirty-two of the pack's eighty
+  icons were selected and packed into a single 128x64 atlas, eight to a row.
+  The artwork itself is unmodified - no recolouring, no rescaling.
+
+  THE ORDER IN icons.png IS AN API. css/style.css addresses each glyph by
+  background-position, so appending is safe and inserting renumbers everything
+  after it. The order is printed by the build script.
+
+TWO PACKS THAT WERE LOOKED AT AND NOT USED
+  "Complete UI Essential Pack" and "Complete UI Book Styles Pack", both by
+  Crusenho and both CC BY 4.0. Good art, wrong game: the Flat theme is bright
+  cream, blue and orange, and the Book theme is parchment. Grimfall is violet
+  and gold on near-black, and re-tinting a whole interface pack to fit would
+  have produced something muddier than the Mana Soul set, which already arrives
+  in this game's palette.
+
+IF YOU NEED TO RE-RUN THIS
+  The source packs are not in the repository - see the note in
+  art-source/budgies/SOURCE.txt about why third-party art is linked rather than
+  copied here. Download them from the links above, unpack them into one folder,
+  and point the build script at it:
+
+    GRIMFALL_UI_PACKS=/path/to/packs python tools/assets/build-ui-art.py

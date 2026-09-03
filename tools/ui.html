@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimfall — interface</title>
+<!--
+  Development only. Not part of the build.
+
+    npm run dev      then open  http://localhost:5173/tools/ui.html
+
+  Every screen in the game, all at once, under the real stylesheet.
+
+  The markup is FETCHED out of index.html and re-hosted here rather than copied
+  into this file. A style guide that has its own copy of the markup stops being
+  a style guide the first time somebody edits one and not the other; this one
+  cannot drift, and a screen added to the game appears here without anyone
+  remembering to add it.
+-->
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* This page's own chrome, deliberately plain so it cannot be mistaken for
+     the interface it is showing. */
+  body {
+    margin: 0; padding: 24px 20px 80px;
+    background: #08060e; color: #f4eeff;
+    font: 14px/1.5 system-ui, sans-serif;
+    overflow: auto; height: auto; touch-action: auto; user-select: text;
+  }
+  h1 { font: 400 20px/1 var(--font-display); letter-spacing: 0.2em; color: #ffd75e; margin: 0 0 4px; }
+  .note { color: #8878a4; margin: 0 0 26px; font-size: 13px; }
+  .lab { font: 400 11px/1 var(--font-display); letter-spacing: 0.18em; text-transform: uppercase;
+         color: #ffd75e; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #3a2450; }
+  .stage {
+    position: relative; height: 620px; margin-bottom: 18px;
+    background: #0b0812;
+    outline: 1px solid #241a33; overflow: hidden;
+  }
+  .stage.tall { height: 780px; }
+  .stage > * { position: absolute; inset: 0; }
+  /* Screens are hidden by `.screen { display:none }` until `.active`. */
+  .stage .screen { display: flex !important; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sw { width: 108px; font-size: 11px; color: #8878a4; }
+  .sw i { display: block; height: 46px; margin-bottom: 4px; outline: 1px solid #241a33; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; }
+  .iconwall { display: flex; flex-wrap: wrap; gap: 4px; }
+  .iconwall span { width: 32px; height: 32px; display: grid; place-items: center;
+                   background: #16102a; outline: 1px solid #2c2040; }
+  /* Screens here are staged after a fetch, so entrance animations would still
+     be running when a screenshot is taken and every capture would differ.
+     Frozen at their end state, which is what the page is for showing. */
+  .stage *, .stage *::before, .stage *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+</style>
+</head>
+<body>
+
+<h1>GRIMFALL</h1>
+<p class="note">Every screen, under the real stylesheet, with the markup read straight out of
+  <code>index.html</code>. Development only — this page is not in the build.</p>
+
+<div class="lab">Palette — sampled from the frame art</div>
+<div class="swatches" id="swatches"></div>
+
+<div class="lab">Frames</div>
+<div class="row">
+  <div class="frame frame-panel" style="width:260px;height:120px;padding:14px">panel — the main window</div>
+  <div class="frame" style="width:260px;height:120px;padding:14px">card — wells and sub-panels</div>
+  <div class="frame frame-on" style="width:260px;height:120px;padding:14px">card-on — selected</div>
+</div>
+
+<div class="lab">Buttons</div>
+<div class="row">
+  <button class="menu-btn"><span>Menu button</span></button>
+  <button class="menu-btn primary"><span>Primary</span></button>
+  <button class="menu-btn danger"><span>Danger</span></button>
+  <button class="menu-btn" disabled><span>Disabled</span></button>
+</div>
+<div class="row">
+  <button class="chip-btn">Chip button</button>
+  <button class="ghost-btn">Ghost</button>
+  <button class="buy-btn">Buy · 120</button>
+</div>
+
+<div class="lab">Icons — img/ui/icons.png</div>
+<div class="iconwall" id="iconwall"></div>
+
+<div class="lab">Bars</div>
+<div class="row" style="flex-direction:column;align-items:stretch;max-width:420px">
+  <div class="xp-track"><div class="xp-fill" style="width:62%"></div></div>
+  <div class="hp-wrap"><div class="hp-fill" style="width:44%"></div><span class="hp-text">88 / 200</span></div>
+  <div class="boss-track"><div class="boss-fill" style="width:73%"></div></div>
+</div>
+
+<div id="screens-out"></div>
+
+<script>
+// Pull every screen out of the real document, plus the HUD, and stage them.
+//
+// The request is SYNCHRONOUS, which is normally indefensible and is right here.
+// With `await fetch(...)` the screens are staged after the load event, so a
+// headless screenshot races the network and half the captures came back as an
+// empty page. Blocking means the document is fully staged before `load` fires
+// and every capture is identical. This file is a development tool served from
+// localhost and is not in the build; nothing about that trade-off reaches a
+// player.
+const xhr = new XMLHttpRequest();
+xhr.open('GET', '../index.html', false);
+xhr.send();
+const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+const out = document.getElementById('screens-out');
+
+// This page lives in /tools/, so a cloned `src="img/..."` would resolve to
+// /tools/img/... and 404. Rebase every relative asset URL one level up.
+function rebase(root) {
+  for (const el of root.querySelectorAll('[src], [srcset]')) {
+    for (const attr of ['src', 'srcset']) {
+      const v = el.getAttribute(attr);
+      if (v && !/^(https?:|data:|\/|\.\.)/.test(v)) el.setAttribute(attr, '../' + v);
+    }
+  }
+}
+
+// Fills so the staged screens are not all empty boxes.
+const FILL = {
+  bootFill:  (el) => { el.style.width = '64%'; },
+  shopGrid:  (el) => { el.innerHTML = [
+    ['Whetstone', 110, 'Oswin works on your least-developed weapon. One level.'],
+    ['Commission', 175, 'A weapon you do not own yet, made to order.'],
+    ['Tempered Plate', 130, 'One more point of armour, for the rest of the run.'],
+    ['Bladeoil', 125, 'Everything you own hits 8% harder.'],
+  ].map(([n, p, d]) => `<button class="good"><span class="good-top">
+      <span class="good-name">${n}</span><span class="good-price">${p}</span></span>
+      <span class="good-desc">${d}</span><span class="good-foot">2 left</span></button>`).join(''); },
+  cards: (el) => { el.innerHTML = [
+    ['Storm Budgie', 'Familiar', 'A blue budgie rings you close and drops lightning.'],
+    ['Mjolnir', 'Seeking', 'Thrown, and it does not come straight back. It hunts.'],
+    ['Vitality', 'Passive', '+20 max health.'],
+  ].map(([n, t, d]) => `<button class="card"><div class="card-top"><b>${n}</b>
+      <span class="card-tag">${t}</span></div><p class="card-desc">${d}</p></button>`).join(''); },
+  heroGrid: (el) => { el.innerHTML = [
+    ['Ranger', 'Swift and steady', 0], ['Warden', 'Holds the line', 350],
+    ['Jane', 'Never where you swung', 2400], ['Joan', 'Sees it through', 1200],
+  ].map(([n, t, lock], i) => `<button class="hero-card${i === 0 ? ' selected' : ''}">
+      <div class="hero-name">${n}</div><div class="hero-title">${t}</div>
+      <div class="hero-stats"><span class="stat-tag">Bolt</span><span class="stat-tag">100 HP</span></div>
+      ${lock ? `<div class="hero-lock"><i class="ui-icon i-locked"></i> ${lock}</div>` : ''}</button>`).join(''); },
+  upgradeGrid: (el) => { el.innerHTML = [
+    ['Might', 'Everything hits harder', 3, 5], ['Vitality', 'A deeper pool', 1, 5],
+  ].map(([n, d, on, of]) => `<div class="upgrade-card"><div class="upgrade-body">
+      <b>${n}</b><div class="good-desc">${d}</div>
+      <div class="pips">${Array.from({length: of}, (_, i) =>
+        `<span class="pip${i < on ? ' on' : ''}"></span>`).join('')}</div></div>
+      <button class="buy-btn">240</button></div>`).join(''); },
+  bossGrid: (el) => { el.innerHTML = [
+    ['The Hollow Magus', 'Minute 4'], ['Parduin, the Drake God', 'Minute 20'],
+  ].map(([n, w], i) => `<button class="boss-card${i === 1 ? ' final' : ''}">
+      <div class="boss-info"><b>${n}</b><div class="good-desc">${w}</div></div></button>`).join(''); },
+  slotList: (el) => { el.innerHTML = `
+    <button class="save-slot"><div class="save-body"><div class="save-title">Slot I — Jane</div>
+      <div class="save-meta">Level 24 · 12:40 · 1,180 gold</div>
+      <div class="save-when">a few minutes ago</div></div><span class="save-tag">Auto</span></button>
+    <button class="save-slot empty"><div class="save-body"><div class="save-title">Slot II</div>
+      <div class="save-meta">empty</div></div></button>`; },
+};
+
+// `?only=shopScreen` stages one screen on its own. Capturing the whole page
+// in a single very tall window is unreliable in headless Chrome — past about
+// ten thousand pixels it returns a blank image — and one screen at a time is
+// what you want when iterating on one screen anyway.
+const only = new URLSearchParams(location.search).get('only');
+if (only) document.querySelectorAll('.lab, .row, .swatches, .iconwall, h1, .note').forEach((e) => e.remove());
+
+for (const sec of doc.querySelectorAll('.screen')) {
+  if (only && sec.id !== only) continue;
+  const lab = document.createElement('div');
+  lab.className = 'lab';
+  lab.textContent = sec.id.replace(/Screen$/, '');
+  const stage = document.createElement('div');
+  stage.className = 'stage' + (sec.id === 'helpScreen' || sec.id === 'heroScreen' ? ' tall' : '');
+  const copy = sec.cloneNode(true);
+  copy.classList.add('active');
+  copy.removeAttribute('hidden');
+  rebase(copy);
+  stage.appendChild(copy);
+  out.append(lab, stage);
+  for (const [id, fn] of Object.entries(FILL)) {
+    const el = copy.querySelector('#' + id);
+    if (el) fn(el);
+  }
+}
+
+// The HUD lives outside .screen, so it is staged separately.
+const hud = doc.getElementById('hud');
+if (hud && (!only || only === 'hud')) {
+  const lab = document.createElement('div');
+  lab.className = 'lab'; lab.textContent = 'hud';
+  const stage = document.createElement('div');
+  stage.className = 'stage';
+  const copy = hud.cloneNode(true);
+  copy.removeAttribute('hidden');
+  rebase(copy);
+  copy.querySelector('#xpFill').style.width = '62%';
+  copy.querySelector('#hpFill').style.width = '44%';
+  const boss = copy.querySelector('#bossBar');
+  if (boss) { boss.removeAttribute('hidden'); copy.querySelector('#bossFill').style.width = '73%'; }
+  stage.appendChild(copy);
+  out.append(lab, stage);
+}
+
+// Palette swatches, read from the live custom properties.
+const cs = getComputedStyle(document.documentElement);
+document.getElementById('swatches').innerHTML =
+  ['--bg', '--panel', '--panel-2', '--well', '--line', '--line-2',
+   '--ink', '--ink-2', '--ink-3', '--ember', '--ember-2', '--gold-deep',
+   '--void', '--frost', '--leaf', '--blood']
+  .map((v) => `<div class="sw"><i style="background:${cs.getPropertyValue(v)}"></i>${v}<br>${cs.getPropertyValue(v)}</div>`)
+  .join('');
+
+// Every icon in the sheet, by class.
+document.getElementById('iconwall').innerHTML =
+  [...document.styleSheets].flatMap((s) => { try { return [...s.cssRules]; } catch { return []; } })
+    .map((r) => r.selectorText).filter((t) => t && /^\.i-[a-z-]+$/.test(t))
+    .map((t) => `<span title="${t}"><i class="ui-icon ${t.slice(1)}"></i></span>`).join('');
+</script>
+</body>
+</html>

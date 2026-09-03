@@ -92,19 +92,19 @@
         <h1 class="logo">
           <picture>
             <source media="(max-width: 620px)" srcset="img/logo-small.png">
-            <img src="img/logo.png" alt="Grimfall" width="900" height="657" fetchpriority="high" decoding="async">
+            <img src="img/logo.png" alt="Grimfall" width="348" height="90" fetchpriority="high" decoding="async">
           </picture>
         </h1>
         <p class="tagline">Twenty minutes. One hero. Everything else wants you dead.</p>
         <nav class="menu">
-          <button class="menu-btn primary" id="continueBtn" data-action="continue" hidden><span>Continue</span><small id="continueSub"></small></button>
-          <button class="menu-btn primary" data-action="play"><span>Begin a Run</span></button>
-          <button class="menu-btn" id="loadBtn" data-action="load" hidden><span>Load Run</span></button>
-          <button class="menu-btn" data-action="heroes"><span>Heroes</span></button>
-          <button class="menu-btn" data-action="arena"><span>Boss Arena</span></button>
-          <button class="menu-btn" data-action="sanctuary"><span>Sanctuary</span></button>
-          <button class="menu-btn" data-action="options"><span>Options</span></button>
-          <button class="menu-btn" data-action="help"><span>How to Play</span></button>
+          <button class="menu-btn primary" id="continueBtn" data-action="continue" hidden><i class="ui-icon i-play" aria-hidden="true"></i><span>Continue</span><small id="continueSub"></small></button>
+          <button class="menu-btn primary" data-action="play"><i class="ui-icon i-play" aria-hidden="true"></i><span>Begin a Run</span></button>
+          <button class="menu-btn" id="loadBtn" data-action="load" hidden><i class="ui-icon i-doc" aria-hidden="true"></i><span>Load Run</span></button>
+          <button class="menu-btn" data-action="heroes"><i class="ui-icon i-team" aria-hidden="true"></i><span>Heroes</span></button>
+          <button class="menu-btn" data-action="arena"><i class="ui-icon i-skull" aria-hidden="true"></i><span>Boss Arena</span></button>
+          <button class="menu-btn" data-action="sanctuary"><i class="ui-icon i-chest" aria-hidden="true"></i><span>Sanctuary</span></button>
+          <button class="menu-btn" data-action="options"><i class="ui-icon i-gear" aria-hidden="true"></i><span>Options</span></button>
+          <button class="menu-btn" data-action="help"><i class="ui-icon i-book" aria-hidden="true"></i><span>How to Play</span></button>
         </nav>
         <div class="title-foot">
           <span id="titleGold">0 gold</span>
@@ -131,7 +131,7 @@
           <span class="label">Difficulty</span>
           <div class="seg" id="diffSeg"></div>
         </div>
-        <button class="menu-btn primary wide" id="startRunBtn"><span>Descend</span></button>
+        <button class="menu-btn primary wide" id="startRunBtn"><i class="ui-icon i-enter" aria-hidden="true"></i><span>Descend</span></button>
       </footer>
     </section>
 
@@ -223,6 +223,17 @@
           <a href="https://heltonyan.itch.io/pixelcombat" target="_blank" rel="noopener">Helton Yan</a>, licensed
           <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
           Clips were trimmed, downmixed to mono and resampled for the web.</p>
+          <p><strong>Interface art</strong> &mdash; the frames, buttons and bars are
+          &ldquo;Tiny RPG &mdash; Mana Soul GUI&rdquo; by
+          <a href="https://tiopalada.itch.io/tiny-rpg-mana-soul-gui" target="_blank" rel="noopener">Gabriel &ldquo;tiopalada&rdquo; Lima</a>,
+          marked CC0. The 16&times;16 glyphs are &ldquo;Icons Essential&rdquo; by
+          <a href="https://crusenho.itch.io" target="_blank" rel="noopener">Crusenho Agus Hennihuno</a>, licensed
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>;
+          thirty-two of them were selected and packed into one sheet, otherwise unmodified.</p>
+          <p><strong>The wordmark</strong> &mdash; set in &ldquo;{PixelFlag}&rdquo; by
+          <a href="http://fontstruct.com/fontstructions/show/578475" target="_blank" rel="noopener">NAL</a>, licensed
+          <a href="http://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>.
+          The logo, the app icons and the banners are all rendered from it.</p>
           <p><strong>The budgies</strong> &mdash; the four familiars are drawn from the
           &ldquo;Budgie / Parakeet Birds&rdquo; pixel pack by
           <a href="https://pop-shop-packs.itch.io/budgie-parakeet-birds-pixel-asset-pack" target="_blank" rel="noopener">Pop Shop Packs</a>,
@@ -261,10 +272,10 @@
         <h2>Paused</h2>
         <div class="run-stats" id="pauseStats"></div>
         <div class="panel-actions">
-          <button class="menu-btn primary" id="resumeBtn"><span>Resume</span></button>
-          <button class="menu-btn" data-action="saveRun"><span>Save Run</span></button>
-          <button class="menu-btn" data-action="options"><span>Options</span></button>
-          <button class="menu-btn danger" id="abandonBtn"><span>Abandon Run</span></button>
+          <button class="menu-btn primary" id="resumeBtn"><i class="ui-icon i-play" aria-hidden="true"></i><span>Resume</span></button>
+          <button class="menu-btn" data-action="saveRun"><i class="ui-icon i-save" aria-hidden="true"></i><span>Save Run</span></button>
+          <button class="menu-btn" data-action="options"><i class="ui-icon i-gear" aria-hidden="true"></i><span>Options</span></button>
+          <button class="menu-btn danger" id="abandonBtn"><i class="ui-icon i-exit" aria-hidden="true"></i><span>Abandon Run</span></button>
         </div>
       </div>
     </section>
@@ -277,11 +288,11 @@
         <p class="panel-sub">Step through either side. The market costs you nothing but the gold you spend in it.</p>
         <div class="portal-doors">
           <button class="door" id="portalMarketBtn">
-            <span class="door-name">The Long Market</span>
+            <span class="door-name"><i class="ui-icon i-cart" aria-hidden="true"></i>The Long Market</span>
             <span class="door-desc">Oswin, Marta and the Coinweigher are open. Your run is saved on arrival.</span>
           </button>
           <button class="door" id="portalOnwardBtn">
-            <span class="door-name">Press On</span>
+            <span class="door-name"><i class="ui-icon i-enter" aria-hidden="true"></i>Press On</span>
             <span class="door-desc">Straight through to open country, and the next stretch of the hunt.</span>
           </button>
         </div>
@@ -317,7 +328,7 @@
         <div class="shop-grid" id="shopGrid"></div>
         <div class="shop-foot">
           <div class="belt" id="shopBelt"></div>
-          <button class="menu-btn" id="shopLeaveBtn"><span>Leave</span></button>
+          <button class="menu-btn" id="shopLeaveBtn"><i class="ui-icon i-exit" aria-hidden="true"></i><span>Leave</span></button>
         </div>
       </div>
     </section>
@@ -331,8 +342,8 @@
         <div class="saves-transfer">
           <p class="saves-note" id="savesNote">Your progress lives in this browser. Clearing site data, a private window, or a different device will not have it — keep a copy on your own machine.</p>
           <div class="saves-buttons">
-            <button class="chip-btn" id="exportSaveBtn">Save to my device</button>
-            <button class="chip-btn" id="importSaveBtn">Load from a file</button>
+            <button class="chip-btn" id="exportSaveBtn"><i class="ui-icon i-upload" aria-hidden="true"></i>Save to my device</button>
+            <button class="chip-btn" id="importSaveBtn"><i class="ui-icon i-download" aria-hidden="true"></i>Load from a file</button>
           </div>
           <input type="file" id="importSaveInput" accept=".grimsave,.json,application/json" hidden>
         </div>
@@ -348,8 +359,8 @@
         <div class="result-stats" id="resultStats"></div>
         <div class="result-gold"><i class="dot-gold"></i><span id="resultGold">0</span> gold banked</div>
         <div class="panel-actions">
-          <button class="menu-btn primary" id="againBtn"><span>Run it back</span></button>
-          <button class="menu-btn" id="toTitleBtn"><span>Main menu</span></button>
+          <button class="menu-btn primary" id="againBtn"><i class="ui-icon i-restart" aria-hidden="true"></i><span>Run it back</span></button>
+          <button class="menu-btn" id="toTitleBtn"><i class="ui-icon i-home" aria-hidden="true"></i><span>Main menu</span></button>
         </div>
       </div>
     </section>
