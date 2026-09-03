@@ -1,99 +1,18 @@
 // ---------------------------------------------------------------------------
 // bestiary.js — every hostile sprite in the game.
 //
-// Symmetric creatures are authored as a left half and mirrored, so the maps
-// below are half as wide as the sprite they produce (8 -> 16, 12 -> 24).
+// The rank and file are DRAWN, in art-source/mobs/, and translated into pixel
+// maps by tools/assets/build-mobs.py; this file imports the result and knows
+// nothing about where it came from. Champions are still authored here, as a
+// left half that is mirrored, so their maps are half as wide as the sprite
+// they produce (12 -> 24).
 //
-// Bosses are not here: they are composed from layered parts in bosses.js and
+// Bosses are in neither: they are composed from layered parts in bosses.js and
 // dragon.js, which is what lets them animate.
 // ---------------------------------------------------------------------------
 
 import { rasterize, mirror, sprite } from './pixel.js';
-
-// --- rank and file (16x16) --------------------------------------------------
-const MOBS = {
-  slime: {
-    palette: { e: '#6fd66a', E: '#3f9a45', o: '#123a18' },
-    half: [
-      '........', '........', '........', '......oo',
-      '....ooee', '...oeeee', '..oeeeee', '..oeeoee',
-      '..oeeeee', '.oeeeeee', '.oeeeeee', '.oEEEEEE',
-      '.oEEEEEE', '.oEEEEEE', '..oooooo', '........',
-    ],
-  },
-  bat: {
-    palette: { n: '#4a3b63', N: '#2a2140', r: '#ff5a6e', o: '#150f22' },
-    half: [
-      '........', '........', 'oo......', 'onoo....',
-      'onnnoo..', '.onnnnoo', '..onnnnn', '..onrnnn',
-      '..onnnnn', '...oNNNN', '....oNNN', '.....oon',
-      '........', '........', '........', '........',
-    ],
-  },
-  skeleton: {
-    palette: { t: '#e4dfcd', T: '#a49c86', o: '#241f18' },
-    half: [
-      '........', '.....ooo', '...oottt', '...otttt',
-      '...otott', '...otttt', '....oTTt', '.....ott',
-      '..oottTt', '.ottTttt', '.otTtTtt', '.ottTttt',
-      '..ooTttt', '....ottt', '....ottt', '....ooot',
-    ],
-  },
-  brute: {
-    palette: { e: '#7a9a3c', E: '#4a6a24', l: '#7a4a2a', r: '#ff5a4a', o: '#1d2410' },
-    half: [
-      '........', '.....ooo', '...ooeee', '...oeeee',
-      '...oeree', '...oeeee', '...oEEEe', '..ooeeee',
-      '.oeoeeee', '.oeoeeee', '.oeollll', '..ooEEEE',
-      '...oEEEE', '...oEEEE', '...oo.EE', '....o.oE',
-    ],
-  },
-  wisp: {
-    palette: { c: '#8ef0ff', C: '#2f9ec2', w: '#ffffff', o: '#123244' },
-    half: [
-      '........', '........', '......oo', '....oocc',
-      '...occcc', '..occwcc', '..occccc', '..occccc',
-      '..occcCC', '...oCCCC', '....ooCC', '......oo',
-      '........', '.....o.C', '........', '........',
-    ],
-  },
-  imp: {
-    palette: { r: '#e0503c', R: '#8f2a1c', y: '#ffd75e', o: '#2a0f0c' },
-    half: [
-      '........', '..oo....', '..oro...', '...orro.',
-      '...orrrr', '...oryrr', '...orrrr', '....oRRr',
-      '..oorrrr', '.orrrrrr', '.orrRRRR', '..ooRRRR',
-      '....oRRR', '....oRRR', '....ooRR', '......oR',
-    ],
-  },
-  spider: {
-    palette: { n: '#2e2438', N: '#171022', r: '#ff4d5e', o: '#0c0812' },
-    half: [
-      '........', '........', 'o.......', 'on.o....',
-      '.onno...', '..onnoo.', '...onnnn', '..oonnnn',
-      '.onnrnnn', '.onnnnnn', '..oNNNNN', '...ooNNN',
-      '..o..oNN', '.o....oo', 'o.......', '........',
-    ],
-  },
-  shade: {
-    palette: { n: '#3a2f5c', N: '#211842', p: '#c08bff', o: '#0e0a1a' },
-    half: [
-      '........', '......oo', '....oonn', '...onnnn',
-      '...onpnn', '...onnnn', '..onnnnn', '..onnnnn',
-      '.onnnnnn', '.onnnnnn', '.oNNNNNN', '.oNNNNNN',
-      '..oNNNNN', '...oNNNN', '....oNNN', '.....ooN',
-    ],
-  },
-  hound: {
-    palette: { l: '#8a4a2a', L: '#4f2916', r: '#ff7a3c', o: '#1a0d07' },
-    half: [
-      '........', '........', '........', '......oo',
-      '.....oll', '...ollll', '...olrll', '...ollll',
-      '..oollll', '.ollllll', '.olLLLLL', '.oLLLLLL',
-      '..oLLLLL', '..oL..LL', '..oo..oL', '.......o',
-    ],
-  },
-};
+import { MOB_ART, MOB_ART_TINT } from './mobs.js';
 
 // --- champions (24x24) ------------------------------------------------------
 const CHAMPIONS = {
@@ -165,21 +84,35 @@ const CHAMPIONS = {
   },
 };
 
-function build(defs, key, scale) {
-  const def = defs[key];
-  return rasterize(mirror(def.half), { scale, palette: def.palette });
-}
-
-export const MOB_KEYS = Object.keys(MOBS);
+export const MOB_KEYS = Object.keys(MOB_ART);
 export const CHAMPION_KEYS = Object.keys(CHAMPIONS);
 
-export const mobSprite = (key, scale = 2) => sprite(`mob:${key}:${scale}`, () => build(MOBS, key, scale));
-export const championSprite = (key, scale = 2) => sprite(`champ:${key}:${scale}`, () => build(CHAMPIONS, key, scale));
+/**
+ * A mob, at its own resolution.
+ *
+ * The default scale is 1 where the champions' is 2, and the difference is not
+ * an oversight: a champion is a 24-pixel map that has to be doubled to reach a
+ * usable size, while the mob art is already drawn at the size it wants to be —
+ * 12 to 46 pixels, whatever the creature needed. Rasterising it at 2x would
+ * only make render.js divide the same factor back out.
+ */
+export const mobSprite = (key, scale = 1) => sprite(`mob:${key}:${scale}`, () => {
+  const def = MOB_ART[key];
+  return rasterize(def.rows, { scale, palette: def.palette });
+});
 
-/** The dominant colour of a creature, used for its death burst and glow. */
+export const championSprite = (key, scale = 2) => sprite(`champ:${key}:${scale}`, () => {
+  const def = CHAMPIONS[key];
+  return rasterize(mirror(def.half), { scale, palette: def.palette });
+});
+
+/**
+ * The dominant colour of a creature, used for its death burst and its glow.
+ * The mobs' are read off the drawings by build-mobs.py; the champions are
+ * hand-picked, because their maps are hand-authored too.
+ */
 export const MOB_TINT = {
-  slime: '#6fd66a', bat: '#8a6bd6', skeleton: '#e4dfcd', brute: '#7a9a3c',
-  wisp: '#8ef0ff', imp: '#e0503c', spider: '#a05bff', shade: '#c08bff', hound: '#ff7a3c',
+  ...MOB_ART_TINT,
   golem: '#8d8a7e', slimeking: '#5ad0a0', skullmage: '#c08bff', broodmother: '#ff4d5e',
   treant: '#4f9a3c', wraithlord: '#7ff0ff',
 };

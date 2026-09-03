@@ -48,12 +48,26 @@ THE MARKET'S WARES, AND THE POINTER
   https://creativecommons.org/licenses/by/4.0/
 
   Changes made, as CC BY 4.0 requires stating: two slot frames had their
-  centres punched out so the fill is a CSS colour, and the two cursors were
-  doubled with nearest-neighbour. No recolouring.
+  centres punched out so the fill is a CSS colour; the five cursors and the
+  pause glyph were doubled with nearest-neighbour; and the three click frames
+  were cut out of the pack's animation sheet and pasted onto the same canvas as
+  the two still cursors. No recolouring, and no frame was redrawn.
 
   Leather and dark paper against the menus' wood and parchment. The Long Market
   is the one place in this game that is a PLACE rather than an interface, and
   giving its wares a different material says so without a word of explanation.
+
+  THE POINTER CLICKS. `cursor` is not an animatable CSS property, so the three
+  frames are separate files and src/ui/cursor.js swaps between them on
+  pointerdown. They all share one canvas and one hotspot on purpose: the frames
+  throw a spark that reaches further than the arrow does, and cropping each to
+  its own ink would make the pointer jump on every click. The build script
+  works the hotspot out and prints it; css/style.css has to agree.
+
+  THE PAUSE GLYPH replaced an inline SVG - two sharp vector bars that were the
+  only undrawn thing left in the interface, on screen for the whole run. It is
+  its own file rather than a cell in icons.png because it is 10x13 and does not
+  fit that 16x16 grid.
 
 ICONS
   "Icons Essential" by Crusenho Agus Hennihuno
@@ -61,6 +75,10 @@ ICONS
 
   Changes made: thirty-two of the pack's eighty icons were selected and packed
   into one 128x64 atlas, eight to a row. The artwork itself is unmodified.
+
+  The pack has no plain pause glyph - slot 1 is its combined play/pause, which
+  is why the CSS class is `.i-playpause` and the interface's actual pause comes
+  from the book kit above.
 
   THE ORDER IN icons.png IS AN API. css/style.css addresses each glyph by
   background-position, so appending is safe and inserting renumbers everything

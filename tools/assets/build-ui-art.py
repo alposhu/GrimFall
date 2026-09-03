@@ -226,13 +226,70 @@ for name, src in [("market-card", "UI_TravelBook_Slot01a.png"),
     c = load(os.path.join(BOOK, src)).getpixel((15, 15))
     print(f"    {name:16s} #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
 
-# The pointer. Doubled, because a 14x16 cursor is a speck on a modern display
-# and browsers will not scale one for you - whatever the file is, is what is
-# drawn. Nearest-neighbour, so it stays pixel art rather than becoming a smear.
+# ---------------------------------------------------------------------------
+# The pointer
+# ---------------------------------------------------------------------------
+# Doubled, because a 14x16 cursor is a speck on a modern display and browsers
+# will not scale one for you - whatever the file is, is what is drawn.
+# Nearest-neighbour, so it stays pixel art rather than becoming a smear.
+#
+# Five files, not two. The click is ANIMATED: the pack's animation sheet has a
+# row where the arrow recoils and throws a small spark, and CSS cannot animate
+# `cursor`, so the frames are exported separately and main.js swaps between
+# them. That only works if the arrow does not move between files, which is what
+# the shared box below is for - the frames carry sparks that reach further than
+# the arrow does, so cropping each one to its own ink would make the pointer
+# jump a few pixels on every click. One box, one hotspot, for all five.
 print("\ncursor")
+ANIM = os.path.join(PACKS, "Complete_UI_Book_Styles_Pack_Free",
+                    "Complete_UI_Book_Styles_Pack_Free_v1.0", "01_TravelBookLite",
+                    "Spritesheet", "UI_TravelBookAnimated_Spritesheet01a.png")
+CELL = 32
+TAP_ROW = 4                  # fifth row of the sheet, counting from one
+TAP_FRAMES = 3               # the fourth frame is the arrow at rest, i.e. cursor.png
+
+sheet = load(ANIM)
+taps = [sheet.crop((c * CELL, TAP_ROW * CELL, (c + 1) * CELL, (TAP_ROW + 1) * CELL))
+        for c in range(TAP_FRAMES + 1)]
+
+# The union of the frames, so every one of them fits the same canvas.
+box = [min(t.getbbox()[i] for t in taps) if i < 2 else max(t.getbbox()[i] for t in taps)
+       for i in range(4)]
+BOX = (box[2] - box[0], box[3] - box[1])
+
+# Where the arrow sits inside that box, taken from the frame that is only the
+# arrow. The two still cursors are that same drawing, so they are pasted at the
+# same offset and the hotspot is one number for the whole set.
+rest = taps[TAP_FRAMES].getbbox()
+AT = (rest[0] - box[0], rest[1] - box[1])
+HOT = ((AT[0] + 1) * 2, (AT[1] + 1) * 2)     # the tip, in the doubled image
+
+
+def on_box(im):
+    plate = Image.new("RGBA", BOX, (0, 0, 0, 0))
+    plate.alpha_composite(im, AT)
+    return scale(plate, 2)
+
+
 for name, src in [("cursor", "UI_TravelBook_Cursor01c.png"),
                   ("cursor-press", "UI_TravelBook_Cursor01d.png")]:
-    save(scale(load(os.path.join(BOOK, src)), 2), f"{name}.png")
+    save(on_box(load(os.path.join(BOOK, src))), f"{name}.png")
+for i in range(TAP_FRAMES):
+    save(scale(taps[i].crop(box), 2), f"cursor-tap{i + 1}.png")
+
+print(f"    box {BOX[0]}x{BOX[1]}, arrow at {AT} — css/style.css must use "
+      f"hotspot `{HOT[0]} {HOT[1]}` on all five")
+
+# ---------------------------------------------------------------------------
+# The pause glyph
+# ---------------------------------------------------------------------------
+# The HUD's pause button was an inline SVG - two sharp vector bars, the only
+# thing in the interface that was not drawn by hand at a whole pixel, sitting
+# on screen for the entire run. This is the book kit's own pause, which has the
+# rounded corners the rest of the kit has. It is its own file rather than a cell
+# in icons.png because it is not 16x16 and does not belong to that grid.
+print("\npause")
+save(scale(load(os.path.join(BOOK, "UI_TravelBook_IconPause01a.png")), 2), "pause.png")
 
 # ---------------------------------------------------------------------------
 # Icons

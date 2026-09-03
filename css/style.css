@@ -204,7 +204,7 @@
   padding: 0; border: 0;
   background: url('../img/ui/close.png') center / 30px 36px no-repeat;
   image-rendering: pixelated;
-  cursor: pointer;
+  cursor: var(--cur-hit);
   justify-self: end;
 }
 .close-btn:hover, .close-btn:focus-visible { filter: brightness(1.25); outline: none; }
@@ -261,24 +261,70 @@ a:hover, .title-foot a:hover, .help a:hover {
 /* ---------------------------------------------------------------------------
    The pointer
    ---------------------------------------------------------------------------
-   A drawn cursor, doubled to 28x32 — browsers draw a cursor file at its own
+   A drawn cursor, doubled to 42x42 - browsers draw a cursor file at its own
    size and will not scale one, so a 14x16 original is a speck on a modern
-   display. The hotspot is the arrow's tip at 2,2 (also doubled), and `auto` is
-   the required fallback: without it a browser that rejects the image has no
-   cursor at all.
+   display. `auto` is the required fallback: without it a browser that rejects
+   the image has no cursor at all.
 
-   Touch devices have no pointer to replace, and a coarse pointer means a
-   finger, so the whole thing is scoped to devices that actually have one. */
+   THREE CUSTOM PROPERTIES, AND EVERY RULE IN THIS FILE USES THEM. This was
+   originally a block of selectors listing everything clickable, and it was
+   quietly broken: two dozen component rules further down the file already set a
+   plain pointer, and `.menu-btn` out-ranks a bare `button`, so the drawn
+   pointer vanished the moment you moved onto a menu option - the one place it
+   was most visible.
+
+   Specificity is the wrong tool for that job. Custom properties INHERIT, so
+   these three reach every element in the document no matter what selector
+   claims it, and a rule that wants the clickable pointer asks for it by name
+   rather than by out-shouting whoever set it last. It also means the whole
+   thing degrades correctly: outside the media query below they are the plain
+   keywords, so a touch device gets ordinary behaviour with no second rule.
+
+   All five image files share one canvas and one hotspot. They are not the same
+   drawing - the click frames throw a spark that reaches further than the arrow
+   does - and if each were cropped to its own ink the pointer would jump a few
+   pixels every time you pressed the mouse. tools/assets/build-ui-art.py pastes
+   them onto a common box and prints the hotspot it worked out; the number
+   below is that number. */
+:root {
+  --cur: auto;
+  --cur-hit: pointer;
+  --cur-no: not-allowed;
+}
+
+/* Touch devices have no pointer to replace, and a coarse pointer means a
+   finger, so the drawn cursor is scoped to devices that actually have one. */
 @media (hover: hover) and (pointer: fine) {
-  body { cursor: url('../img/ui/cursor.png') 2 2, auto; }
-  button, .card, .good, .door, .hero-card, .boss-card, .save-slot, .slot,
-  .belt-slot, .toggle, a, [data-action], input[type=range] {
-    cursor: url('../img/ui/cursor-press.png') 2 2, pointer;
+  :root {
+    --cur: url('../img/ui/cursor.png') 16 12, auto;
+    --cur-hit: url('../img/ui/cursor-press.png') 16 12, pointer;
+    --cur-no: url('../img/ui/cursor.png') 16 12, not-allowed;
   }
-  button:disabled, .good:disabled, .card:disabled {
-    cursor: url('../img/ui/cursor.png') 2 2, not-allowed;
+
+  /* The click. `cursor` is not an animatable property, so src/ui/cursor.js
+     sets `--tap` to a frame and adds this class. Because what it changes are
+     the same three inherited properties, the burst appears over buttons,
+     links, sliders and disabled controls alike - without this rule knowing
+     that any of them exist. */
+  html.tapping {
+    --cur: var(--tap, url('../img/ui/cursor.png')) 16 12, auto;
+    --cur-hit: var(--tap, url('../img/ui/cursor-press.png')) 16 12, pointer;
+    --cur-no: var(--tap, url('../img/ui/cursor.png')) 16 12, not-allowed;
   }
 }
+
+body { cursor: var(--cur); }
+
+/* The baseline, for everything clickable that does not set a cursor of its own.
+   Component rules further down repeat `var(--cur-hit)` where they already had a
+   pointer; that is now harmless duplication rather than an override, which is
+   the entire point of routing it through a property. */
+button, .card, .good, .door, .hero-card, .boss-card, .save-slot, .slot,
+.belt-slot, .toggle, a, [data-action], label[for], summary, input[type=range] {
+  cursor: var(--cur-hit);
+}
+
+button:disabled, .good:disabled, .card:disabled, [disabled] { cursor: var(--cur-no); }
 
 /* ---------------------------------------------------------------------------
    Panel headers, and the way out
@@ -306,12 +352,12 @@ a:hover, .title-foot a:hover, .help a:hover {
   border: 0;
   background: url('../img/ui/close.png') center / 32px 32px no-repeat;
   image-rendering: pixelated;
-  cursor: pointer;
+  cursor: var(--cur-hit);
   justify-self: end;
 }
 .close-btn:hover, .close-btn:focus-visible { filter: brightness(1.3); outline: none; }
 .close-btn:active { transform: translateY(2px); }
-.close-btn:disabled { filter: grayscale(1) brightness(0.7); cursor: not-allowed; }
+.close-btn:disabled { filter: grayscale(1) brightness(0.7); cursor: var(--cur-no); }
 
 /* On a `.screen-head` the close sits in the third grid column, which was empty
    on every screen that has no gold pill. */
@@ -341,7 +387,7 @@ img,
   background-position: calc(var(--i, 0) * -32px) calc(var(--j, 0) * -32px); }
 
 .i-play      { --i: 0; --j: 0; }
-.i-pause     { --i: 1; --j: 0; }
+.i-playpause { --i: 1; --j: 0; }  /* the pack's combined glyph, not a pause */
 .i-home      { --i: 2; --j: 0; }
 .i-gear      { --i: 3; --j: 0; }
 .i-book      { --i: 4; --j: 0; }
@@ -431,7 +477,7 @@ html, body {
   color: var(--ink);
   font: 400 12px/1 var(--font-display);
   letter-spacing: 0.14em; text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cur-hit);
   touch-action: manipulation;          /* no 300ms tap delay, no double-tap zoom */
   animation: skipIn 0.6s ease-out both;
   animation-delay: 0.9s;               /* let the first shot land before nagging */
@@ -551,11 +597,20 @@ i.dot-kill { background: var(--blood); }
   width: 40px; height: 40px; border-radius: 0;
   display: grid; place-items: center;
   background: rgba(12,8,20,0.7); border: 1px solid var(--line); color: var(--ink);
-  pointer-events: auto; cursor: pointer;
+  pointer-events: auto; cursor: var(--cur-hit);
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
 .icon-btn:hover { border-color: var(--ember); transform: translateY(-1px); }
-.icon-btn svg { fill: currentColor; }
+
+/* The pause glyph, which is on screen for the whole run and was the last
+   inline SVG in the interface. Its own file rather than a cell in icons.png:
+   it is 10x13 in the book kit and does not fit that 16x16 grid. */
+.pause-glyph {
+  display: block;
+  width: 20px; height: 26px;
+  background: url('../img/ui/pause.png') center / 20px 26px no-repeat;
+  image-rendering: pixelated;
+}
 
 .hud-bottom { display: flex; flex-direction: column; gap: 8px; }
 
@@ -594,7 +649,7 @@ i.dot-kill { background: var(--blood); }
   padding: 10px 18px; border-radius: 0;
   background: rgba(8, 5, 14, 0.72); border: 1px solid rgba(255, 236, 210, 0.3);
   color: var(--ink-2); font-family: var(--font-display); font-size: 11px;
-  letter-spacing: 0.1em; cursor: pointer; pointer-events: auto;
+  letter-spacing: 0.1em; cursor: var(--cur-hit); pointer-events: auto;
   transition: 0.14s;
   z-index: 40;
 }
@@ -763,7 +818,7 @@ i.dot-kill { background: var(--blood); }
   border-radius: 0;
   background-color: var(--head);
   background-clip: padding-box;
-  cursor: pointer;
+  cursor: var(--cur-hit);
   color: #17301f;
   transition: none;
 }
@@ -785,7 +840,7 @@ i.dot-kill { background: var(--blood); }
   border-image-source: var(--btn-off);
   background-color: #6f7b6b;
   color: #3c443a;
-  cursor: not-allowed;
+  cursor: var(--cur-no);
   transform: none;
 }
 
@@ -875,7 +930,7 @@ i.dot-kill { background: var(--blood); }
   display: flex; gap: 14px; align-items: flex-start;
   padding: 14px;
   border-radius: var(--radius);
-  cursor: pointer; transition: 0.16s cubic-bezier(.2,.9,.25,1);
+  cursor: var(--cur-hit); transition: 0.16s cubic-bezier(.2,.9,.25,1);
 }
 .hero-card:hover { transform: translateY(-3px); border-color: rgba(255,138,42,0.45); }
 .hero-card.selected {
@@ -903,7 +958,7 @@ i.dot-kill { background: var(--blood); }
 .diff-picker .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); }
 .seg { display: inline-flex; padding: 3px; gap: 3px; background: rgba(0,0,0,0.4); border: 1px solid var(--line); border-radius: 0; }
 .seg button {
-  padding: 7px 14px; border-radius: 0; border: none; cursor: pointer;
+  padding: 7px 14px; border-radius: 0; border: none; cursor: var(--cur-hit);
   background: transparent; color: var(--ink-3);
   font-family: var(--font-body); font-weight: 600; font-size: 12px;
   transition: 0.14s;
@@ -921,7 +976,7 @@ i.dot-kill { background: var(--blood); }
   position: relative; overflow: hidden;
   display: flex; gap: 14px; align-items: center;
   padding: 16px; border-radius: var(--radius);
-  cursor: pointer; transition: none;
+  cursor: var(--cur-hit); transition: none;
 }
 .boss-card:hover { outline: 2px solid var(--head); outline-offset: -2px; }
 .boss-card canvas { image-rendering: pixelated; flex-shrink: 0; position: relative; }
@@ -971,7 +1026,7 @@ i.dot-kill { background: var(--blood); }
 .opt-row .opt-hint { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; margin-top: 2px; }
 .toggle {
   width: 52px; height: 28px; border: 2px solid var(--line);
-  background: var(--well); position: relative; cursor: pointer; flex-shrink: 0;
+  background: var(--well); position: relative; cursor: var(--cur-hit); flex-shrink: 0;
   border-image: none;
 }
 .toggle::after {
@@ -985,16 +1040,16 @@ i.dot-kill { background: var(--blood); }
 input[type=range] {
   -webkit-appearance: none; appearance: none;
   width: 160px; height: 4px; border-radius: 0;
-  background: rgba(255,255,255,0.14); outline: none; cursor: pointer;
+  background: rgba(255,255,255,0.14); outline: none; cursor: var(--cur-hit);
 }
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 14px; height: 20px;
-  background: var(--ember-2); border: 2px solid var(--gold-deep); cursor: pointer;
+  background: var(--ember-2); border: 2px solid var(--gold-deep); cursor: var(--cur-hit);
 }
 input[type=range]::-moz-range-thumb {
   width: 14px; height: 20px;
-  background: var(--ember-2); border: 2px solid var(--gold-deep); cursor: pointer;
+  background: var(--ember-2); border: 2px solid var(--gold-deep); cursor: var(--cur-hit);
 }
 
 /* ---------------------------------------------------------------------- help */
@@ -1063,7 +1118,7 @@ kbd {
   background: var(--panel-2);
   color: var(--ink);
   font-family: var(--font-body);
-  cursor: pointer;
+  cursor: var(--cur-hit);
   transition: border-color 0.12s, transform 0.08s, background 0.12s;
 }
 .door:hover, .door:focus-visible {
@@ -1130,7 +1185,7 @@ kbd {
   padding: 16px 15px;
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
   border-radius: var(--radius);
-  cursor: pointer;
+  cursor: var(--cur-hit);
   transition: none;
   animation: cardIn 0.3s cubic-bezier(.2,.9,.25,1) backwards;
 }
@@ -1161,7 +1216,7 @@ kbd {
 .card.banish-mode:hover { border-color: var(--blood); }
 
 .level-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; }
-.chip-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.chip-btn:disabled { opacity: 0.35; cursor: var(--cur-no); }
 .chip-btn b { color: var(--ember-2); font-family: var(--font-display); font-size: 11px; margin-left: 4px; }
 .chip-btn.armed { border-color: var(--blood); color: #ffb8c4; }
 
@@ -1258,7 +1313,7 @@ kbd {
   font: 400 8px/1 var(--font-display);
   color: var(--ink-3);
 }
-.belt-slot.usable { cursor: pointer; border-color: rgba(255, 215, 94, 0.4); }
+.belt-slot.usable { cursor: var(--cur-hit); border-color: rgba(255, 215, 94, 0.4); }
 .belt-slot.usable:active { transform: translateY(1px); }
 
 /* --- market bar ---------------------------------------------------------- */
@@ -1295,7 +1350,7 @@ kbd {
   background: #3d2210;
   color: var(--ink);
   font: 600 14px/1 var(--font-body);
-  cursor: pointer;
+  cursor: var(--cur-hit);
   animation: interactIn 0.18s ease-out;
 }
 .interact-btn:active { transform: translateY(1px); }
@@ -1364,7 +1419,7 @@ kbd {
      do not, and inheriting `--ink` here made every ware unreadable. */
   color: #f6ead8;
   font-family: var(--font-body);
-  cursor: pointer;
+  cursor: var(--cur-hit);
   transition: none;
 }
 .good:disabled { opacity: 0.42; }
@@ -1403,7 +1458,7 @@ kbd {
   text-align: left;
   color: var(--ink);
   font-family: var(--font-body);
-  cursor: pointer;
+  cursor: var(--cur-hit);
 }
 .save-slot:hover:not(.empty) { border-color: rgba(255, 215, 94, 0.4); }
 .save-slot.empty { opacity: 0.5; }
@@ -1423,7 +1478,7 @@ kbd {
 .save-del {
   border: 1px solid var(--line); background: transparent;
   color: var(--ink-3); border-radius: 6px;
-  width: 28px; height: 28px; cursor: pointer;
+  width: 28px; height: 28px; cursor: var(--cur-hit);
   font-size: 14px; line-height: 1;
 }
 .save-del:hover { color: var(--blood); border-color: rgba(255,77,106,0.4); }

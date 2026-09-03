@@ -39,6 +39,7 @@ import { ITEM_ICONS, itemIcon, goodIcon, GOOD_ICONS } from './art/items.js';
 const GOOD_IDS = Object.keys(GOOD_ICONS);
 import { BALLOON_KINDS, balloonGlyph, balloonBubble } from './art/balloons.js';
 import * as ui from './ui/ui.js';
+import { initCursor } from './ui/cursor.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -84,7 +85,7 @@ window.visualViewport?.addEventListener('resize', resize);
 // ---------------------------------------------------------------------------
 function* bootTasks() {
   for (const ch of CHARACTERS) { heroSprites(ch.id, 3); heroPortrait(ch.id, 4); yield; }
-  for (const k of MOB_KEYS) { mobSprite(k, 2); yield; }
+  for (const k of MOB_KEYS) { mobSprite(k); yield; }
   for (const k of CHAMPION_KEYS) { championSprite(k, 2); yield; }
   for (const k of REDESIGNED) { bossArt(k, 2); bossPortraitArt(k, 1); yield; }
   dragonParts(2); yield;
@@ -146,6 +147,7 @@ async function boot() {
     baseEl: document.getElementById('joyBase'),
     thumbEl: document.getElementById('joyThumb'),
   });
+  initCursor();
   setJoystickMode(resolveJoystick(st.joystick));
 
   ui.initUI({
@@ -386,6 +388,12 @@ function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
   lastTime = now;
+
+  // Read by the dev server's live-reload snippet, and by nothing else. A
+  // stylesheet edit is swapped in place, but a script edit needs the document
+  // rebuilt, and doing that mid-run throws the run away. Published here so the
+  // reloader can wait for a natural break instead.
+  window.__grimfallRunning = S.running && !S.paused;
 
   handleKeys();
 

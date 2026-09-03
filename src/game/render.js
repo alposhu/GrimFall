@@ -177,13 +177,30 @@ function drawProp(ctx, d) {
   ctx.drawImage(d.img, Math.round(d.x - d.img.width / 2), Math.round(d.y - d.img.height));
 }
 
+// A mob is drawn this many hitboxes across its longest side. The value is the
+// average of what the previous fixed divisors worked out to across the nine
+// mobs, so the creatures are the size they have always been on screen — it is
+// the relationship that changed, not the scale of the game.
+const MOB_SPAN = 2.0;
+
 function drawEnemy(ctx, e, lowFx) {
   if (e.sprite === 'parduin') { drawDragon(ctx, e, lowFx); return; }
   if (e.isBoss) { drawHierarch(ctx, e, lowFx); return; }
-  const img = e.isChampion ? championSprite(e.sprite, 2) : mobSprite(e.sprite, 2);
-  // Sprites are pre-rasterised at 2x/3x; these divisors land every creature at
-  // roughly `size * 2.2` on screen, so art and hitbox stay in proportion.
-  const scale = e.scale / (e.isBoss ? 2.3 : e.isChampion ? 1.7 : 1.9);
+  const img = e.isChampion ? championSprite(e.sprite, 2) : mobSprite(e.sprite);
+  // Champions are 24-pixel half-maps rasterised at 2x, so their drawn size
+  // comes from the type table as it always has.
+  //
+  // Mobs do not work that way any more. Their art is drawn at whatever
+  // resolution the creature needed — a bat is 28 by 12, a shade is 46 square —
+  // so a fixed divisor would size them by how many pixels the artist happened
+  // to spend. The hitbox is the thing that is actually true about a creature,
+  // so the sprite is fitted to it: every mob is drawn MOB_SPAN hitboxes across
+  // its longest side, which keeps art and collision in proportion no matter
+  // what the drawing does, and makes an elite's larger `size` scale its sprite
+  // for free.
+  const scale = e.isChampion
+    ? e.scale / 1.7
+    : (e.size * MOB_SPAN) / Math.max(img.width, img.height);
   const bob = e.isBoss ? Math.sin(S.time * 2) * 3 : Math.sin(S.time * 6 + e.wobble) * 1.5;
   const footY = e.y + (img.height * scale) / 2 - 3;
 

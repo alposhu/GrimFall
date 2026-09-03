@@ -188,6 +188,33 @@ globalThis.devicePixelRatio = 1;
 globalThis.innerWidth = 1280;
 globalThis.innerHeight = 720;
 globalThis.confirm = () => true;
+
+// The machine this stub is pretending to be: a desktop with a mouse, no touch,
+// no reduced-motion preference — which is the same machine the rest of the stub
+// already describes (1280x720, zero touch points, devicePixelRatio 1).
+//
+// Answering these matters rather than returning false to everything, because
+// several modules take a genuinely different path on a coarse pointer, and a
+// stub that says "no" to every question tests only the branch nobody is on.
+const MEDIA = {
+  '(hover: hover)': true,
+  '(pointer: fine)': true,
+  '(pointer: coarse)': false,
+  '(prefers-reduced-motion: reduce)': false,
+};
+globalThis.matchMedia = (q) => ({
+  media: q,
+  // `and` is the only combinator the game uses, and every clause has to hold.
+  matches: q.split(' and ').every((part) => {
+    const hit = MEDIA[part.trim()];
+    if (hit === undefined) throw new Error(`dom-stub: no answer for media query \`${part.trim()}\``);
+    return hit;
+  }),
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+});
 globalThis.requestAnimationFrame = (fn) => setTimeout(() => fn(performance.now()), 8);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 

@@ -143,7 +143,9 @@ export const DEMOS = {
         ctx.restore();
         continue;
       }
-      blitc(ctx, mobSprite(kinds[i], 2), ex, ey, 0.5);
+      // Sized the way render.js sizes them, so the demo shows the game.
+      const m = mobSprite(kinds[i]);
+      blitc(ctx, m, ex, ey, 26 / Math.max(m.width, m.height));
 
       // A bolt in flight, fired without any input.
       const bt = (phase * 3) % 1;

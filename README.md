@@ -235,6 +235,14 @@ there every piece has a code-drawn twin that draws if the atlas cannot load.
   palette key — and rasterised into offscreen canvases at boot. Symmetric creatures
   are authored as a left half and mirrored. Scenery is drawn procedurally with a few
   seeded variants per prop, so a screen full of trees never looks copy-pasted.
+- **The nine mobs are drawn in a pixel editor**, in `art-source/mobs/`, and
+  *translated* into those same pixel maps by `tools/assets/build-mobs.py` — they
+  are 2 to 11 flat colours each with no antialiasing, so the map is a lossless
+  copy of the file and smaller than the PNG. Shipping them as images would have
+  made the mobs the only creatures in the game with a loading state. Their maps
+  are deliberately not all one size: a bat is 28×12 and a shade is 46 square,
+  and the renderer sizes a mob from its hitbox rather than its pixel count, so
+  the art is free to be whatever shape the creature is.
 - **Sound effects** are recorded (Helton Yan), decoded into buffers and fired
   with a small random pitch so a sound heard four times a second never sounds
   pasted. A full synthesised bank remains as the fallback.
@@ -571,8 +579,9 @@ img/chr_/               Jane and Joan, the two hand-drawn character sheets
 img/rtp/                the Long Market's ten atlases (RPG Maker MZ),
                         with a SOURCE.txt carrying the licence and the recipe
 art-source/             masters that never ship: the intro film, the logo,
-                        the store art, and the budgie sheets the familiars
-                        were traced from
+                        the store art, the budgie sheets the familiars were
+                        traced from, and mobs/ — the nine drawn enemies that
+                        build-mobs.py turns into src/art/mobs.js
 audio/                  soundtrack (HydroGene), sfx/ (Helton Yan) and
                         voice/ (Dillon Becker) — each with a SOURCE.txt
                         carrying its licence and the changes made
