@@ -4,3 +4,9 @@ Thumbs.db
 *.log
 dist/
 grimfall-web.zip
+
+# Video masters. Large, and third-party material whose terms are not settled
+# should not sit in a public repository as a downloadable file — see
+# video/SOURCE.txt. Only the encoded, game-sized derivative in video/ ships.
+art-source/*.webm
+art-source/*.mp4

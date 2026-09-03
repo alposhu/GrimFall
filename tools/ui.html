@@ -128,6 +128,10 @@ function rebase(root) {
 // Fills so the staged screens are not all empty boxes.
 const FILL = {
   bootFill:  (el) => { el.style.width = '64%'; },
+  // The real title screen starts this from `go()`, which the staging here does
+  // not go through — so the backdrop has to be kicked off by hand or the page
+  // would show the one screen that looks different from the game.
+  menuBg: (el) => { el.src = '../video/menu.mp4'; el.play().catch(() => {}); },
   shopGrid:  (el) => { el.innerHTML = [
     ['Whetstone', 110, 'Oswin works on your least-developed weapon. One level.'],
     ['Commission', 175, 'A weapon you do not own yet, made to order.'],

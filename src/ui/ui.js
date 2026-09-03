@@ -72,6 +72,7 @@ export function initUI(callbacks) {
     'shopScreen', 'shopFace', 'shopName', 'shopTrade', 'shopGold', 'shopLine',
     'shopGrid', 'shopBelt', 'shopLeaveBtn',
     'portalScreen', 'portalKicker', 'portalMarketBtn', 'portalOnwardBtn',
+    'menuBg',
     'savesScreen', 'savesTitle', 'savesSub', 'slotList',
     'savesNote', 'exportSaveBtn', 'importSaveBtn', 'importSaveInput',
     'continueBtn', 'continueSub', 'loadBtn',
@@ -272,6 +273,42 @@ export function go(name, remember = true) {
   hideAll(false);
   el[name]?.classList.add('active');
   if (name === 'helpScreen') startDemos(); else stopDemos();
+  if (name === 'titleScreen') startMenuBg(); else stopMenuBg();
+}
+
+// ---------------------------------------------------------------------------
+// The title screen's moving backdrop
+// ---------------------------------------------------------------------------
+// Loaded on demand and paused the moment the menu is left. A looping 720p video
+// decoding behind a run costs real frames on a phone, and the title screen is
+// the only place it is ever visible.
+//
+// Everything here fails quietly. A missing file, a codec the browser will not
+// take, an autoplay refusal — each leaves the menu on its plain background,
+// which is what it looked like before there was a film at all.
+const MENU_BG = 'video/menu.mp4';
+let menuBgTried = false;
+
+function startMenuBg() {
+  const v = el.menuBg;
+  if (!v) return;
+  try {
+    if (!menuBgTried) {
+      menuBgTried = true;
+      v.src = MENU_BG;
+      // A file that cannot be decoded should take itself off screen rather than
+      // leave a black rectangle over the backdrop.
+      v.addEventListener('error', () => { v.hidden = true; }, { once: true });
+    }
+    const p = v.play();
+    if (p && p.catch) p.catch(() => { /* autoplay refused; the menu is fine */ });
+  } catch (e) { /* no video element worth having */ }
+}
+
+function stopMenuBg() {
+  const v = el.menuBg;
+  if (!v) return;
+  try { v.pause(); } catch (e) { /* already gone */ }
 }
 
 export function hideAll(clearStack = true) {

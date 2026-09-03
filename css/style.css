@@ -487,10 +487,30 @@ i.dot-kill { background: var(--blood); }
 
 /* --------------------------------------------------------------------- title */
 #titleScreen { align-items: center; justify-content: center; background: none; backdrop-filter: none; }
+/* The moving backdrop, and the scrim that makes text readable over it.
+   `object-fit: cover` crops rather than letterboxes, so the scene fills any
+   shape of window. It is NOT `image-rendering: pixelated` — the film is already
+   pixel art rendered at 720p, and forcing nearest-neighbour on a non-integer
+   scale would alias it into a mess. */
+.menu-bg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+}
 #titleScreen::before {
   content: ''; position: absolute; inset: 0;
-  background: rgba(8, 5, 14, 0.82);
+  background: rgba(8, 5, 14, 0.72);
   pointer-events: none;
+  z-index: 1;
+}
+.title-wrap { z-index: 2; }
+
+/* Somebody who has asked their system for less motion should not be handed a
+   looping film as the first thing they see. */
+@media (prefers-reduced-motion: reduce) {
+  .menu-bg { display: none; }
 }
 .title-wrap { position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 

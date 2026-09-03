@@ -88,6 +88,12 @@
 
     <!-- Title -->
     <section id="titleScreen" class="screen">
+      <!-- The moving backdrop. `preload="none"` so it never competes with the
+           boot: the title screen is reached after the game is already loaded,
+           and the menu reads perfectly well on the plain background for the
+           second before the first frame arrives. -->
+      <video id="menuBg" class="menu-bg" muted loop playsinline preload="none"
+             disablepictureinpicture tabindex="-1" aria-hidden="true"></video>
       <div class="title-wrap">
         <h1 class="logo">
           <picture>
