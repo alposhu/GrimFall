@@ -6,13 +6,29 @@ logo.png, logo-small.png, icon-192.png, icon-512.png and the two images in
 hand-drawn, and none should be edited by hand - re-run the script instead.
 
 THE FACE
-  "{PixelFlag}" by NAL, built with FontStruct.
+  "{PixelFlag}" by NAL (Andrew McCluskey), built with FontStruct.
   http://fontstruct.com/fontstructions/show/578475
   Licensed CC BY 3.0 - http://creativecommons.org/licenses/by/3.0/
 
   Its characteristic is a rule running above and below the word, so the type
   arrives already looking like a banner. That is the whole logo: there is no
   drawn mark, no glow and no bevel.
+
+  FLAG ENDS
+  The face also draws a different banner terminal for each bracket pair, which
+  is the feature it is named for. `WORD` in the build script carries the pair:
+
+    GRIMFALL      bare rules, top and bottom
+    [GRIMFALL]    closed box
+    (GRIMFALL)    rounded ends
+    <GRIMFALL>    pinned corners, like a plaque
+    {GRIMFALL}    the full hanging ribbon, with tails   <- what ships
+    |GRIMFALL|    box with vertical bars
+    /GRIMFALL/    slashed ends
+
+  Change the pair to change the whole mark; everything downstream is cut from
+  it. The app icon deliberately keeps BARE type - it already sits inside a
+  drawn double rule, and a ribbon inside a frame is two borders arguing.
 
   The .ttf is NOT shipped with the game. Only its rendered output is, so the
   font never has to be redistributed - which also means its archive's condition

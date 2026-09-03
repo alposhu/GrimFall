@@ -46,7 +46,13 @@ GOLD_DEEP = (201, 146, 42)
 INK = (13, 10, 20)
 VOID = (11, 8, 18)
 
-WORD = "GRIMFALL"
+# The braces are not punctuation — they are the face's FLAG ENDS. PixelFlag
+# draws a different banner terminal for each bracket pair, and `{}` is the full
+# hanging ribbon with tails, which is the treatment the font's own specimen
+# sheet uses for its title. `[]` closes the box, `()` rounds it, `<>` pins the
+# corners like a plaque, `||` and `//` are plainer still. Swap the pair here to
+# change the whole mark.
+WORD = "{GRIMFALL}"
 
 
 def face(size=BASE):
@@ -111,6 +117,8 @@ def stacked_mark(scale, box):
     on two lines and framed - which is also the only place the interface's own
     frame art appears outside the interface.
     """
+    # No flag ends here. The icon already sits inside a drawn double rule, and a
+    # ribbon inside a frame is two borders arguing with each other.
     top = draw_word("GRIM")
     bot = draw_word("FALL")
     gap = 3

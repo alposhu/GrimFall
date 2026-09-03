@@ -127,7 +127,7 @@ required; it is credited anyway.
 > icons were selected and packed into a single 128×64 atlas. The artwork itself
 > is unmodified — no recolouring, no rescaling. Full terms in `img/ui/SOURCE.txt`.
 
-**The wordmark** — set in *"{PixelFlag}"* by **NAL**, built with FontStruct,
+**The wordmark** — set in *"{PixelFlag}"* by **NAL (Andrew McCluskey)**, built with FontStruct,
 <http://fontstruct.com/fontstructions/show/578475>, licensed
 [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/). The logo, both app
 icons and both repository banners are rendered from it by
