@@ -24,9 +24,9 @@ import { voiceTarget } from './audio.js';
  */
 export const CASTING = {
   ranger:      { who: 'alex',   rate: 1 },
-  warden:      { who: 'sean',   rate: 1 },
+  warden:      { who: 'meghan', rate: 1 },
   pyromancer:  { who: 'karen',  rate: 1 },
-  frostwarden: { who: 'meghan', rate: 1 },
+  frostwarden: { who: 'sean',   rate: 1 },
   revenant:    { who: 'ian',    rate: 1 },
   leon:        { who: 'ian',    rate: 1.07 },
   ada:         { who: 'karen',  rate: 0.94 },
