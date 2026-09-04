@@ -1,11 +1,20 @@
-# Build output — rebuilt inside the image, and stale copies must not win.
+# Build output — rebuilt inside the image, and a stale copy must never win.
 dist/
 grimfall-web/
 grimfall-web.zip
 
-# Sources for the art pipeline. Large, and the game does not read them at
-# runtime: everything they produce is already committed under img/ and audio/.
-art-source/
+# The uncompressed masters the art pipeline works from. Large, and nothing at
+# runtime or build time reads them.
+#
+# art-source/ ITSELF is deliberately NOT excluded: the build refuses to ship art
+# whose provenance file is missing, and art-source/budgies/SOURCE.txt is one of
+# them. Excluding the whole folder made the image build fail on a licence check
+# — correctly, and confusingly. What is actually tracked in there is three
+# megabytes of drawings and text.
+art-source/**/*.mp4
+art-source/**/*.webm
+art-source/**/*.psd
+art-source/**/*.aseprite
 
 .git/
 node_modules/

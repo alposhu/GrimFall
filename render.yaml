@@ -1,15 +1,27 @@
-# Render. New > Blueprint, point it at this repository.
+# Render. In the dashboard: New > Blueprint, point it at this repository.
+#
+# No CLI and nothing to install — Render builds the Dockerfile from the repo,
+# which is why this is the easier of the two hosts if you are not already set up
+# with one.
 services:
   - type: web
     name: grimfall
-    runtime: docker
+    runtime: docker            # older Render blueprints call this `env: docker`
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     plan: free
-    # NOTE ON THE FREE PLAN: it sleeps after a quarter hour of no traffic and
-    # takes the better part of a minute to wake. For a lobby that means the
-    # first person to open it waits; everyone joining after does not. If that
-    # is annoying, this is the setting to change.
-    envVars:
-      - key: PORT
-        value: 5174
+
+    # PORT is deliberately NOT set here. Render injects its own and expects the
+    # service to listen on it; overriding it with a fixed number is a good way
+    # to end up with a service that is running and unreachable. The Dockerfile's
+    # ENV PORT is only a fallback for running the image by hand.
+
+    # Rooms are held in memory in ONE process, so two instances would be two
+    # separate sets of rooms and a code that works or does not depending on
+    # which you reached.
+    numInstances: 1
+
+# NOTE ON THE FREE PLAN: it sleeps after fifteen idle minutes and takes most of
+# a minute to wake. For a lobby that means the first person in waits and nobody
+# after them does. If that becomes annoying, the plan above is the one thing to
+# change.
