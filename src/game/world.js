@@ -100,23 +100,50 @@ function grain(ctx) {
   return grainPattern;
 }
 
+// Memoised, because this is called once per ground tile per frame - a few
+// hundred times at sixty frames a second - and every call used to build a new
+// `rgb(...)` string. The inputs are a handful of biome colours crossed with
+// fifteen brightness steps, so the whole space is a hundred-odd entries that
+// are all computed within the first second and never again. It is the string
+// churn that matters rather than the arithmetic: those were short-lived
+// allocations at tens of thousands a second, which is how a phone ends up
+// collecting garbage in the middle of a fight.
+const shadeCache = new Map();
 function shade(hex, amount) {
+  const key = hex + amount;
+  let out = shadeCache.get(key);
+  if (out !== undefined) return out;
   const n = parseInt(hex.slice(1), 16);
   const r = clamp(((n >> 16) & 255) + amount, 0, 255) | 0;
   const g = clamp(((n >> 8) & 255) + amount, 0, 255) | 0;
   const b = clamp((n & 255) + amount, 0, 255) | 0;
-  return `rgb(${r},${g},${b})`;
+  out = `rgb(${r},${g},${b})`;
+  shadeCache.set(key, out);
+  return out;
 }
 
 /**
  * Paint the ground for the visible rect (world coordinates).
  * Tiles are quantised so the camera never causes shimmer.
  */
+const groundBuckets = new Map();
+
 export function drawGround(ctx, view) {
   const x0 = Math.floor(view.left / TILE) - 1;
   const x1 = Math.ceil(view.right / TILE) + 1;
   const y0 = Math.floor(view.top / TILE) - 1;
   const y1 = Math.ceil(view.bottom / TILE) + 1;
+
+  // Gathered by colour first, then drawn a colour at a time. Setting
+  // `fillStyle` is a parse and a state change, and the tile colours are
+  // deliberately noisy, so painting in tile order changed it on nearly every
+  // one of the few hundred tiles on screen. There are only ever a few dozen
+  // distinct colours in view, so bucketing turns hundreds of state changes into
+  // a few dozen and leaves the same pixels behind.
+  //
+  // The buckets and their arrays are reused between frames - emptied, not
+  // rebuilt - so the grouping itself allocates nothing.
+  for (const arr of groundBuckets.values()) arr.length = 0;
 
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
@@ -126,9 +153,17 @@ export function drawGround(ctx, view) {
       const patch = noise2(tx * 0.22, ty * 0.22, seed * 5);
       let col = h < 0.5 ? b.ground : b.ground2;
       if (patch > 0.74) col = b.dirt;
-      ctx.fillStyle = shade(col, Math.round((h - 0.5) * 14));
-      ctx.fillRect(wx, wy, TILE + 1, TILE + 1);
+      const key = shade(col, Math.round((h - 0.5) * 14));
+      let arr = groundBuckets.get(key);
+      if (arr === undefined) groundBuckets.set(key, arr = []);
+      arr.push(wx, wy);
     }
+  }
+
+  for (const [col, arr] of groundBuckets) {
+    if (!arr.length) continue;
+    ctx.fillStyle = col;
+    for (let i = 0; i < arr.length; i += 2) ctx.fillRect(arr[i], arr[i + 1], TILE + 1, TILE + 1);
   }
 
   ctx.save();
@@ -181,6 +216,88 @@ export function drawDecor(ctx, view, density = 1) {
  * Collect scenery in view. Props are returned rather than drawn so the renderer
  * can depth-sort them together with creatures for a proper overlap.
  */
+/**
+ * The footprint a prop blocks, as a radius in world units — or 0 for scenery
+ * you walk over.
+ *
+ * These are the BASE of the object, not its picture. A pine is thirty pixels
+ * tall and almost all of that is canopy you should be able to walk behind, so
+ * it blocks eight units at the trunk. Getting this wrong in the other
+ * direction is what makes a wood feel like a corridor.
+ *
+ * Anything flat, soft or ankle-high is deliberately absent: bushes, mushrooms
+ * and scattered bones are things you push through, and stopping the player dead
+ * on a mushroom is worse than any realism it buys.
+ */
+const SOLID = {
+  tree_pine: 8, tree_oak: 9, rock: 11, rock_small: 6, stump: 7,
+  gravestone: 7, pillar: 10, crystal: 8, brazier: 7, obelisk: 11,
+};
+
+/** Props never move, so density must not decide what is solid. */
+const SOLID_DENSITY = 1;
+
+/**
+ * Every solid prop whose footprint could touch a circle at (x, y).
+ *
+ * Scenery is not stored anywhere — it is a pure function of world position, and
+ * that is what makes the map infinite and free. So collision regenerates the
+ * handful of cells around the mover rather than looking anything up, which is a
+ * few hashes over at most nine cells and cheaper than the array it would
+ * otherwise have to maintain.
+ *
+ * It deliberately does NOT consult `density`. Quality settings thin out what
+ * gets DRAWN; if they thinned out what blocks you as well, two players on the
+ * same seed would be walking through different worlds, and lowering your
+ * graphics would open shortcuts.
+ */
+export function forEachSolidProp(x, y, reach, fn) {
+  const x0 = Math.floor((x - reach - PROP_CELL) / PROP_CELL);
+  const x1 = Math.floor((x + reach + PROP_CELL) / PROP_CELL);
+  const y0 = Math.floor((y - reach - PROP_CELL) / PROP_CELL);
+  const y1 = Math.floor((y + reach + PROP_CELL) / PROP_CELL);
+
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      const h = hash2(cx, cy, seed * 41);
+      if (h > 0.62 * SOLID_DENSITY) continue;
+      const px = cx * PROP_CELL + hash2(cx, cy, seed * 43) * PROP_CELL;
+      const py = cy * PROP_CELL + hash2(cx, cy, seed * 47) * PROP_CELL;
+      const b = biomeAt(px, py);
+      const kind = weightedFromList(b.props, hash2(cx, cy, seed * 53));
+      const r = SOLID[kind];
+      if (!r) continue;
+      fn(px, py, r);
+    }
+  }
+}
+
+/**
+ * Slide a circle out of any prop it is standing in.
+ *
+ * Resolved as a push-out rather than by refusing the move: refusing means
+ * walking into a tree stops you dead and holding the stick keeps you stuck,
+ * which reads as the game freezing. Pushing along the surface normal lets you
+ * slide around the trunk while still being unable to walk through it, which is
+ * what every game that does this well feels like.
+ */
+export function resolveProps(pos, radius) {
+  forEachSolidProp(pos.x, pos.y, radius + 14, (px, py, pr) => {
+    const dx = pos.x - px;
+    // Footprints are read as ellipses, squashed to match the ground plane the
+    // world is drawn on: a circle would block a step above a rock's base, where
+    // the picture clearly shows floor.
+    const dy = (pos.y - py) * 1.9;
+    const min = radius + pr;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= min * min || d2 === 0) return;
+    const d = Math.sqrt(d2);
+    const push = (min - d) / d;
+    pos.x += dx * push;
+    pos.y += dy * push / 1.9;
+  });
+}
+
 export function collectProps(view, out, density = 1) {
   const pad = 64;
   const x0 = Math.floor((view.left - pad) / PROP_CELL);

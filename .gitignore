@@ -10,3 +10,7 @@ grimfall-web.zip
 # video/SOURCE.txt. Only the encoded, game-sized derivative in video/ ships.
 art-source/*.webm
 art-source/*.mp4
+
+# An extracted copy of the build, for looking at. Same content as dist/ and
+# the zip, and regenerated from them, so it has no business in the repository.
+grimfall-web/

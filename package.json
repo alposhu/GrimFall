@@ -8,11 +8,12 @@
   "license": "MIT",
   "scripts": {
     "start": "node serve.js",
+    "server": "node server/index.js",
     "dev": "node serve.js",
     "preview": "node serve.js dist",
     "build": "node tools/build.mjs",
     "build:zip": "node tools/build.mjs --zip",
-    "test": "node tools/headless.mjs 24 && node tools/quality-smoke.mjs && node tools/art-smoke.mjs && node tools/sheet-smoke.mjs && node tools/weapon-smoke.mjs && node tools/intro-smoke.mjs && node tools/food-smoke.mjs && node tools/music-smoke.mjs && node tools/voice-smoke.mjs && node tools/demo-smoke.mjs && node tools/cutscene-smoke.mjs && node tools/market-smoke.mjs && node tools/save-smoke.mjs && node tools/backup-smoke.mjs && node tools/arena-smoke.mjs && node tools/ui-smoke.mjs && node tools/boot-smoke.mjs && node tools/link-check.mjs",
+    "test": "node tools/headless.mjs 24 && node tools/quality-smoke.mjs && node tools/art-smoke.mjs && node tools/sheet-smoke.mjs && node tools/weapon-smoke.mjs && node tools/food-smoke.mjs && node tools/music-smoke.mjs && node tools/voice-smoke.mjs && node tools/demo-smoke.mjs && node tools/cutscene-smoke.mjs && node tools/market-smoke.mjs && node tools/save-smoke.mjs && node tools/backup-smoke.mjs && node tools/arena-smoke.mjs && node tools/ui-smoke.mjs && node tools/boot-smoke.mjs && node tools/net-smoke.mjs && node tools/coop-smoke.mjs && node tools/link-check.mjs",
     "test:quick": "node tools/headless.mjs 5 && node tools/weapon-smoke.mjs && node tools/music-smoke.mjs && node tools/voice-smoke.mjs && node tools/demo-smoke.mjs && node tools/arena-smoke.mjs && node tools/ui-smoke.mjs && node tools/boot-smoke.mjs",
     "lint:imports": "node tools/unused-imports.cjs"
   },

@@ -2,7 +2,7 @@
 // main.js — boot, the frame loop and the wiring between UI, input and the run.
 // ---------------------------------------------------------------------------
 
-import { clamp } from './core/util.js';
+import { clamp, seedRandom } from './core/util.js';
 import * as store from './core/storage.js';
 import {
   initAudio, playMusic, sfx, setMusicEnabled, setMusicVolume,
@@ -25,8 +25,11 @@ import { BIOMES } from './game/world.js';
 import { WEAPONS, WEAPON_IDS, PASSIVES, PASSIVE_IDS } from './game/config.js';
 import { S, showBanner } from './game/state.js';
 import { render, renderBackdrop } from './game/render.js';
+import { renderTitle, resetTitle } from './game/title.js';
+import { setWorldSeed } from './game/world.js';
+import { startCoopRun, endCoopRun, tickCoop, setPauseHandler, session } from './net/coopRun.js';
+import * as netlink from './net/connection.js';
 import { renderCutscene, skipCutscene } from './game/cutscene.js';
-import { playIntro } from './game/intro.js';
 import {
   startRun, startArena, endRun, update, updateCamera, computeView, on,
   suspendForMarket, resumeFromMarket, pressOn, saveRun, loadRun,
@@ -45,40 +48,92 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
 
 let zoom = 1;
+const VIEW_SHORT = 340;     // world units across the shorter side of the viewport
+let lastW = -1, lastH = -1;  // the backing store we last asked for
 let cssW = 0, cssH = 0;
 let mode = 'boot';           // 'boot' | 'intro' | 'menu' | 'run' | 'market'
 let lastTime = 0;
 let attractT = 0;
 let levelUpOpen = false;
 let portalOpen = false;      // the portal's two doors are up
+// Someone else is choosing an upgrade. Held as a set of who, not a flag, so two
+// players levelling at once cannot have the first to finish unpause the second.
+const pausedBy = new Set();
+let teamPaused = false;
+let netHudOn = false;
 
 // ---------------------------------------------------------------------------
 // Canvas sizing
 // ---------------------------------------------------------------------------
 function resize() {
-  // On iOS the toolbar slides away as you play, so trust the visual viewport
-  // when it exists rather than window.innerHeight.
-  const vv = window.visualViewport;
-  cssW = Math.round(vv?.width || window.innerWidth);
-  cssH = Math.round(vv?.height || window.innerHeight);
+  // Measured from the element, not from the window.
+  //
+  // This used to size the canvas from `visualViewport` and then write the
+  // result back as an inline width and height - which overrode the `100%` in
+  // the stylesheet, so the moment the two disagreed the canvas stopped filling
+  // its box and the gap showed as a black band down the edge. They disagree
+  // more often than you would think: a hidden scrollbar, a fractional device
+  // pixel, and on a phone the whole time the toolbar is sliding.
+  //
+  // Reading the box back instead means CSS owns the LAYOUT (#app is inset to
+  // the viewport with a `dvh` fallback, and #game fills it) and this owns the
+  // RESOLUTION. They cannot contradict each other, because only one of them is
+  // deciding.
+  cssW = Math.round(canvas.clientWidth || window.innerWidth);
+  cssH = Math.round(canvas.clientHeight || window.innerHeight);
 
   // The quality tier caps the backing store: honouring a 3x phone screen would
   // mean filling four million pixels a frame for no visible gain.
   const { w, h, dpr } = canvasSize(cssW, cssH);
-  canvas.width = w;
-  canvas.height = h;
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
 
-  // Keep a comparable slice of the world visible on any screen: phones zoom in
-  // a little, large screens zoom out, and neither ends up rendering an
-  // unreasonable amount of world.
-  zoom = dpr * clamp(Math.min(cssW, cssH) / 480, 0.85, 1.6);
+  // Assigning `canvas.width` reallocates the backing store and wipes the
+  // canvas EVEN WHEN THE VALUE IS UNCHANGED, so it is guarded rather than set
+  // every time. This matters on iOS specifically: the address bar slides in and
+  // out as you play, the visual viewport reports a resize for every frame of
+  // that animation, and the game was throwing away and re-allocating a
+  // multi-megapixel buffer on each one - in the middle of a fight, which is
+  // exactly when the toolbar tends to move.
+  if (w !== lastW || h !== lastH) {
+    canvas.width = w;
+    canvas.height = h;
+    lastW = w;
+    lastH = h;
+  }
+
+  // How many world units fit across the SHORTER side of the screen. Tying the
+  // scale to the short side is what makes a phone in portrait and a monitor in
+  // landscape the same game: whichever way the screen is turned, the direction
+  // you can see least far is the one that decides how much warning you get.
+  //
+  // The old constants were 480 with a floor of 0.85, and the floor was doing
+  // all the work - every phone landed on it and every desktop on the 1.6
+  // ceiling, so the two were effectively hard-coded. A mob came out 26 CSS
+  // pixels on a phone against 48 on a desktop: half the size, on the smaller
+  // screen, which is the wrong way round. Pixel art that small stops reading as
+  // a creature at arm's length.
+  //
+  // 340 keeps the desktop exactly where it was (the ceiling still binds
+  // anywhere the short side is 544px or more) and lifts a phone to a mob of
+  // about 34px. That does mean a phone sees less ground than it used to - it
+  // has to, because the screen is smaller and something has to give - but the
+  // enemy spawn radius is derived from the view, so they still arrive from just
+  // off-screen rather than materialising in your lap.
+  zoom = dpr * clamp(Math.min(cssW, cssH) / VIEW_SHORT, 1.0, 1.6);
   ctx.imageSmoothingEnabled = false;
+  resetTitle();      // its buffer is sized to the canvas, so it cannot outlive one
 }
-addEventListener('resize', resize);
+// Coalesced. A window resize is a drag on a desktop and a sliding toolbar on a
+// phone, and both arrive as a burst of events describing sizes nobody will ever
+// see - only the last one is real. Boot calls `resize` directly, so the first
+// frame is never delayed by this.
+let resizeTimer = null;
+function resizeSoon() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resize, 120);
+}
+addEventListener('resize', resizeSoon);
 addEventListener('orientationchange', () => setTimeout(resize, 150));
-window.visualViewport?.addEventListener('resize', resize);
+window.visualViewport?.addEventListener('resize', resizeSoon);
 
 // ---------------------------------------------------------------------------
 // Boot: build every sprite up front so the first frame of a run never stutters
@@ -158,7 +213,7 @@ async function boot() {
     onResume: () => setPaused(false),
     onAbandon: () => { endRun('dead'); },
     onTitle: toTitle,
-    onLevelUpDone: () => { levelUpOpen = false; },
+    onLevelUpDone: () => { levelUpOpen = false; session.announceResumed(); },
     onSetting: applySetting,
     // marketplace
     onInteract: () => {
@@ -174,6 +229,21 @@ async function boot() {
     // An imported backup changes gold, unlocks and records, so the menus
     // that display them have to be rebuilt rather than left stale.
     onProgressImported: () => { ui.refreshMeta?.(); },
+
+    // The lobby says go. The run is started exactly the way a solo run is —
+    // same character, same difficulty, same code path — and only then are the
+    // other players attached to it. Co-op is additive right down to here.
+    onCoopStart: (m) => {
+      // The same entry point a solo run uses, with the same character screen
+      // behind it — co-op is additive right down to here. The seed is replaced
+      // before anything is generated from it so every client builds the same
+      // world, and only then are the other players attached.
+      beginRun(m.charId || 'ranger', m.difficulty || 'normal');
+      S.seed = m.seed;
+      setWorldSeed(m.seed);
+      seedRandom(m.seed);
+      startCoopRun(m, m.selfId);
+    },
   });
 
   // Hand-drawn character art has to finish decoding before any sprite is
@@ -216,14 +286,15 @@ async function boot() {
 
   await new Promise((r) => setTimeout(r, 260));
 
-  // The cinematic, then the menu. `playIntro` always resolves — a missing
-  // video, a blocked autoplay, a thrown frame all land on the title screen
-  // just the same, so this can never be the thing that stops the game booting.
+  // Straight to the title. There used to be a thirteen-second cinematic here,
+  // and before that a rendered film; the title screen now does that job itself
+  // — the sky is already moving, the wordmark drops in, and the prompt asks for
+  // the one input the player was going to give anyway. An opening you have to
+  // sit through is the fastest way to make somebody resent a game they have not
+  // played yet, and this one is over in a second and starts the moment they
+  // touch it.
   ui.hideAll();
-  mode = 'intro';
-  const how = await playIntro({ canvas, ctx });
-  if (how !== 'none') console.info(`Grimfall: intro (${how}).`);
-
+  showBuildStamp();
   toTitle();
   requestAnimationFrame(loop);
 }
@@ -231,6 +302,49 @@ async function boot() {
 // ---------------------------------------------------------------------------
 // Mode transitions
 // ---------------------------------------------------------------------------
+/** Someone entered or left an upgrade screen. */
+netlink.on('lost', () => {
+  if (!session.isActive()) return;
+  // The run is not discarded. Every creature is already simulated here, so what
+  // is lost is the other people — the world carries on, alone, which is far
+  // kinder than dropping someone out of a twenty-minute run at minute
+  // seventeen because their wifi blinked.
+  endCoopRun();
+  S.toast = { text: 'Connection lost — playing on alone', color: '#ff9aa8', life: 4, maxLife: 4 };
+});
+
+setPauseHandler((who, paused) => {
+  if (paused) pausedBy.add(who); else pausedBy.delete(who);
+  teamPaused = pausedBy.size > 0;
+});
+
+/**
+ * The diagnostics panel. Only ever built while a networked run is going, so on
+ * your own this costs one boolean per frame and touches no DOM at all.
+ */
+function updateNetHud() {
+  const el = document.getElementById('netHud');
+  if (!el) return;
+  const want = netHudOn && session.isActive();
+  el.hidden = !want;
+  if (!want) return;
+  el.textContent = session.debugLines().join('\n');
+}
+
+/**
+ * Show which build this is, on screen and in the console.
+ *
+ * The tag is written by tools/build.mjs, so it exists in a build and not in the
+ * source tree — running from source says "dev", which is itself the answer to
+ * "am I looking at a build or at my working copy?".
+ */
+function showBuildStamp() {
+  const id = document.querySelector('meta[name="grimfall-build"]')?.getAttribute('content') || 'dev';
+  const el = document.getElementById('buildStamp');
+  if (el) el.textContent = `build ${id}`;
+  console.info(`Grimfall: build ${id}`);
+}
+
 function toTitle() {
   mode = 'menu';
   S.running = false;
@@ -410,18 +524,28 @@ function loop(now) {
   } else if (mode === 'run' && S.player) {
     const view = computeView(canvas.width, canvas.height, zoom);
     S.view = view;
-    if (!S.paused && !levelUpOpen) {
+    // A co-op run stops for everyone while anyone is choosing an upgrade, so
+    // the test is "is ANY of us in a menu", not "am I".
+    if (!S.paused && !levelUpOpen && !teamPaused) {
       update(dt, view);
       updateCamera(dt, canvas.width, canvas.height);
+      // After the simulation: corrections land on a world that has finished
+      // thinking, and the outgoing snapshot says where things ended up rather
+      // than where they started.
+      tickCoop(dt);
     }
     render(ctx, canvas, zoom, opts);
     if (S.cutscene) renderCutscene(ctx, canvas.width, canvas.height);
     ui.updateHUD();
     ui.showSkip(!!S.cutscene);
+    updateNetHud();
 
     if (S.pendingLevels > 0 && !levelUpOpen && S.running) {
       levelUpOpen = true;
       resetStick();
+      // Everyone else stops too. Announced before the card is drawn so the
+      // pause reaches the others while this player is still reading.
+      session.announceLevelUp();
       ui.openLevelUp();
     }
     // Stepping into the portal asks where it lets you out — but only once the
@@ -437,13 +561,21 @@ function loop(now) {
     }
   } else {
     attractT += dt;
-    renderBackdrop(ctx, canvas, zoom * 0.9, attractT);
+    // The title screen gets its own sky; every other menu keeps the game world
+    // drifting behind it, which is what tells you the run is still there.
+    if (ui.currentScreen() === 'titleScreen') renderTitle(ctx, canvas, attractT);
+    else renderBackdrop(ctx, canvas, zoom * 0.9, attractT);
   }
 
   sampleFrame(performance.now() - frameStart);
 }
 
 function handleKeys() {
+  // Diagnostics, before anything that can swallow a key. F3 rather than a menu
+  // toggle because it is read while tuning, not while playing, and wanting it
+  // usually happens mid-fight.
+  if (consumePressed('F3')) netHudOn = !netHudOn;
+
   // Any key gets you past a boss entrance you have already seen.
   if (S.cutscene) {
     if (consumePressed('Escape') || consumePressed('Space') || consumePressed('Enter')) skipCutscene();

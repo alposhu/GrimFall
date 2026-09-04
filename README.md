@@ -530,13 +530,18 @@ Mobile is a first-class target, not a shrunken desktop build.
 
 ## How it plays
 
-- **An opening cinematic** plays before the menu. Any key, click or tap skips it,
-  and there is a **Skip button** on screen throughout — on a phone that button is
-  the affordance, since a bare canvas tells nobody that a tap would do anything.
-  `video/intro.mp4` is built by `tools/assets/build-intro.py`, which re-encodes
-  the master from `art-source/`, moves the index to the front so playback starts
-  before the download finishes, and mixes a score under the film's own audio.
-  With no film there the game draws its own four beats instead.
+- **The title screen is the opening.** There is no film and no cinematic to sit
+  through: the sky behind the menu is drawn in code — a nine-colour pixel
+  cloudscape, parallaxed over three depths — the wordmark drops in over seven
+  stepped frames, and one prompt waits for the only input you were going to give
+  anyway. Touching it brings up the menu, and that same touch is what lets the
+  browser start the audio. On a phone the sky is `img/ui/mobile.png` instead: a
+  finished painting for one decode and no per-frame work.
+
+  This replaced 2.7 MB of video. `video/` is gone from the project entirely,
+  along with the thirteen-second cinematic that stood in when the file was
+  missing — an opening you have to sit through is the fastest way to make
+  somebody resent a game they have not played yet.
 - **Move** with `WASD` / arrows, a touch drag, or a gamepad stick. `Esc` or `P` pauses.
 - **Levelling** offers three upgrades — a new weapon, a stronger one, or a passive.
   Six weapons and six passives is the cap, so commit to a build. Most passives

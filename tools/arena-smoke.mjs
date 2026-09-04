@@ -26,7 +26,11 @@ const check = (c, m) => { if (!c) problems.push(m); };
 const canvas = document.createElement('canvas');
 canvas.width = 1280; canvas.height = 720;
 const ctx = canvas.getContext('2d');
-const view = computeView(1280, 720, 1.4);
+// Recomputed every frame, not hoisted: `computeView` reads the camera at the
+// moment it is called, so a view captured once stays pinned to wherever the
+// camera was at the start. Targeting is now scoped to what is on screen, and
+// a stale view means the bot kites the boss out of a frame that never moves.
+const view = () => computeView(1280, 720, 1.4);
 
 /** Keep away from the boss and from bullets; drift towards loot. */
 function think() {
@@ -108,7 +112,7 @@ for (const def of BOSSES) {
   const cap = 30 * 60 * 6;                 // six minutes of fight
   while (S.running && frames < cap) {
     if (frames % 3 === 0) want = think();
-    update(1 / 30, view);
+    update(1 / 30, view());
     if (frames % 300 === 0) render(ctx, canvas, 1.4, {});
     if (S.player.hp < 1200) S.player.hp = 4000;   // keep it alive to the end
     frames++;

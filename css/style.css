@@ -77,7 +77,13 @@
   --radius:    0px;
   --radius-sm: 0px;
 
+  /* The panel frame, and the two numbers that have to agree with it. The art
+     is eight source pixels of woodwork; `--frame-w` is how many CSS pixels
+     those become, and `--frame-slice` must match the file being used. Phones
+     drop to the 2x file below - see the media query after this block. */
   --frame-panel:   url('../img/ui/panel.png');
+  --frame-w:       24px;
+  --frame-slice:   24;
   --frame-head:    url('../img/ui/head.png');
   --frame-slot:    url('../img/ui/slot.png');
   --frame-bar:     url('../img/ui/bar.png');
@@ -125,9 +131,9 @@
 .stat-box,
 .opt-row {
   border-style: solid;
-  border-width: 24px;
+  border-width: var(--frame-w);
   border-image-source: var(--frame-panel);
-  border-image-slice: 24;
+  border-image-slice: var(--frame-slice);
   border-image-repeat: repeat;
   border-radius: 0;
   background-color: var(--panel);
@@ -155,6 +161,20 @@
   outline-offset: -2px;
 }
 
+
+/* A phone is not a small desktop. At 3x the frame is 24px a side, which on a
+   390px screen is an eighth of the width spent on woodwork before a word of
+   text - the interface stops looking like the same game and starts looking like
+   a mobile port of it. The 2x art is the same drawing at the same fidelity,
+   just not enlarged past what the screen can spare. */
+@media (max-width: 560px) {
+  :root {
+    --frame-panel: url('../img/ui/panel-2x.png');
+    --frame-w:     16px;
+    --frame-slice: 16;
+  }
+}
+
 /* --- the market's wares ----------------------------------------------------
    Declared after the block above so it wins for `.good`, and only for `.good`:
    the shop panel itself stays parchment, so the shelf reads as objects sitting
@@ -179,10 +199,12 @@
 /* --- the green title bar --------------------------------------------------- */
 .panel-head {
   display: flex; align-items: center; gap: 10px;
-  /* Pulled out to the panel's own 24px frame so the bar meets the woodwork,
-     which is how the kit draws it — a header that stops short reads as a
-     coloured strip lying on the page rather than part of the window. */
-  margin: -24px -24px 18px;
+  /* Pulled out to the panel's own frame so the bar meets the woodwork, which
+     is how the kit draws it — a header that stops short reads as a coloured
+     strip lying on the page rather than part of the window. Derived from
+     `--frame-w` rather than repeating 24, so the narrower phone frame does not
+     leave the header floating a few pixels short of the wood. */
+  margin: calc(-1 * var(--frame-w)) calc(-1 * var(--frame-w)) 18px;
   padding: 8px 14px;
   min-height: 46px;
   background-color: var(--head);
@@ -463,26 +485,6 @@ html, body {
    intro runs before any screen is shown. The tap target is deliberately larger
    than the text: this is the one control a first-time player on a phone has to
    find, and they have not been taught anything yet. */
-.intro-skip {
-  position: absolute;
-  right: calc(16px + var(--safe-r));
-  bottom: calc(16px + var(--safe-b));
-  z-index: 30;
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 46px;
-  padding: 12px 20px;
-  border-radius: 0;
-  border: 1px solid rgba(255, 236, 210, 0.34);
-  background: rgba(12, 8, 18, 0.62);
-  color: var(--ink);
-  font: 400 12px/1 var(--font-display);
-  letter-spacing: 0.14em; text-transform: uppercase;
-  cursor: var(--cur-hit);
-  touch-action: manipulation;          /* no 300ms tap delay, no double-tap zoom */
-  animation: skipIn 0.6s ease-out both;
-  animation-delay: 0.9s;               /* let the first shot land before nagging */
-}
-.intro-skip:active { transform: translateY(1px); background: rgba(30, 20, 40, 0.8); }
 @keyframes skipIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* =========================================================== touch joystick */
@@ -647,7 +649,7 @@ i.dot-kill { background: var(--blood); }
 .skip-btn {
   position: absolute; right: calc(14px + var(--safe-r)); bottom: calc(16px + var(--safe-b));
   padding: 10px 18px; border-radius: 0;
-  background: rgba(8, 5, 14, 0.72); border: 1px solid rgba(255, 236, 210, 0.3);
+  background: rgba(8, 5, 14, 0.34); border: 1px solid rgba(255, 236, 210, 0.3);
   color: var(--ink-2); font-family: var(--font-display); font-size: 11px;
   letter-spacing: 0.1em; cursor: var(--cur-hit); pointer-events: auto;
   transition: 0.14s;
@@ -728,26 +730,108 @@ i.dot-kill { background: var(--blood); }
    shape of window. It is NOT `image-rendering: pixelated` — the film is already
    pixel art rendered at 720p, and forcing nearest-neighbour on a non-integer
    scale would alias it into a mess. */
-.menu-bg {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-  z-index: 0;
-}
+/* The menu needs its text to sit on something; the attract state does not -
+   the wordmark carries its own outline and the prompt its own hard shadow, so
+   a scrim there would only be nine colours of sky seen through soot. It lifts
+   when the menu arrives and not before. */
+#titleScreen.awaiting::before { background: rgba(8, 5, 14, 0.06); }
 #titleScreen::before {
   content: ''; position: absolute; inset: 0;
-  background: rgba(8, 5, 14, 0.72);
+  background: rgba(8, 5, 14, 0.5);
   pointer-events: none;
   z-index: 1;
 }
 .title-wrap { z-index: 2; }
 
-/* Somebody who has asked their system for less motion should not be handed a
-   looping film as the first thing they see. */
-@media (prefers-reduced-motion: reduce) {
-  .menu-bg { display: none; }
+/* ===========================================================================
+   The attract screen
+   ---------------------------------------------------------------------------
+   The title screen has two states, not two screens. `#titleScreen.awaiting` is
+   the attract state: the sky, the wordmark and one prompt. Touch it and the
+   menu is there. Keeping it one screen means the back stack, the smoke tests
+   and the screen switcher all carry on knowing about exactly the screens they
+   already knew about.
+
+   EVERY ANIMATION BELOW IS STEPPED. `steps()` on a pixel wordmark is not a
+   stylistic preference — a tween moves it by fractions of a pixel, and a
+   fractional offset on pixel art is resampling: for the length of the fall the
+   stems go soft and uneven, which is precisely the "made by a machine" look
+   this game is drawn to avoid. Stepping the motion means every frame of it
+   lands on a whole pixel, the way a sprite animation would.
+
+   There are no shadows, blurs, glows or gradients here for the same reason.
+   =========================================================================== */
+
+/* The prompt only exists while waiting; the menu only exists after. */
+.press-start { display: none; }
+#titleScreen.awaiting .press-start { display: block; }
+#titleScreen.awaiting .menu,
+#titleScreen.awaiting .tagline,
+#titleScreen.awaiting .title-foot,
+#titleScreen.awaiting .title-credit { display: none; }
+
+.press-start {
+  position: absolute;
+  left: 50%;
+  bottom: calc(9% + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 10px 18px;
+  border: 0;
+  background: none;
+  font-family: var(--font-display);
+  font-size: clamp(15px, 3.4vw, 22px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--over);
+  /* A hard offset square, not a blur. This is the drop shadow a sprite gets. */
+  text-shadow: 3px 3px 0 #2b1a2e;
+  animation: pressPulse 1.6s steps(1, end) infinite;
 }
+.press-start:focus-visible { outline: 2px solid var(--over); outline-offset: 4px; }
+
+/* Forwards and back, in four whole-pixel stops each way. `steps(1, end)` on the
+   keyframes means it JUMPS between the positions rather than sliding through
+   them — the difference between a sprite being re-drawn a pixel over and a div
+   being tweened, which is the whole distinction this file cares about. */
+@keyframes pressPulse {
+  0%   { transform: translate(-50%, 0px); }
+  12%  { transform: translate(-50%, -2px); }
+  25%  { transform: translate(-50%, -4px); }
+  37%  { transform: translate(-50%, -6px); }
+  50%  { transform: translate(-50%, -4px); }
+  62%  { transform: translate(-50%, -2px); }
+  75%  { transform: translate(-50%, 0px); }
+  87%  { transform: translate(-50%, -2px); }
+  100% { transform: translate(-50%, 0px); }
+}
+
+/* The wordmark falls in.
+
+   This was originally stepped — `steps(7)`, a hard squash to 0.82, and a
+   four-frame shake of the whole title on impact. That is how a sprite
+   animation is built, and on a wordmark this size it was simply unpleasant:
+   seven visible jerks over nearly a second, then the screen kicking. Stepping
+   flatters a small sprite and punishes a large one, because the bigger the
+   thing, the further it travels per step and the more the eye reads each stop
+   as a stutter rather than as a frame.
+
+   So it eases instead. The curve overshoots a little and settles, which gives
+   the drop its weight without a squash — and losing the squash is worth
+   something on its own, since a non-integer `scaleY` on pixel type resamples
+   every stem for the length of the animation. Nothing here scales any more;
+   it only moves, and a translation leaves the pixels alone.
+
+   Just under two thirds of a second, from much closer in. The old one fell
+   from 160% of its own height away, which is most of a screen, and all of that
+   extra distance sat in the slow end of the curve. */
+@keyframes logoDrop {
+  0%   { transform: translateY(-95%); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+
 .title-wrap { position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 
 .logo {
@@ -765,14 +849,13 @@ i.dot-kill { background: var(--blood); }
   width: auto;
   max-width: 92vw;
   height: auto;
-  animation: logoIn 1.1s cubic-bezier(.2,.9,.25,1) both;
+  /* Promoted to its own layer for the length of the drop. Without it the
+     wordmark is re-rasterised every frame of the animation, and on a pixel
+     face that is where softness creeps in. */
+  will-change: transform, opacity;
+  animation: logoDrop 0.55s cubic-bezier(0.34, 1.25, 0.64, 1) 1 both;
 }
 @media (min-width: 1000px) { .logo img { width: 828px; } }
-@keyframes logoIn {
-  from { opacity: 0; transform: translateY(-14px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
-}
-
 .tagline {
   margin: 4px 0 26px;
   font-size: clamp(12px, 2.6vw, 16px);
@@ -1156,11 +1239,22 @@ kbd {
 .result-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-3); margin-bottom: 6px; }
 .result.win h2 { color: var(--ember-2); text-shadow: 0 0 26px rgba(255,215,94,0.5); }
 .result.lose h2 { color: var(--blood); text-shadow: 0 0 26px rgba(255,77,106,0.4); }
+/* The run's takings. This was pale gold type on a ten-percent gold wash over
+   parchment — three things nearly the same colour, and the number you most want
+   to read after a run was the least legible thing on the screen.
+
+   Now it is a solid dark amber plate with near-white type on it. The plate is
+   the darkest orange that still reads as orange rather than as brown: #7a3908
+   measures 7.89:1 against the type, which clears WCAG AAA (7:1) rather than
+   merely passing AA, and it holds up on a phone in daylight — which is where a
+   results screen is actually read. The rim is the interface's own bright amber
+   at 4.98:1 against the plate, so the edge is visible without a glow. */
 .result-gold {
   margin-top: 14px; display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 16px; border-radius: 0;
-  background: rgba(255,215,94,0.1); border: 1px solid rgba(255,215,94,0.28);
-  color: var(--ember-2); font-family: var(--font-display); font-size: 13px;
+  padding: 9px 18px; border-radius: 0;
+  background: #7a3908;
+  border: 2px solid #ffb648;
+  color: #fff3d8; font-family: var(--font-display); font-size: 14px;
 }
 
 /* ------------------------------------------------------------------ level up */
@@ -1282,7 +1376,93 @@ kbd {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.06s !important; }
 }
 
-.result-gold.muted { color: var(--ink-3); background: rgba(255,255,255,0.04); border-color: var(--line-2); font-size: 11px; }
+/* The arena's "nothing banked" note. Still visibly secondary, but it was
+   3.1:1 on parchment, which is under the bar for body text; --ink-2 is 6.2:1
+   and reads as quiet rather than as faded. */
+.result-gold.muted { color: var(--ink-2); background: rgba(255,255,255,0.04); border-color: var(--line-2); font-size: 11px; }
+
+/* ===========================================================================
+   Co-op lobby
+   ---------------------------------------------------------------------------
+   Borrows the interface's existing parts rather than inventing any: panel,
+   wells and chip buttons. The one thing built specially is the code display,
+   because a four-character code that is going to be read out loud over voice
+   chat has a different job from any other text in the game.
+   =========================================================================== */
+.coop-setup, .coop-room { display: flex; flex-direction: column; gap: 12px; }
+
+.coop-field {
+  display: flex; flex-direction: column; gap: 5px;
+  font-family: var(--font-display); font-size: 12px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2);
+  text-align: left;
+}
+.coop-field input {
+  font-family: var(--font-display); font-size: 16px;
+  padding: 10px 12px;
+  color: var(--ink); background: var(--well);
+  border: 2px solid var(--line); border-radius: 0;
+  text-transform: none; letter-spacing: normal;
+}
+.coop-field input:focus-visible { outline: 2px solid var(--head); outline-offset: 1px; }
+
+/* The code field is four characters that will be spelled out to another person,
+   so it is set large, wide-tracked and centred — closer to a scoreboard than to
+   a form field, which is what stops "was that a Q or an O" happening. */
+.coop-code-input {
+  text-align: center;
+  font-size: 30px !important;
+  letter-spacing: 0.42em !important;
+  text-indent: 0.42em;          /* re-centres text that tracking pushed left */
+}
+
+.coop-or {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3);
+}
+.coop-or::before, .coop-or::after {
+  content: ''; flex: 1; height: 2px; background: var(--line);
+}
+
+.coop-code-row {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px; background: var(--well); border: 2px solid var(--line);
+}
+.coop-code-label {
+  font-family: var(--font-display); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-2);
+}
+.coop-code {
+  font-family: var(--font-display); font-size: 38px; line-height: 1.1;
+  letter-spacing: 0.3em; text-indent: 0.3em; color: var(--ink);
+}
+
+.coop-players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.coop-player {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px;
+  background: var(--panel-2); border: 2px solid var(--line);
+  font-family: var(--font-display); font-size: 14px; color: var(--ink);
+}
+.coop-player.is-self { border-color: var(--head); }
+.coop-tag {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 3px 8px; color: #fff3d8; background: var(--ink-2);
+}
+.coop-tag.is-host { background: #7a3908; }
+.coop-tag.is-ready { background: #2f6a3a; }
+
+.coop-actions { display: flex; flex-direction: column; gap: 8px; }
+
+.coop-note { min-height: 1.2em; margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.coop-note.bad { color: #8f2f1c; }
+.coop-note.good { color: #2f6a3a; }
+
+@media (max-width: 560px) {
+  .coop-code { font-size: 30px; }
+  .coop-code-input { font-size: 24px !important; }
+}
 
 /* ===========================================================================
    Marketplace
@@ -1542,4 +1722,61 @@ kbd {
   border-radius: var(--radius-sm);
   image-rendering: auto;
   background: rgba(255, 236, 210, 0.05);
+}
+
+/* ===========================================================================
+   Co-op diagnostics (F3)
+   ---------------------------------------------------------------------------
+   Deliberately plain and deliberately ugly: this is instrumentation, it is
+   read while something is going wrong, and every pixel spent making it pretty
+   is a pixel not spent making a number legible. It sits top-left because that
+   is the one corner the HUD never uses.
+   =========================================================================== */
+.net-hud {
+  position: absolute;
+  top: calc(6px + var(--safe-t));
+  left: calc(6px + var(--safe-l));
+  z-index: 60;
+  pointer-events: none;
+  padding: 6px 9px;
+  background: rgba(8, 5, 14, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cfe6ff;
+  font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+.net-hud b { color: #ffd75e; font-weight: normal; }
+.net-hud .bad { color: #ff7a8a; }
+
+/* A teammate dropping is worth saying out loud, once, in the middle of a fight
+   where nobody is reading the corners. */
+.net-toast {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  top: calc(58px + var(--safe-t));
+  z-index: 60;
+  pointer-events: none;
+  padding: 7px 14px;
+  background: rgba(8, 5, 14, 0.85);
+  border: 2px solid var(--line);
+  color: var(--over);
+  font-family: var(--font-display); font-size: 13px;
+}
+
+/* The build stamp. Quiet enough to ignore while playing, findable in one glance
+   when you are asking "did my upload actually go live?" — which is why it sits
+   in the corner of the title screen rather than in the credits, and why the
+   attract state does not hide it along with everything else. */
+.build-stamp {
+  position: absolute;
+  right: calc(9px + var(--safe-r));
+  bottom: calc(7px + var(--safe-b));
+  z-index: 3;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--over-2);
+  opacity: 0.6;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }

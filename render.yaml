@@ -1,0 +1,15 @@
+# Render. New > Blueprint, point it at this repository.
+services:
+  - type: web
+    name: grimfall
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: free
+    # NOTE ON THE FREE PLAN: it sleeps after a quarter hour of no traffic and
+    # takes the better part of a minute to wake. For a lobby that means the
+    # first person to open it waits; everyone joining after does not. If that
+    # is annoying, this is the setting to change.
+    envVars:
+      - key: PORT
+        value: 5174

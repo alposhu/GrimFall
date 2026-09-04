@@ -4,7 +4,7 @@
 // this module rather than to each other.
 // ---------------------------------------------------------------------------
 
-import { clamp, rand, TAU, swapRemove } from '../core/util.js';
+import { clamp, rand, random, TAU, swapRemove } from '../core/util.js';
 import { sfx } from '../core/audio.js';
 import { say } from '../core/voice.js';
 import { burst, floatText, ring, emit } from './particles.js';
@@ -19,7 +19,20 @@ export const S = {
   difficulty: 'normal',
   seed: 1,
 
+  // `player` is THIS CLIENT'S character and stays exactly what it always was:
+  // the one whose input is read, whose weapons fire here, and whom the camera
+  // follows. `players` is everyone, local player included, and is what anything
+  // that has to consider the whole team looks at — enemy targeting, pickups,
+  // the win/lose test.
+  //
+  // Splitting it this way rather than replacing `player` with a list is what
+  // keeps single-player untouched: on your own, `players` is a one-element
+  // array holding `player`, every loop over it runs once, and every existing
+  // reference to `player` still means what it meant. It is also the honest
+  // shape for this architecture — a client authoritative for its own character
+  // genuinely does have one special player and a set of others.
   player: null,
+  players: [],
   enemies: [],
   shots: [],                // player projectiles
   hostileShots: [],
@@ -74,6 +87,23 @@ export const S = {
   pendingMarket: null,       // { bossName } — the market door was chosen, consumed by main
 };
 
+/**
+ * Where the co-op session plugs in.
+ *
+ * A bridge of nulls rather than an import: this module is the centre of the
+ * game and must not depend on the network layer, or single player would drag in
+ * a socket it never opens and the two would be impossible to test apart. The
+ * session fills these in when a run goes online and clears them when it ends.
+ */
+export const netBridge = {
+  onShotFired: null,         // (shot) — this client loosed something
+  onEnemyDamaged: null,      // (enemy, delta) — a hit landed on someone's creature
+  onEnemyKilled: null,       // (enemy)
+  onPlayerDowned: null,      // (player)
+  onPlayerRevived: null,     // (player, by)
+  ownedHere: null,           // (enemy) -> is this client the authority for it
+};
+
 export const diff = () => DIFFICULTIES[S.difficulty] || DIFFICULTIES.normal;
 
 /**
@@ -99,6 +129,92 @@ export function mightMult() {
   return (1 + passiveValue('might')) * (S.player?.mightBase || 1) * (S.player?.metaMight || 1);
 }
 export function areaMult() { return 1 + passiveValue('area'); }
+
+/**
+ * How much further than standard this build reaches. Longshot is the passive,
+ * and the Sanctuary sells a permanent slice of the same thing.
+ */
+export function rangeMult() {
+  return (1 + passiveValue('longshot')) * (S.player?.metaReach || 1);
+}
+
+/**
+ * The furthest a weapon may look for a target, given what it wants and what the
+ * player can actually see.
+ *
+ * WHY THERE IS A CEILING AT ALL. Weapons used to acquire at flat distances -
+ * the bolt at 640 world units - while the camera shows about 337 above and
+ * below you. Anything the weapon found beyond that was fired on, killed and
+ * looted entirely off screen: you would hear a hit, see experience arrive, and
+ * never once see the thing that died. That is not a long-ranged weapon, it is
+ * the game playing itself somewhere you are not looking.
+ *
+ * So a target has to be ON SCREEN, and `visible()` below decides that per
+ * direction rather than by radius, because the view is a rectangle: an enemy
+ * three hundred units to the side is in plain sight while one three hundred
+ * units above is not.
+ *
+ * Longshot then does something worth taking. The base ranges sit under the
+ * limit, so extra reach genuinely buys you targets you could not hit before,
+ * right up to the edge of the screen and no further.
+ */
+const AIM_REFERENCE = 640;   // the longest reach any weapon asks for
+const AIM_HEADROOM = 0.78;   // ...and how much of the visible circle it starts with
+
+export function aimRange(want) {
+  const limit = viewLimit();
+  // The number a weapon asks for is treated as a PROPORTION, not a distance.
+  // Taken literally it would be pinned to the cap - the bolt wants 640 and the
+  // screen allows 337, so it would sit on the ceiling and Longshot would buy
+  // it nothing, which is the worst possible upgrade: one that reads as an
+  // increase and measurably is not.
+  //
+  // Scaled against the longest weapon in the game instead, every weapon keeps
+  // its position in the pecking order, starts inside the visible circle with
+  // room above it, and grows into that room as the range stat comes up.
+  const base = (want / AIM_REFERENCE) * limit * AIM_HEADROOM;
+  return Math.min(base * rangeMult(), limit);
+}
+
+/**
+ * How far a weapon may reach, expressed against the screen.
+ *
+ * This is the DIAGONAL, not the short side. The short side was the first
+ * attempt and it was doing two jobs at once: `visible()` below already
+ * guarantees nothing off screen is ever targeted, per direction and exactly,
+ * so a second radial rule only had to scale reach sensibly with the display —
+ * and as the tighter of the two it silently became the real limit. Kiting a
+ * boss at the distance the arena bot uses fell just outside it, so the fight
+ * became unwinnable about half the time. A flaky test, but a true one: it was
+ * describing a player backing away and finding their weapons had stopped
+ * reaching.
+ */
+function viewLimit() {
+  const v = S.view;
+  if (!v) return 900;
+  return Math.hypot(v.w, v.h) * 0.5;
+}
+
+/**
+ * Is this enemy actually on screen? A rectangle test, not a radius: the view is
+ * wider than it is tall, and pretending otherwise would either forbid targets
+ * that are plainly visible out to the sides or allow ones off the top.
+ *
+ * The margin is negative on purpose - a creature has to be a little way inside
+ * the frame before it can be shot at, so a target is never acquired in the same
+ * instant it appears.
+ */
+function visible(e) {
+  const v = S.view;
+  if (!v) return true;
+  // Measured against the creature's BODY, not its centre. A boss is ninety
+  // units across; requiring its middle to be inside the frame would make it
+  // untargetable while half of it is filling the screen. A small mob, whose
+  // body is a dozen units, still has to be properly in view.
+  const r = (e.size || 12) * 0.5;
+  return e.x >= v.left - r && e.x <= v.right + r
+      && e.y >= v.top - r && e.y <= v.bottom + r;
+}
 export function speedMult() { return 1 + passiveValue('velocity'); }
 export function sizeMult() { return 1 + passiveValue('caliber'); }
 export function cooldownMult() {
@@ -181,6 +297,7 @@ export function nearestEnemy(x, y, maxDist = 900, filter = null) {
   const maxSq = maxDist * maxDist;
   for (const e of S.enemies) {
     if (e.dead || (filter && !filter(e))) continue;
+    if (!visible(e)) continue;
     const dx = e.x - x, dy = e.y - y;
     const d = dx * dx + dy * dy;
     if (d > maxSq) continue;
@@ -190,11 +307,47 @@ export function nearestEnemy(x, y, maxDist = 900, filter = null) {
   return best;
 }
 
+/**
+ * The living player nearest a point, or null if the whole team is down.
+ *
+ * Everything that used to steer toward `S.player` steers toward this instead.
+ * A downed player is not a target: enemies that keep mobbing a body no one can
+ * revive is the failure mode that makes co-op down-states miserable.
+ */
+export function nearestPlayer(x, y) {
+  let best = null, bestD = Infinity;
+  for (const p of S.players) {
+    if (p.dead || p.downed) continue;
+    const dx = p.x - x, dy = p.y - y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+/** As above, but a downed player still counts — used for reviving and camera. */
+export function nearestAnyPlayer(x, y) {
+  let best = null, bestD = Infinity;
+  for (const p of S.players) {
+    if (p.dead) continue;
+    const dx = p.x - x, dy = p.y - y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+export const livingPlayers = () => S.players.filter((p) => !p.dead && !p.downed);
+export const teamWiped = () => S.players.length > 0 && S.players.every((p) => p.dead || p.downed);
+/** True when more than one person is in this run. */
+export const isCoop = () => S.players.length > 1;
+
 /** Enemies sorted by distance — used by chaining and multi-target weapons. */
 export function nearestEnemies(x, y, n, maxDist = 900, exclude = null) {
   const out = [];
   for (const e of S.enemies) {
     if (e.dead || (exclude && exclude.has(e))) continue;
+    if (!visible(e)) continue;
     const dx = e.x - x, dy = e.y - y;
     const d2 = dx * dx + dy * dy;
     if (d2 > maxDist * maxDist) continue;
@@ -208,6 +361,11 @@ export function nearestEnemies(x, y, n, maxDist = 900, exclude = null) {
 // Spawning helpers
 // ---------------------------------------------------------------------------
 export function spawnShot(opts) {
+  // Announced from here rather than from each of the two dozen call sites that
+  // fire something: one place that cannot be forgotten when a weapon is added.
+  // `foreign` marks a shot that arrived FROM the network, which must not be
+  // sent straight back out.
+  if (!opts.foreign && netBridge.onShotFired) netBridge.onShotFired(opts);
   S.shots.push({
     x: 0, y: 0, vx: 0, vy: 0, dmg: 10, life: 2, size: 6, pierce: 1,
     color: '#ffffff', kind: 'bolt', rot: 0, spin: 0, hits: null,
@@ -236,9 +394,12 @@ export function spawnHostileShot(opts) {
   });
 }
 
+let nextPickupId = 1;
+
 export function spawnPickup(kind, x, y, value = 0, variant = null) {
   S.pickups.push({
     kind, x, y, value, variant,
+    netId: nextPickupId++,
     vx: rand(-40, 40), vy: rand(-40, 40),
     life: 60, t: rand(0, TAU), magnetised: false,
   });
@@ -251,7 +412,7 @@ export function damageEnemy(e, amount, opts = {}) {
   if (!e || e.dead) return 0;
   let dmg = amount;
   let crit = opts.crit;
-  if (crit === undefined && Math.random() < critChance()) crit = true;
+  if (crit === undefined && random() < critChance()) crit = true;
   if (crit) dmg *= 2;
   if (e.shatter && e.frozen > 0) dmg *= e.shatter;
   // The chime budgie's shred. Enemies here carry no armour value to remove, so
@@ -261,6 +422,15 @@ export function damageEnemy(e, amount, opts = {}) {
   e.hp -= dmg;
   e.flash = 0.12;
   S.damageDealt += dmg;
+
+  // Shown here immediately — the flinch, the number, the health bar dropping —
+  // and reported to whoever owns the creature, who applies it for real. Waiting
+  // for a round trip before showing a hit is the difference between a weapon
+  // that feels connected and one that feels like a suggestion.
+  //
+  // `quiet` marks damage that ARRIVED from the network: applying it is the
+  // point, reporting it again would be an infinite echo.
+  if (!opts.quiet && netBridge.onEnemyDamaged) netBridge.onEnemyDamaged(e, dmg);
 
   if (opts.knockback && !e.isBoss) {
     const k = opts.knockback * (1 - (e.knockResist || 0));
@@ -293,6 +463,7 @@ export function killEnemy(e, opts = {}) {
   if (e.dead) return;
   e.dead = true;
   S.kills++;
+  if (!opts.quiet && netBridge.onEnemyKilled) netBridge.onEnemyKilled(e);
 
   burst(e.x, e.y, e.isBoss ? 46 : e.isChampion ? 26 : 8, e.tint || '#ffffff', {
     speed: e.isBoss ? 260 : 150, life: 0.5, glow: true,
@@ -341,29 +512,94 @@ function dropLoot(e) {
   }
 }
 
-export function healPlayer(amount) {
-  const p = S.player;
+export function healPlayer(amount, who = null) {
+  const p = who || S.player;
+  if (!p) return 0;
   const before = p.hp;
-  p.hp = Math.min(maxHp(), p.hp + amount);
+  // A remote player's ceiling comes down the wire with them; only the local
+  // player's can be computed here, because only their passives are known.
+  p.hp = Math.min(p === S.player ? maxHp() : (p.maxHp || p.hp), p.hp + amount);
   return p.hp - before;
 }
 
-export function damagePlayer(amount, source) {
-  const p = S.player;
-  if (p.invuln > 0 || p.dead) return;
-  const dmg = Math.max(1, amount * diff().dmg - armorValue());
+/**
+ * Down, not dead. The player stops acting but stays on the field with a timer;
+ * a teammate standing close brings them back. The run ends only when everyone
+ * is down at once, which `teamWiped()` reports.
+ */
+export function downPlayer(p, quiet = false) {
+  if (p.downed || p.dead) return;
+  p.hp = 0;
+  p.downed = true;
+  p.reviveProgress = 0;
+  p.downTimer = DOWN_SECONDS;
+  p.invuln = 1;
+  if (p === S.player) {
+    S.flashAlpha = 0.6;
+    S.flashColor = '#ff2a4a';
+    say('die', { force: true });
+    showBanner('DOWN', '#ff6a86', 'a teammate can bring you back');
+  } else {
+    showToast(`${p.name || 'A teammate'} is down`, '#ff6a86');
+  }
+  ring(p.x, p.y, 120, '#ff6a86', { life: 0.6 });
+  sfx('hurt');
+  if (!quiet && netBridge.onPlayerDowned) netBridge.onPlayerDowned(p);
+}
+
+export function revivePlayer(p, by = null, quiet = false) {
+  if (!p.downed) return;
+  p.downed = false;
+  p.reviveProgress = 0;
+  p.hp = Math.max(1, (p === S.player ? maxHp() : p.maxHp || 100) * REVIVE_HP);
+  p.invuln = 2;
+  ring(p.x, p.y, 200, '#ffd75e', { life: 0.8 });
+  sfx('levelup');
+  if (p === S.player) showBanner('BACK UP', '#ffd75e', by?.name ? `${by.name} got you up` : '');
+  else showToast(`${p.name || 'A teammate'} is back up`, '#ffd75e');
+  if (!quiet && netBridge.onPlayerRevived) netBridge.onPlayerRevived(p, by);
+}
+
+/** How long you have on the floor before the run gives up on you. */
+export const DOWN_SECONDS = 45;
+/** How much health a revive restores, as a fraction of the maximum. */
+const REVIVE_HP = 0.4;
+/** How close, and for how long, someone must stand to pick you up. */
+export const REVIVE_RANGE = 46;
+export const REVIVE_SECONDS = 3;
+
+/**
+ * Hurt a player — by default this client's own, since that is who almost every
+ * caller means. Co-op passes `who` explicitly, because a fireball hits whoever
+ * walked into it and that is not always you.
+ *
+ * Feedback is deliberately only played for the LOCAL player: the shake, the
+ * screen flash, the hurt voice line and the low-health warning are all about
+ * what is happening to *you*. Firing them when a teammate two screens away is
+ * hit would make the game feel like it was being played by someone else.
+ */
+export function damagePlayer(amount, source, who = null) {
+  const p = who || S.player;
+  if (!p || p.invuln > 0 || p.dead || p.downed) return;
+  const mine = p === S.player;
+  const dmg = Math.max(1, amount * diff().dmg - (mine ? armorValue() : p.armor || 0));
   p.hp -= dmg;
   p.invuln = 0.55;
   p.hurtFlash = 0.3;
-  S.shake = Math.max(S.shake, Math.min(12, 4 + dmg * 0.2));
-  S.flashAlpha = 0.35;
-  S.flashColor = '#ff2a4a';
   floatText(p.x, p.y - 26, `-${Math.round(dmg)}`, '#ff6a86', { size: 13 });
   burst(p.x, p.y, 8, '#ff4a5e', { speed: 120 });
-  sfx('hurt');
-  say('hurt');
-  if (p.hp > 0 && p.hp / maxHp() < 0.3) say('lowhp');
+  if (mine) {
+    S.shake = Math.max(S.shake, Math.min(12, 4 + dmg * 0.2));
+    S.flashAlpha = 0.35;
+    S.flashColor = '#ff2a4a';
+    sfx('hurt');
+    say('hurt');
+    if (p.hp > 0 && p.hp / maxHp() < 0.3) say('lowhp');
+  }
   if (p.hp <= 0) {
+    // Co-op does not end a run on one death: you go down and a teammate can
+    // pick you up. Phase 5 owns that state; this hands off to it.
+    if (S.players.length > 1) { downPlayer(p); return; }
     if (S.revives > 0) {
       S.revives--;
       p.hp = maxHp() * 0.6;

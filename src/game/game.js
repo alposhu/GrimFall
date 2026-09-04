@@ -2,7 +2,7 @@
 // game.js — run lifecycle, the fixed-step update and the upgrade economy.
 // ---------------------------------------------------------------------------
 
-import { clamp, randInt, pick, shuffle, swapRemove, formatTime } from '../core/util.js';
+import { clamp, randInt, pick, shuffle, swapRemove, formatTime, seedRandom } from '../core/util.js';
 import { sfx, playMusic } from '../core/audio.js';
 import { input, pollInput } from '../core/input.js';
 import { q } from '../core/quality.js';
@@ -21,6 +21,8 @@ import {
   S, rebuildGrid, gainXp, gainGold, healPlayer, maxHp, moveSpeed,
   magnetRadius, luck, passiveLevel, showToast, showBanner, damageEnemy,
   killEnemy, resolvedStats, addShake, screenFlash,
+  nearestPlayer, teamWiped, revivePlayer, livingPlayers,
+  REVIVE_RANGE, REVIVE_SECONDS, DOWN_SECONDS, downPlayer,
 } from './state.js';
 import { updateWeapons, updateShots, updateSweeps, updateZones } from './weapons.js';
 import { updateFamiliars, clearFamiliars } from './familiars.js';
@@ -28,7 +30,7 @@ import { updateSpawning, updateEnemies, updateHostileShots, updateHazards, spawn
 import { updateCutscene, startCutscene } from './cutscene.js';
 import { characterById } from '../art/hero.js';
 import { foodName, foodHeal } from '../art/food.js';
-import { setWorldSeed, ambientAt } from './world.js';
+import { setWorldSeed, ambientAt, resolveProps } from './world.js';
 
 const listeners = {};
 export function on(event, fn) { (listeners[event] ||= []).push(fn); }
@@ -45,6 +47,7 @@ export function startRun(charId, difficulty) {
     time: 0, running: true, paused: false, outcome: null,
     difficulty, seed: (Math.random() * 1e9) | 0,
     enemies: [], shots: [], hostileShots: [], zones: [], pickups: [], orbs: [], sweeps: [],
+    players: [],
     familiars: [],
     kills: 0, gold: 0, damageDealt: 0,
     shake: 0, hitStop: 0, flashAlpha: 0,
@@ -60,6 +63,11 @@ export function startRun(charId, difficulty) {
     vacuumT: 0,
   });
   setWorldSeed(S.seed);
+  // From here every rand/pick/chance in the run draws from one reproducible
+  // stream. In co-op the seed arrives from the server so all clients share it;
+  // on your own it is still random per run, just recorded — which also makes a
+  // reported bug reproducible for the first time.
+  seedRandom(S.seed);
 
   S.player = {
     charId, x: 0, y: 0, vx: 0, vy: 0,
@@ -74,6 +82,7 @@ export function startRun(charId, difficulty) {
     metaArmor: lvl('m_armor'),
     metaSpeed: 1 + lvl('m_speed') * 0.04,
     metaMagnet: 1 + lvl('m_magnet') * 0.15,
+    metaReach: 1 + lvl('m_reach') * 0.06,
     metaHaste: 1 - lvl('m_haste') * 0.03,
     metaGrowth: 1 + lvl('m_growth') * 0.06,
     metaGreed: 1 + lvl('m_greed') * 0.12,
@@ -86,6 +95,9 @@ export function startRun(charId, difficulty) {
     chilled: 0, webbed: 0,
   };
   S.player.hp = maxHp();
+  // On your own this is a list of one, and every loop over it runs once.
+  // Co-op appends the others in src/net/session.js once the run is under way.
+  S.players = [S.player];
 
   clearParticles();
   clearTexts();
@@ -181,6 +193,13 @@ function grantArenaLoadout(def) {
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
+/**
+ * Set by the co-op session when a run is networked. Left null on your own,
+ * where a pickup can only ever be collected by you.
+ */
+let onRemoteCollect = null;
+export function setRemoteCollectHandler(fn) { onRemoteCollect = fn; }
+
 export function update(dt, view) {
   S.view = view;
   if (!S.running || S.paused || S.pendingLevels > 0) {
@@ -218,6 +237,9 @@ export function update(dt, view) {
   p.vy = my * speed;
   p.x += (p.vx + p.kx) * dt;
   p.y += (p.vy + p.ky) * dt;
+  // Trees, rocks and standing stones are solid. Resolved after the move rather
+  // than before it, so a shove or a knockback cannot post you through a trunk.
+  resolveProps(p, 9);
   // External shoves (a dragon's wingbeat) decay independently of input.
   const kd = Math.pow(0.0022, dt);
   p.kx *= kd; p.ky *= kd;
@@ -263,11 +285,14 @@ export function update(dt, view) {
     if (S.musicPhase !== want) { S.musicPhase = want; playMusic(want); }
   }
 
+  updateDowned(dt);
   updatePortal(dt);
   decayPresentation(dt);
 
   // --- win / lose ---
-  if (p.dead) { endRun('dead'); return; }
+  // On your own `teamWiped()` is exactly "you died", so this is the same test
+  // it always was; with a team it waits for the last person standing to fall.
+  if (teamWiped()) { endRun('dead'); return; }
 
   if (S.arena) {
     if (S.boss) S.arena.engaged = true;
@@ -346,6 +371,11 @@ export function loadRun(slot) {
   startRun(data.player.charId || 'ranger', data.difficulty || 'normal');
   if (!restoreRun(S, data)) return false;
   setWorldSeed(S.seed);
+  // From here every rand/pick/chance in the run draws from one reproducible
+  // stream. In co-op the seed arrives from the server so all clients share it;
+  // on your own it is still random per run, just recorded — which also makes a
+  // reported bug reproducible for the first time.
+  seedRandom(S.seed);
   // Start clear: the world respawns around you rather than being serialised.
   S.enemies.length = 0;
   S.pickups.length = 0;
@@ -478,8 +508,49 @@ function decayPresentation(dt) {
 export const VACUUM_TIME = 7;
 const VACUUM_PULL = 190;
 
+/**
+ * The downed state: a timer, and a teammate close enough to stop it.
+ *
+ * Reviving is proximity plus time rather than a button, because a button needs
+ * a prompt, a keybind and a touch control, and this needs none of them — you
+ * walk over and stand there. The bar filling is the whole interface.
+ *
+ * Progress DECAYS rather than resets when you step away, so being clipped by a
+ * passing enemy costs you a moment instead of the whole attempt.
+ */
+function updateDowned(dt) {
+  if (S.players.length < 2) return;          // nothing to revive on your own
+  for (const p of S.players) {
+    if (!p.downed || p.dead) continue;
+
+    // Only the downed player's OWN client runs their timer, and only the
+    // reviver's client decides a revive has finished. Every client can see both
+    // situations, so without that rule three clients would each start the same
+    // revive and each announce it — and the timer would run three times as fast
+    // on a full team.
+    const mineToRun = !p.remote;
+    if (!mineToRun) continue;
+
+    p.downTimer -= dt;
+    if (p.downTimer <= 0) {
+      p.dead = true;
+      p.downed = false;
+      if (p === S.player) showBanner('YOU DIED', '#ff2a4a', 'the run goes on without you');
+      else showToast(`${p.name || 'A teammate'} did not make it`, '#ff2a4a');
+      continue;
+    }
+
+    const helper = livingPlayers().find((q) => (q.x - p.x) ** 2 + (q.y - p.y) ** 2 < REVIVE_RANGE * REVIVE_RANGE);
+    if (helper) {
+      p.reviveProgress += dt / REVIVE_SECONDS;
+      if (p.reviveProgress >= 1) revivePlayer(p, helper);
+    } else {
+      p.reviveProgress = Math.max(0, p.reviveProgress - dt * 0.5);
+    }
+  }
+}
+
 function updatePickups(dt) {
-  const p = S.player;
   const mag = magnetRadius();
 
   // The vacuum takes everything, not just gems: food, coins, hearts, chests.
@@ -491,6 +562,11 @@ function updatePickups(dt) {
   for (let i = S.pickups.length - 1; i >= 0; i--) {
     const it = S.pickups[i];
     it.t += dt;
+    // Drops go to whoever is nearest, not to whoever happens to be running this
+    // copy of the game. A gem drifting toward a player on the far side of the
+    // field is the single clearest signal in co-op that the world is shared.
+    const p = nearestPlayer(it.x, it.y);
+    if (!p) continue;
     const dx = p.x - it.x, dy = p.y - it.y;
     const d = Math.hypot(dx, dy) || 1;
 
@@ -520,7 +596,14 @@ function updatePickups(dt) {
 
     // A wider mouth while it lasts: at this speed a pickup can cross the old
     // 22px collection radius inside a single frame and sail straight past.
-    if (d < (vac ? 46 : 22)) { collect(it); swapRemove(S.pickups, i); }
+    if (d < (vac ? 46 : 22)) {
+      // Only the person who actually picked it up gets it. A remote player's
+      // collection is their client's business and reaches us as an event, so
+      // this client removes the object but never awards itself the contents.
+      if (p === S.player) collect(it);
+      else onRemoteCollect?.(it, p);
+      swapRemove(S.pickups, i);
+    }
   }
 }
 

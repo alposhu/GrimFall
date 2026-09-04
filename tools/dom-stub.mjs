@@ -122,6 +122,11 @@ globalThis.document = {
   createElement: (tag) => (tag === 'canvas' ? makeCanvas() : new El(tag)),
   querySelectorAll: (sel) => (sel === '[data-action]' ? dataActionEls
     : sel === '[data-demo]' ? dataDemoEls : []),
+  // Returns null, not an element: callers use this to ask whether a tag is
+  // PRESENT (the co-op server address is read from a <meta> the build writes),
+  // and a stub that hands back a blank element answers "yes" to every such
+  // question, which is the opposite of what a headless run should say.
+  querySelector: () => null,
   addEventListener: () => {},
   removeEventListener: () => {},
   hidden: false,

@@ -43,12 +43,30 @@ let onChange = null;
 /**
  * Touch hardware starts at medium and earns its way up, rather than starting
  * high and stuttering through the first thirty seconds of someone's first run.
+ *
+ * WHAT THESE NUMBERS ARE NOT. `hardwareConcurrency` is not a speed, and on
+ * Safari it is barely even a core count - iPhones report 4 whatever is inside
+ * them. The previous test was `cores <= 4`, which is every iPhone ever made,
+ * so every one of them - an A17 included - started on the LOWEST tier: no
+ * glows, no ambient, decor at a third. That is not a slower version of the
+ * game, it is a visibly different one, and it was the reason iOS looked wrong
+ * rather than merely slow.
+ *
+ * `deviceMemory` is worse: Safari does not implement it at all. Defaulting a
+ * missing value to a real-looking number invites exactly this kind of test, so
+ * both now fall back to 0 and 0 means UNKNOWN - a browser that declines to
+ * answer gets the benefit of the doubt instead of the penalty.
+ *
+ * What is left is deliberately timid: only a genuinely tiny core count is taken
+ * as evidence of a weak device. Everything else starts at medium and the
+ * governor below sorts it out from measured frames, which is the only signal
+ * here that is actually about this device running this game.
  */
 function detectTier() {
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  const cores = navigator.hardwareConcurrency || 4;
-  const mem = navigator.deviceMemory || 4;
-  if (cores <= 4 || mem <= 2) return 'low';
+  const cores = navigator.hardwareConcurrency || 0;      // 0 = not reported
+  const mem = navigator.deviceMemory || 0;               // 0 = not reported
+  if ((cores && cores <= 2) || (mem && mem <= 1)) return 'low';
   if (coarse) return 'medium';
   return 'high';
 }
@@ -91,7 +109,20 @@ export function sampleFrame(ms) {
   else { slowFrames = Math.max(0, slowFrames - 1); fastFrames = Math.max(0, fastFrames - 1); }
 
   const i = ORDER.indexOf(q.tier);
-  if (slowFrames > 75 && i > 0) {
+
+  // Coming down is urgent and going up is not, so they are not symmetric.
+  // Detection now starts a device optimistically rather than assuming the worst
+  // (see detectTier), which is only a good trade if a wrong guess is corrected
+  // quickly - forty-odd frames is under a second of stutter at any frame rate
+  // worth measuring. Climbing back up still takes several seconds, because a
+  // tier that oscillates is more distracting than one that is slightly wrong.
+  //
+  // A frame past 38ms is not "under pressure", it is visibly broken, and
+  // waiting out the full counter to confirm what the player can already see
+  // helps nobody. It still needs corroborating, though: the average is an EMA,
+  // and one 400ms hitch - a garbage collection, a texture upload - drags it to
+  // 39 on its own. Eight frames is enough to tell a stutter from a spike.
+  if (i > 0 && ((avgMs > 38 && slowFrames > 8) || slowFrames > 45)) {
     applyTier(ORDER[i - 1]);
     resetGovernor();
   } else if (fastFrames > 480 && i < ORDER.length - 1) {

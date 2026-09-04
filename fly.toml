@@ -1,0 +1,32 @@
+# Fly.io. `fly launch --no-deploy` then `fly deploy`.
+app = "grimfall"
+primary_region = "ams"        # pick one near your players: fly platform regions
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 5174
+  force_https = true          # so the page is https and the socket is wss
+  # A lobby server with nobody in it should cost nothing. It wakes on the next
+  # request; the first player waits a moment, everyone after that does not.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.http_options]
+    # Rooms live in memory in ONE process. Two machines would mean two separate
+    # sets of rooms and a code that works or does not depending on which one you
+    # reach — so this deliberately does not scale horizontally.
+    h2_backend = false
+
+  [[http_service.checks]]
+    grace_period = "5s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "3s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"            # it holds lobbies, not worlds

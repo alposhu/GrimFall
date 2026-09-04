@@ -26,6 +26,7 @@ import { vendorPortrait } from '../art/market.js';
 import { rtpVendorFace } from '../art/rtp.js';
 import { goodIcon } from '../art/items.js';
 import { M, vendorReact, playerReact } from '../game/market.js';
+import { initCoop, openCoopScreen, closeCoopScreen } from './coop.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,6 +55,11 @@ function iconImg(name, size = 32) {
 }
 
 // ---------------------------------------------------------------------------
+export function openCoop() {
+  go('coopScreen');
+  openCoopScreen();
+}
+
 export function initUI(callbacks) {
   hooks = callbacks;
   [
@@ -72,10 +78,12 @@ export function initUI(callbacks) {
     'shopScreen', 'shopFace', 'shopName', 'shopTrade', 'shopGold', 'shopLine',
     'shopGrid', 'shopBelt', 'shopLeaveBtn',
     'portalScreen', 'portalKicker', 'portalMarketBtn', 'portalOnwardBtn',
-    'menuBg',
     'savesScreen', 'savesTitle', 'savesSub', 'slotList',
     'savesNote', 'exportSaveBtn', 'importSaveBtn', 'importSaveInput',
-    'continueBtn', 'continueSub', 'loadBtn',
+    'continueBtn', 'continueSub', 'loadBtn', 'pressStart',
+    'coopScreen', 'coopBtn', 'coopSetup', 'coopRoom', 'coopName', 'coopCode',
+    'coopHostBtn', 'coopJoinBtn', 'coopCodeOut', 'coopPlayers', 'coopReadyBtn',
+    'coopStartBtn', 'coopNote', 'coopSub',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -95,10 +103,23 @@ export function initUI(callbacks) {
       else if (a === 'help') go('helpScreen');
       else if (a === 'continue') continueRun();
       else if (a === 'load') openSaves('load');
+      else if (a === 'coop') openCoop();
       else if (a === 'saveRun') openSaves('save');
     });
     btn.addEventListener('pointerenter', () => sfx('hover'));
   });
+
+  // The attract prompt. The whole screen answers to it, not just the button —
+  // "Click to PLAY" that only works on the twelve characters it is written
+  // across is a worse promise than no promise. The button is still a real
+  // button underneath, so a keyboard and a screen reader get a target.
+  const wake = () => { if (dismissAttract()) sfx('select'); };
+  el.pressStart?.addEventListener('click', wake);
+  el.titleScreen?.addEventListener('pointerdown', (e) => {
+    if (el.titleScreen.classList.contains('awaiting')) { e.preventDefault(); wake(); }
+  });
+
+  initCoop(el, { onCoopStart: (m) => hooks.onCoopStart?.(m) });
 
   el.interactBtn.addEventListener('click', () => hooks.onInteract?.());
 
@@ -267,15 +288,18 @@ function stopDemos() {
 // ---------------------------------------------------------------------------
 // Screen routing
 // ---------------------------------------------------------------------------
-const SCREENS = ['bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen', 'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen', 'shopScreen', 'savesScreen', 'portalScreen'];
+const SCREENS = ['bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen', 'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen', 'shopScreen', 'savesScreen', 'portalScreen', 'coopScreen'];
 
 export function go(name, remember = true) {
   const current = SCREENS.find((s) => el[s]?.classList.contains('active'));
+  // Walking away from the lobby leaves the game. A room you can no longer see
+  // is a room you are still holding a slot in, and the others would sit
+  // waiting on a name that is never going to be ready.
+  if (current === 'coopScreen' && name !== 'coopScreen') closeCoopScreen();
   if (remember && current && current !== name) screenStack.push(current);
   hideAll(false);
   el[name]?.classList.add('active');
   if (name === 'helpScreen') startDemos(); else stopDemos();
-  if (name === 'titleScreen') startMenuBg(); else stopMenuBg();
 }
 
 // ---------------------------------------------------------------------------
@@ -285,34 +309,6 @@ export function go(name, remember = true) {
 // decoding behind a run costs real frames on a phone, and the title screen is
 // the only place it is ever visible.
 //
-// Everything here fails quietly. A missing file, a codec the browser will not
-// take, an autoplay refusal — each leaves the menu on its plain background,
-// which is what it looked like before there was a film at all.
-const MENU_BG = 'video/menu.mp4';
-let menuBgTried = false;
-
-function startMenuBg() {
-  const v = el.menuBg;
-  if (!v) return;
-  try {
-    if (!menuBgTried) {
-      menuBgTried = true;
-      v.src = MENU_BG;
-      // A file that cannot be decoded should take itself off screen rather than
-      // leave a black rectangle over the backdrop.
-      v.addEventListener('error', () => { v.hidden = true; }, { once: true });
-    }
-    const p = v.play();
-    if (p && p.catch) p.catch(() => { /* autoplay refused; the menu is fine */ });
-  } catch (e) { /* no video element worth having */ }
-}
-
-function stopMenuBg() {
-  const v = el.menuBg;
-  if (!v) return;
-  try { v.pause(); } catch (e) { /* already gone */ }
-}
-
 export function hideAll(clearStack = true) {
   SCREENS.forEach((s) => el[s]?.classList.remove('active'));
   if (clearStack) screenStack = [];
@@ -333,13 +329,31 @@ export function setBootProgress(p) {
   if (el.bootFill) el.bootFill.style.width = `${Math.round(clamp(p, 0, 1) * 100)}%`;
 }
 
+/**
+ * The title screen arrives in its ATTRACT state - sky, wordmark, one prompt -
+ * and stays there until somebody touches it, which is also the gesture that
+ * lets the browser start audio. Coming back from a run skips it: an attract
+ * screen is a greeting, and being greeted every time you back out of the
+ * options is being nagged.
+ */
+let greeted = false;
+
 export function showTitle() {
   hideAll();
   go('titleScreen', false);
+  el.titleScreen.classList.toggle('awaiting', !greeted);
   el.hud.hidden = true;
   el.marketBar.hidden = true;
   refreshGold();
   refreshContinue();
+}
+
+/** Leave the attract state for the menu. Idempotent. */
+export function dismissAttract() {
+  if (greeted) return false;
+  greeted = true;
+  el.titleScreen.classList.remove('awaiting');
+  return true;
 }
 
 /**

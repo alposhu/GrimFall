@@ -114,6 +114,18 @@ SET = load(os.path.join(RPG, "Settings.png"))
 print(f"panel (everything exported at {UI}x)")
 PANEL_INSET = 8            # comfortably past the 4px border, whole corner
 save(scale(punch(SET.crop((7, 14, 105, 149)), PANEL_INSET), UI), "panel.png")
+
+# The same panel at 2x, for phones. The frame is EIGHT SOURCE PIXELS, so at the
+# 3x everything else ships at it is a 24px border - about a seventh of the width
+# of a 390px screen, gone to woodwork, before any content. At 2x it is 16px,
+# which reads as the same frame rather than as a different, heavier one.
+#
+# A second file rather than letting CSS scale the first: `border-image` does not
+# reliably honour `image-rendering: pixelated` when it scales slices, so asking
+# it for 16px from a 24px slice gives soft, half-pixel ornament - the exact
+# failure this whole pipeline is arranged to avoid. Scaled here, by a whole
+# number, it cannot go soft.
+save(scale(punch(SET.crop((7, 14, 105, 149)), PANEL_INSET), 2), "panel-2x.png")
 save(scale(SET.crop((7, 0, 92, 14)), UI), "head.png")
 
 print("\n  key colours (the stylesheet's fills are these, not values near them)")

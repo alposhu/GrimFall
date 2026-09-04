@@ -59,7 +59,12 @@ export function render(ctx, canvas, zoom, opts = {}) {
     drawList.push({ enemy: e, sortY: e.y });
   }
   for (const it of S.pickups) drawList.push({ pickup: it, sortY: it.y - 2 });
-  drawList.push({ player: S.player, sortY: S.player.y });
+  // Everyone, depth-sorted with the rest of the world. A teammate has to be
+  // able to stand behind a rock like anything else.
+  for (const who of S.players) {
+    if (who.dead) continue;
+    drawList.push({ player: who, sortY: who.y });
+  }
   drawList.sort((a, b) => a.sortY - b.sortY);
 
   for (const d of drawList) {
@@ -162,14 +167,20 @@ function drawPortalMarker(ctx, w, h, zoom) {
 }
 
 // ---------------------------------------------------------------------------
+// Called once for every creature, prop and pickup on screen - several hundred
+// times a frame in a busy fight. `save`/`restore` pushes and pops the entire
+// 2D state for what is, in the end, two properties, so the two are set and put
+// back by hand instead. Same pixels, a fraction of the bookkeeping.
 function drawShadow(ctx, x, y, r, alpha = 0.32) {
-  ctx.save();
+  const a = ctx.globalAlpha;
+  const f = ctx.fillStyle;
   ctx.globalAlpha = alpha;
   ctx.fillStyle = '#000';
   ctx.beginPath();
   ctx.ellipse(x, y, r, r * 0.42, 0, 0, TAU);
   ctx.fill();
-  ctx.restore();
+  ctx.globalAlpha = a;
+  ctx.fillStyle = f;
 }
 
 function drawProp(ctx, d) {
@@ -302,6 +313,9 @@ function drawPickup(ctx, it) {
 }
 
 function drawPlayer(ctx, p, lowFx) {
+  // A downed teammate is a body on the floor with a timer over it, drawn before
+  // anything else so the marker sits under the crowd rather than on top of it.
+  if (p.downed) { drawDowned(ctx, p); return; }
   const frames = heroSprites(p.charId, 3);
   const set = frames[p.dir] || frames.south;
   const img = set[p.moving ? p.frame : 0];
@@ -321,6 +335,60 @@ function drawPlayer(ctx, p, lowFx) {
   });
 
   if (p.chilled > 0 && !lowFx) glow(ctx, p.x, p.y, 34, '#8fd8ff', 0.3);
+
+  // Teammates are labelled and carry their health above them. You are not:
+  // your own name over your own head is clutter, and your health is already the
+  // bar you are watching in the HUD.
+  if (p.remote) drawTeammateTag(ctx, p);
+}
+
+/** A downed player: face down, and the clock everyone can see. */
+function drawDowned(ctx, p) {
+  drawShadow(ctx, p.x, p.y + 20, 17, 0.4);
+  ctx.save();
+  ctx.translate(p.x, p.y + 16);
+  ctx.rotate(Math.PI / 2);
+  const frames = heroSprites(p.charId, 3);
+  blit(ctx, (frames.south || [])[0], 0, 0, { scale: 1, alpha: 0.75, tint: '#4a2030', tintAlpha: 0.45 });
+  ctx.restore();
+
+  const w = 30;
+  const x = Math.round(p.x - w / 2);
+  const y = Math.round(p.y - 30);
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(x - 1, y - 1, w + 2, 6);
+  // The revive bar fills as someone stands over you; the down timer drains
+  // behind it. Two facts, one strip, no interface.
+  ctx.fillStyle = '#6b1f2e';
+  ctx.fillRect(x, y, w, 4);
+  ctx.fillStyle = '#ffd75e';
+  ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, p.reviveProgress || 0))), 4);
+  if (p.name) label(ctx, p.name, p.x, y - 6, '#ff9aa8');
+}
+
+function drawTeammateTag(ctx, p) {
+  const w = 26;
+  const x = Math.round(p.x - w / 2);
+  const y = Math.round(p.y - 30);
+  const k = Math.max(0, Math.min(1, p.hp / (p.maxHp || 1)));
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(x - 1, y - 1, w + 2, 5);
+  ctx.fillStyle = k > 0.35 ? '#5ee06a' : '#ff5a5a';
+  ctx.fillRect(x, y, Math.round(w * k), 3);
+  label(ctx, p.name || '', p.x, y - 5, '#e8dcc0');
+}
+
+/** Small centred pixel text. Deliberately not the HUD font stack: this is in
+ *  the world, at world scale, and has to stay legible at four pixels tall. */
+function label(ctx, text, cx, y, color) {
+  if (!text) return;
+  ctx.font = '8px "Pixelify Sans", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillText(text, Math.round(cx) + 1, Math.round(y) + 1);
+  ctx.fillStyle = color;
+  ctx.fillText(text, Math.round(cx), Math.round(y));
+  ctx.textAlign = 'left';
 }
 
 // ---------------------------------------------------------------------------

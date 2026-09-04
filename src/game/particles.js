@@ -94,50 +94,79 @@ export function updateParticles(dt) {
   }
 }
 
+// Drawing a particle is cheap; CHANGING THE COMPOSITE MODE is not. Setting
+// `globalCompositeOperation` can force the compositor to resolve the render
+// target, and this loop used to set it once per particle - up to twelve hundred
+// times a frame, alternating, because glowing and ordinary particles are
+// interleaved in the pool. On a desktop that is invisible. On a phone GPU it
+// was one of the most expensive things the renderer did.
+//
+// So the pool is walked twice and the mode is set twice: everything ordinary,
+// then everything additive. Two passes over an array that is already in cache
+// costs less than one avoidable state change, and the visual result is
+// identical - additive particles were always drawn over the plain ones anyway,
+// since they are sparks and flashes on top of debris.
+function drawOne(ctx, p) {
+  const t = clamp(p.life / p.maxLife, 0, 1);
+  ctx.globalAlpha = t;
+  ctx.fillStyle = p.color;
+
+  switch (p.kind) {
+    case 'ring':
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = Math.max(1, 3 * t);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, TAU);
+      ctx.stroke();
+      break;
+    case 'puff':
+      ctx.globalAlpha = t * 0.5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, TAU);
+      ctx.fill();
+      break;
+    case 'shard': {
+      // `save`/`restore` per shard is a full state push for one rectangle.
+      // The transform is undone by hand instead, which is the only piece of
+      // state this branch actually touches.
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      ctx.rotate(-p.rot);
+      ctx.translate(-p.x, -p.y);
+      break;
+    }
+    case 'dot':
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * t, 0, TAU);
+      ctx.fill();
+      break;
+    default: {
+      const s = p.size * (0.4 + t * 0.6);
+      ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+    }
+  }
+}
+
 export function drawParticles(ctx, lowFx = false) {
   ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  let additive = 0;
   for (let i = 0; i < MAX; i++) {
     const p = pool[i];
     if (!p.alive) continue;
-    const t = clamp(p.life / p.maxLife, 0, 1);
-    ctx.globalAlpha = t;
-    if (p.glow && !lowFx) ctx.globalCompositeOperation = 'lighter';
-    else ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = p.color;
-
-    switch (p.kind) {
-      case 'ring':
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = Math.max(1, 3 * t);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, TAU);
-        ctx.stroke();
-        break;
-      case 'puff':
-        ctx.globalAlpha = t * 0.5;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, TAU);
-        ctx.fill();
-        break;
-      case 'shard':
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
-        ctx.restore();
-        break;
-      case 'dot':
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * t, 0, TAU);
-        ctx.fill();
-        break;
-      default: {
-        const s = p.size * (0.4 + t * 0.6);
-        ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
-      }
-    }
+    if (p.glow && !lowFx) { additive++; continue; }
+    drawOne(ctx, p);
   }
-  ctx.globalCompositeOperation = 'source-over';
+
+  if (additive) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < MAX; i++) {
+      const p = pool[i];
+      if (p.alive && p.glow) drawOne(ctx, p);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
   ctx.restore();
 }
 

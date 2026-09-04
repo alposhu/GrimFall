@@ -26,7 +26,7 @@ import { q } from '../core/quality.js';
 import { burst, emit } from './particles.js';
 import { FAMILIARS, WEAPONS } from './config.js';
 import {
-  S, resolvedStats, damageEnemy, killEnemy, nearestEnemy, nearestEnemies,
+  S, resolvedStats, damageEnemy, killEnemy, nearestEnemy, nearestEnemies, aimRange,
   forEachNear, spawnShot, spawnZone,
 } from './state.js';
 import { BUDGIE_FRAMES } from '../art/familiars.js';
@@ -179,7 +179,7 @@ const ACT = {
   storm(b, s, w, dt) {
     b.cd -= dt;
     if (b.cd > 0) return;
-    const first = nearestEnemy(b.x, b.y, s.range);
+    const first = nearestEnemy(b.x, b.y, aimRange(s.range));
     if (!first) { b.cd = 0.12; return; }        // retry soon rather than idle a full cooldown
     b.cd = Math.max(0.12, s.cooldown);
 

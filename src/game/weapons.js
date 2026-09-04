@@ -11,7 +11,7 @@ import { q } from '../core/quality.js';
 import { burst, ring, emit, smoke } from './particles.js';
 import { WEAPONS } from './config.js';
 import {
-  S, resolvedStats, damageEnemy, nearestEnemy, nearestEnemies, forEachNear,
+  S, resolvedStats, damageEnemy, nearestEnemy, nearestEnemies, forEachNear, aimRange,
   spawnShot, spawnZone, spawnSweep, addShake, damagePlayer,
 } from './state.js';
 
@@ -21,7 +21,7 @@ import {
 const FIRE = {
   bolt(s, w) {
     const p = S.player;
-    const target = nearestEnemy(p.x, p.y, 640);
+    const target = nearestEnemy(p.x, p.y, aimRange(640));
     const baseAngle = target ? angleTo(p.x, p.y, target.x, target.y) : p.faceAngle;
     const n = Math.max(1, Math.round(s.count));
     const spread = w.evolved ? 0.62 : 0.16;
@@ -40,7 +40,7 @@ const FIRE = {
 
   slash(s, w) {
     const p = S.player;
-    const target = nearestEnemy(p.x, p.y, 260);
+    const target = nearestEnemy(p.x, p.y, aimRange(260));
     const a = target ? angleTo(p.x, p.y, target.x, target.y) : p.faceAngle;
     const n = Math.max(1, Math.round(s.count));
     for (let i = 0; i < n; i++) {
@@ -76,7 +76,7 @@ const FIRE = {
     const n = Math.max(1, Math.round(s.count));
     for (let i = 0; i < n; i++) {
       let tx, ty;
-      const t = w.evolved ? pickCrowdTarget() : nearestEnemy(p.x, p.y, 460);
+      const t = w.evolved ? pickCrowdTarget() : nearestEnemy(p.x, p.y, aimRange(460));
       if (t) { tx = t.x + rand(-30, 30); ty = t.y + rand(-30, 30); }
       else { const a = rand(0, TAU); tx = p.x + Math.cos(a) * 180; ty = p.y + Math.sin(a) * 180; }
       const a = angleTo(p.x, p.y, tx, ty);
@@ -120,7 +120,7 @@ const FIRE = {
 
   lightning(s, w) {
     const p = S.player;
-    let cur = nearestEnemy(p.x, p.y, 520);
+    let cur = nearestEnemy(p.x, p.y, aimRange(520));
     if (!cur) return;
     const chained = new Set();
     let from = { x: p.x, y: p.y };
@@ -137,7 +137,7 @@ const FIRE = {
       });
       burst(cur.x, cur.y, 5, '#ffe86a', { speed: 90, glow: true });
       from = { x: cur.x, y: cur.y };
-      const next = nearestEnemies(cur.x, cur.y, 1, s.range, chained);
+      const next = nearestEnemies(cur.x, cur.y, 1, aimRange(s.range), chained);
       cur = next[0] || null;
     }
     sfx('zap');
@@ -158,7 +158,7 @@ const FIRE = {
   glaive(s, w) {
     const p = S.player;
     const n = Math.max(1, Math.round(s.count));
-    const t = nearestEnemy(p.x, p.y, 520);
+    const t = nearestEnemy(p.x, p.y, aimRange(520));
     const base = t ? angleTo(p.x, p.y, t.x, t.y) : p.faceAngle;
     for (let i = 0; i < n; i++) {
       const a = base + (i - (n - 1) / 2) * 0.5;
@@ -200,7 +200,7 @@ const FIRE = {
   mjolnir(s, w) {
     const p = S.player;
     const n = Math.max(1, Math.round(s.count));
-    const t = nearestEnemy(p.x, p.y, 620);
+    const t = nearestEnemy(p.x, p.y, aimRange(620));
     const base = t ? angleTo(p.x, p.y, t.x, t.y) : p.faceAngle;
     for (let i = 0; i < n; i++) {
       const a = base + (i - (n - 1) / 2) * 0.72;
@@ -397,6 +397,15 @@ export function updateShots(dt) {
       swapRemove(S.shots, i); continue;
     }
 
+    // A teammate's projectile is drawn, not resolved.
+    //
+    // Every client simulates every projectile, so if each also resolved its
+    // hits, a bolt fired by one player would be reported as damage by all four
+    // and the creature would take it four times. Exactly one client — the one
+    // that fired — decides what a shot hits and tells the owner. The others fly
+    // it for the picture and nothing else.
+    if (s.foreign) continue;
+
     let consumed = false;
     forEachNear(s.x, s.y, s.size + 26, (e) => {
       if (consumed || e.dead) return;
@@ -515,7 +524,7 @@ function updateMjolnir(s, dt) {
 /** The next thing worth flying at: near, alive, and not just hit. */
 function pickHammerTarget(s) {
   const now = performance.now();
-  const near = nearestEnemies(s.x, s.y, 6, 520);
+  const near = nearestEnemies(s.x, s.y, 6, aimRange(520));
   for (const e of near) {
     if (!e || e.dead) continue;
     if ((s.hitCd.get(e) || 0) > now) continue;      // struck a moment ago

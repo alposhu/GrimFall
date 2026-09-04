@@ -19,7 +19,6 @@ const { S } = await import('../src/game/state.js');
 // Boot plays the opening cinematic before the menu. Rather than special-casing
 // it out of the build, this does what a player in a hurry does: holds the skip
 // key. It is also the only check that skipping works from a cold start.
-const { skipIntro } = await import('../src/game/intro.js');
 const holdSkip = setInterval(skipIntro, 5);
 
 await import('../src/main.js');

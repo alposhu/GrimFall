@@ -23,15 +23,54 @@ export function angleDelta(from, to) {
 /** Frame-rate independent easing factor: approach `target` by `rate` per second. */
 export const damp = (rate, dt) => 1 - Math.pow(1 - rate, dt * 60);
 
-export const rand = (a = 1, b) => (b === undefined ? Math.random() * a : a + Math.random() * (b - a));
+// ---------------------------------------------------------------------------
+// The run's random number generator.
+//
+// Everything below used to call Math.random() directly. That is fine for one
+// person and impossible for several: in co-op each client simulates the same
+// enemies locally and only corrects against the owner, and two clients rolling
+// different numbers diverge immediately — a boss picking a different attack on
+// every screen, spawn positions that do not agree, crits that land for one
+// player and not another.
+//
+// So the run seeds this once and everyone gets the same stream. It is a
+// mulberry32: thirty-two bits of state, uniform enough for a game, and about as
+// fast as Math.random. Unseeded it falls back to Math.random, which keeps every
+// non-run use (menus, the title sky, cosmetic sparks before a run begins)
+// behaving exactly as before.
+let rngState = 0;
+let seeded = false;
+
+export function seedRandom(seed) {
+  rngState = (seed >>> 0) || 1;
+  seeded = true;
+}
+
+export function unseedRandom() { seeded = false; }
+
+/** Uniform [0, 1). The single source every helper below draws from. */
+export function random() {
+  if (!seeded) return Math.random();
+  rngState = (rngState + 0x6d2b79f5) >>> 0;
+  let t = rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/** So a client can be told exactly where in the stream the owner is. */
+export const randomState = () => rngState;
+export const setRandomState = (v) => { rngState = v >>> 0; };
+
+export const rand = (a = 1, b) => (b === undefined ? random() * a : a + random() * (b - a));
 export const randInt = (a, b) => Math.floor(rand(a, b + 1));
-export const pick = (arr) => arr[(Math.random() * arr.length) | 0];
-export const chance = (p) => Math.random() < p;
+export const pick = (arr) => arr[(random() * arr.length) | 0];
+export const chance = (p) => random() < p;
 
 /** Fisher-Yates, in place. */
 export function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
+    const j = (random() * (i + 1)) | 0;
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -41,7 +80,7 @@ export function shuffle(arr) {
 export function weightedPick(items, weightOf = (x) => x.weight) {
   let total = 0;
   for (const it of items) total += weightOf(it);
-  let r = Math.random() * total;
+  let r = random() * total;
   for (const it of items) { r -= weightOf(it); if (r <= 0) return it; }
   return items[items.length - 1];
 }

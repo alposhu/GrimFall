@@ -2,7 +2,7 @@
 // enemies.js — spawning, movement, status effects and every boss script.
 // ---------------------------------------------------------------------------
 
-import { TAU, rand, randInt, pick, clamp, angleTo, weightedPick, swapRemove } from '../core/util.js';
+import { TAU, rand, random, randInt, pick, clamp, angleTo, weightedPick, swapRemove } from '../core/util.js';
 import { sfx, playMusic, setIntensity } from '../core/audio.js';
 import { burst, ring, emit } from './particles.js';
 import { MOB_TINT } from '../art/bestiary.js';
@@ -13,8 +13,10 @@ import {
 import {
   S, diff, damagePlayer, spawnHostileShot, showBanner, showToast, addShake,
   forEachNear, screenFlash, killEnemy, spawnZone, runMinutes,
+  nearestPlayer, livingPlayers,
 } from './state.js';
 import { q } from '../core/quality.js';
+import { resolveProps } from './world.js';
 import { startCutscene } from './cutscene.js';
 import { say } from '../core/voice.js';
 
@@ -25,14 +27,39 @@ function spawnRadius() {
   return Math.max(S.view.w, S.view.h) * 0.62 + 90;
 }
 
+/**
+ * The player a creature is acting against.
+ *
+ * Chosen once per frame in updateEnemies and parked on the creature, so every
+ * boss script and attack below reads the same answer rather than each
+ * re-deciding — two lines of one attack aiming at different people is the kind
+ * of bug that looks like the boss glitching. The fallbacks matter for the frame
+ * a creature acts before it has ever been steered, and for a wiped team.
+ */
+const tgt = (e) => e.target || nearestPlayer(e.x, e.y) || S.players[0] || S.player;
+
 function spawnPoint() {
   const a = rand(0, TAU);
   const r = spawnRadius() * rand(1.0, 1.15);
-  return { x: S.player.x + Math.cos(a) * r, y: S.player.y + Math.sin(a) * r };
+  // Ringed on a random living player rather than always the local one, so a
+  // team that splits up is pressured evenly instead of the horde all arriving
+  // around whoever happens to be running the calculation.
+  const living = livingPlayers();
+  const about = living.length ? living[(Math.random() * living.length) | 0] : S.players[0];
+  return { x: about.x + Math.cos(a) * r, y: about.y + Math.sin(a) * r };
 }
 
 function availableTypes(minutes) {
   return ENEMY_TYPES.filter((t) => minutes >= t.from && minutes <= t.to);
+}
+
+/** Roughly in frame — the margin is generous, since this only gates polish. */
+function onScreen(e) {
+  const v = S.view;
+  if (!v) return true;
+  const pad = 80;
+  return e.x >= v.left - pad && e.x <= v.right + pad
+      && e.y >= v.top - pad && e.y <= v.bottom + pad;
 }
 
 export function makeEnemy(type, x, y, opts = {}) {
@@ -40,6 +67,15 @@ export function makeEnemy(type, x, y, opts = {}) {
   const hp = type.hp * hpScale(minutes) * diff().hp * (opts.hpMult || 1);
   const e = {
     id: S.nextEnemyId++,
+    // The same counter serves as the network identity. It can, because the
+    // random stream is shared and only the host spawns, so every client creates
+    // the same creatures in the same order and numbers them identically — which
+    // is what lets an owner say "creature 412 is at x,y" and be understood
+    // without ever having shipped a creature across the wire.
+    netId: S.nextEnemyId,
+    typeId: type.id,          // so a peer can build this exact creature
+    owner: null,
+    target: null,
     type: type.id,
     sprite: type.sprite,
     x, y, vx: 0, vy: 0, kx: 0, ky: 0,
@@ -66,6 +102,32 @@ export function makeEnemy(type, x, y, opts = {}) {
   return e;
 }
 
+/**
+ * Build the creature a peer just spawned.
+ *
+ * Non-host clients do not run the spawner — they build from this. It carries
+ * the type and the position rather than relying on the shared random stream to
+ * reproduce them, because the spawner also consults the LOCAL crowd size, which
+ * differs between clients for a moment after every death. Two clients rolling
+ * the same numbers in a different order is not the same as agreeing.
+ */
+export function makeEnemyFromNet(desc) {
+  const type = ENEMY_TYPES.find((t) => t.id === desc.ty);
+  if (!type) return null;
+  const e = makeEnemy(type, desc.x, desc.y);
+  // Take the sender's numbering: the whole protocol addresses creatures by it.
+  e.netId = desc.id;
+  e.id = desc.id;
+  e.owner = desc.o;
+  if (desc.el >= 0 && ELITE_MODS[desc.el]) {
+    e.eliteIndex = desc.el;
+    applyElite(e, ELITE_MODS[desc.el]);
+  }
+  if (S.nextEnemyId <= desc.id) S.nextEnemyId = desc.id + 1;
+  S.enemies.push(e);
+  return e;
+}
+
 function applyElite(e, mod) {
   e.elite = mod;
   e.hp *= mod.hp; e.maxHp = e.hp;
@@ -80,10 +142,25 @@ function applyElite(e, mod) {
   if (mod.leech) e.leech = 1;
 }
 
+let onSpawned = null;
+export function setSpawnListener(fn) { onSpawned = fn; }
+
+/** Set by the co-op layer: only one client may decide a wave has arrived. */
+let spawnAuthority = null;
+export function setSpawnAuthority(fn) { spawnAuthority = fn; }
+
 export function updateSpawning(dt) {
+  // In co-op only the host spawns, and it deals the new arrivals out. Every
+  // client shares the random stream, so letting each spawn its own share sounds
+  // symmetrical — but the crowd size differs between clients for a moment after
+  // any death, the cap below then bites at different times, and the streams
+  // drift apart permanently. One spawner cannot drift.
+  if (spawnAuthority && !spawnAuthority()) return;
+
   const minutes = runMinutes();
   // The arena is about the boss: a thin, fixed trickle of trash, nothing else
   // scheduled, and a hard cap so the crowd can never bury the fight.
+  const fresh = [];
   const trash = S.arena ? 0.22 : 1;
   const cap = S.arena ? Math.min(30, maxAlive(minutes) * q.enemyScale) : maxAlive(minutes) * q.enemyScale;
   if (S.enemies.length < cap) {
@@ -95,10 +172,16 @@ export function updateSpawning(dt) {
       const p = spawnPoint();
       const e = makeEnemy(t, p.x, p.y);
       // Elites become steadily more common as the run wears on.
-      if (Math.random() < clamp(0.008 + minutes * 0.005, 0, 0.07)) applyElite(e, pick(ELITE_MODS));
+      if (random() < clamp(0.008 + minutes * 0.005, 0, 0.07)) {
+        const mod = pick(ELITE_MODS);
+        e.eliteIndex = ELITE_MODS.indexOf(mod);
+        applyElite(e, mod);
+      }
       S.enemies.push(e);
+      fresh.push(e);
     }
   }
+  if (fresh.length && onSpawned) onSpawned(fresh);
 
   if (S.arena) return;
 
@@ -185,7 +268,6 @@ export function spawnBoss(def, at = null) {
 // Movement + status
 // ---------------------------------------------------------------------------
 export function updateEnemies(dt) {
-  const p = S.player;
   const cullR = spawnRadius() * 2.6;
 
   for (let i = S.enemies.length - 1; i >= 0; i--) {
@@ -216,7 +298,18 @@ export function updateEnemies(dt) {
       if (e.hp <= 0) { killEnemy(e); continue; }
     }
 
-    // --- far-away cleanup keeps the crowd around the player ---
+    // Each creature chases the nearest living player rather than THE player.
+    // Held on the enemy so it can be broadcast: which target an owner has
+    // chosen is exactly the sort of decision other clients cannot re-derive,
+    // because two players equidistant is a coin toss that has to be settled
+    // once and shared.
+    const p = nearestPlayer(e.x, e.y) || S.players[0];
+    e.target = p;
+    if (!p) { continue; }
+
+    // --- far-away cleanup keeps the crowd around the team ---
+    // Measured from the NEAREST player, so a creature standing next to your
+    // teammate is never deleted for being far from you.
     const dx = p.x - e.x, dy = p.y - e.y;
     const distSq = dx * dx + dy * dy;
     if (distSq > cullR * cullR && !e.isBoss && !e.isChampion) {
@@ -291,6 +384,21 @@ export function updateEnemies(dt) {
 
     e.x += (e.vx + e.kx) * dt;
     e.y += (e.vy + e.ky) * dt;
+    // The wood is solid for the horde too. Without this they walk through the
+    // trunks the player has to go around, which turns every rock into a trap
+    // rather than cover — the one thing scenery is good for in a game where
+    // everything chases you.
+    //
+    // Bosses are exempt: they are drawn far larger than any footprint here and
+    // shouldering a pine aside is in character.
+    //
+    // And only for enemies on screen. Scenery is regenerated from world
+    // position rather than stored, so each test costs a few hashes over the
+    // nine cells around the mover - fine for the dozen creatures you can see,
+    // and hundreds of times a frame for the ones you cannot. Nobody can watch a
+    // shade clip a tree eight hundred units behind the camera, and it sorts
+    // itself out the moment it arrives.
+    if (!e.isBoss && onScreen(e)) resolveProps(e, e.size * 0.5);
     const kd = Math.pow(0.0016, dt);
     e.kx *= kd; e.ky *= kd;
 
@@ -353,7 +461,7 @@ function onBossDefeated(e) {
   // Arena fights are practice and pay nothing, so they never open one; neither
   // does the last boss of the run, because there is no run left to spend on.
   if (!S.arena && S.bossIndex < BOSSES.length) {
-    const p = S.player;
+    const p = tgt(e);
     const a = rand(0, TAU);
     const d = rand(PORTAL_NEAR, PORTAL_FAR);
     S.portal = {
@@ -382,7 +490,7 @@ function radialShots(e, count, speed, opts = {}) {
 }
 
 function fanShots(e, count, speed, spread, opts = {}) {
-  const base = angleTo(e.x, e.y, S.player.x, S.player.y);
+  const base = angleTo(e.x, e.y, tgt(e).x, tgt(e).y);
   for (let i = 0; i < count; i++) {
     const a = base + (count === 1 ? 0 : (i / (count - 1) - 0.5) * spread);
     spawnHostileShot({
@@ -414,7 +522,7 @@ const SCRIPTS = {
       e.windup -= dt;
       if (e.windup <= 0) {
         spawnZone({ x: e.x, y: e.y, r: 150, life: 0.35, maxLife: 0.35, kind: 'blast', color: e.tint, dps: 0 });
-        if (Math.hypot(S.player.x - e.x, S.player.y - e.y) < 150) damagePlayer(e.damage * 1.3);
+        if (Math.hypot(tgt(e).x - e.x, tgt(e).y - e.y) < 150) damagePlayer(e.damage * 1.3);
         radialShots(e, 10, 150, { size: 9, dmgMult: 0.5 });
         addShake(10);
         burst(e.x, e.y, 26, e.tint, { speed: 240 });
@@ -451,7 +559,7 @@ const SCRIPTS = {
       for (let i = 0; i < 3; i++) {
         const a = rand(0, TAU), d = rand(60, 180);
         spawnZone({
-          x: S.player.x + Math.cos(a) * d, y: S.player.y + Math.sin(a) * d,
+          x: tgt(e).x + Math.cos(a) * d, y: tgt(e).y + Math.sin(a) * d,
           r: 62, life: 5, maxLife: 5, kind: 'web', color: '#d8d3f0', dps: 0, slow: 0.55,
         });
       }
@@ -467,7 +575,7 @@ const SCRIPTS = {
       for (let i = 0; i < 4; i++) {
         const a = rand(0, TAU), d = rand(40, 150);
         spawnZone({
-          x: S.player.x + Math.cos(a) * d, y: S.player.y + Math.sin(a) * d,
+          x: tgt(e).x + Math.cos(a) * d, y: tgt(e).y + Math.sin(a) * d,
           r: 52, life: 4, maxLife: 4, kind: 'thorn', color: '#4f9a3c', dps: 0, slow: 0.35,
         });
       }
@@ -479,8 +587,8 @@ const SCRIPTS = {
       e.actionCd = 3.0;
       burst(e.x, e.y, 16, e.tint, { speed: 180, glow: true });
       const a = rand(0, TAU);
-      e.x = S.player.x + Math.cos(a) * 150;
-      e.y = S.player.y + Math.sin(a) * 150;
+      e.x = tgt(e).x + Math.cos(a) * 150;
+      e.y = tgt(e).y + Math.sin(a) * 150;
       burst(e.x, e.y, 16, e.tint, { speed: 180, glow: true });
       fanShots(e, 7, 200, 1.4, { size: 8 });
       sfx('dash');
@@ -501,8 +609,8 @@ const SCRIPTS = {
         case 2: {
           burst(e.x, e.y, 20, e.tint, { speed: 200, glow: true });
           const a = rand(0, TAU);
-          e.x = S.player.x + Math.cos(a) * 210;
-          e.y = S.player.y + Math.sin(a) * 210;
+          e.x = tgt(e).x + Math.cos(a) * 210;
+          e.y = tgt(e).y + Math.sin(a) * 210;
           burst(e.x, e.y, 20, e.tint, { speed: 200, glow: true });
           radialShots(e, 12, 150, { size: 8 });
           break;
@@ -551,7 +659,7 @@ const SCRIPTS = {
           // Meteors rain around the player.
           for (let i = 0; i < 8; i++) {
             const a = rand(0, TAU), d = rand(40, 240);
-            const mx = S.player.x + Math.cos(a) * d, my = S.player.y + Math.sin(a) * d;
+            const mx = tgt(e).x + Math.cos(a) * d, my = tgt(e).y + Math.sin(a) * d;
             spawnZone({ x: mx, y: my, r: 56, life: 1.0, maxLife: 1.0, kind: 'telegraph', color: '#ff6a3c', dps: 0, payload: e.damage * 0.9 });
           }
           break;
@@ -571,7 +679,7 @@ const SCRIPTS = {
       e.actionCd = hpFrac < 0.4 ? 1.9 : 2.6;
       switch (e.pattern) {
         case 0: {
-          const gapDir = angleTo(e.x, e.y, S.player.x, S.player.y) + rand(-0.6, 0.6);
+          const gapDir = angleTo(e.x, e.y, tgt(e).x, tgt(e).y) + rand(-0.6, 0.6);
           radialShots(e, 26, 165, { gap: 0.45, gapDir, color: '#c9f2ff', size: 9 });
           break;
         }
@@ -579,7 +687,7 @@ const SCRIPTS = {
           for (let i = 0; i < 5; i++) {
             const a = rand(0, TAU), d = rand(60, 220);
             spawnZone({
-              x: S.player.x + Math.cos(a) * d, y: S.player.y + Math.sin(a) * d,
+              x: tgt(e).x + Math.cos(a) * d, y: tgt(e).y + Math.sin(a) * d,
               r: 70, life: 5, maxLife: 5, kind: 'ice', color: '#8fd8ff', dps: 0, slow: 0.6,
             });
           }
@@ -590,7 +698,7 @@ const SCRIPTS = {
       sfx('boss-frosttitan-attack');
     }
     // A permanent chilling aura near the colossus.
-    if (Math.hypot(S.player.x - e.x, S.player.y - e.y) < 190) S.player.chilled = 0.5;
+    if (Math.hypot(tgt(e).x - e.x, tgt(e).y - e.y) < 190) tgt(e).chilled = 0.5;
   },
 
   void(e, dt) {
@@ -611,7 +719,7 @@ const SCRIPTS = {
         case 0: radialShots(e, e.enraged ? 30 : 20, 175, { size: 9 }); break;
         case 1: fanShots(e, 9, 240, 1.2, { homing: 1.2, size: 9, color: '#ffd75e' }); break;
         case 2: {
-          const gapDir = angleTo(e.x, e.y, S.player.x, S.player.y);
+          const gapDir = angleTo(e.x, e.y, tgt(e).x, tgt(e).y);
           radialShots(e, 30, 160, { gap: 0.5, gapDir, color: '#c05bff' });
           break;
         }
@@ -619,8 +727,8 @@ const SCRIPTS = {
         case 4: {
           burst(e.x, e.y, 26, e.tint, { speed: 240, glow: true });
           const a = rand(0, TAU);
-          e.x = S.player.x + Math.cos(a) * 240;
-          e.y = S.player.y + Math.sin(a) * 240;
+          e.x = tgt(e).x + Math.cos(a) * 240;
+          e.y = tgt(e).y + Math.sin(a) * 240;
           burst(e.x, e.y, 26, e.tint, { speed: 240, glow: true });
           for (let k = 0; k < 3; k++) {
             const gapDir = rand(0, TAU);
@@ -698,7 +806,7 @@ const SCRIPTS = {
         e.moveScale = 1;
         // Landing shockwave.
         spawnZone({ x: e.x, y: e.y, r: 190, life: 0.35, maxLife: 0.35, kind: 'blast', color: '#ff8a2a', dps: 0 });
-        if (Math.hypot(S.player.x - e.x, S.player.y - e.y) < 190) damagePlayer(e.damage * 1.1);
+        if (Math.hypot(tgt(e).x - e.x, tgt(e).y - e.y) < 190) damagePlayer(e.damage * 1.1);
         radialShots(e, phase === 3 ? 22 : 14, 200, { color: '#ffb648', size: 10 });
         burst(e.x, e.y, 34, '#ffb648', { speed: 320, glow: true });
         addShake(16);
@@ -723,7 +831,7 @@ const SCRIPTS = {
 
     switch (move) {
       case 'breath':
-        e.breathAngle = angleTo(e.x, e.y, S.player.x, S.player.y);
+        e.breathAngle = angleTo(e.x, e.y, tgt(e).x, tgt(e).y);
         e.windup = e.windupMax = phase === 3 ? 0.75 : 1.0;
         e.breath = 0.05;
         showToast('Parduin draws breath', '#ff8a2a', 1.0);
@@ -736,7 +844,7 @@ const SCRIPTS = {
 
       case 'charge': {
         // A short, brutal lunge along the ground.
-        const a = angleTo(e.x, e.y, S.player.x, S.player.y);
+        const a = angleTo(e.x, e.y, tgt(e).x, tgt(e).y);
         e.kx += Math.cos(a) * 760;
         e.ky += Math.sin(a) * 760;
         for (let i = 0; i < 5; i++) {
@@ -760,8 +868,8 @@ const SCRIPTS = {
 
       case 'gust': {
         // A wingbeat that physically throws the player back.
-        const a = angleTo(e.x, e.y, S.player.x, S.player.y);
-        const p = S.player;
+        const a = angleTo(e.x, e.y, tgt(e).x, tgt(e).y);
+        const p = tgt(e);
         p.kx += Math.cos(a) * 900;
         p.ky += Math.sin(a) * 900;
         damagePlayer(e.damage * 0.55);
@@ -799,7 +907,7 @@ const SCRIPTS = {
         for (let i = 0; i < (phase === 3 ? 10 : 6); i++) {
           const a = rand(0, TAU), d = rand(50, 280);
           spawnZone({
-            x: S.player.x + Math.cos(a) * d, y: S.player.y + Math.sin(a) * d,
+            x: tgt(e).x + Math.cos(a) * d, y: tgt(e).y + Math.sin(a) * d,
             r: 62, life: 1.1, maxLife: 1.1, kind: 'telegraph',
             color: '#ff6a3c', dps: 0, payload: e.damage * 0.85,
           });
@@ -844,10 +952,14 @@ function runScript(e, dt) {
 // Hostile projectiles + hazard zones that hurt the player
 // ---------------------------------------------------------------------------
 export function updateHostileShots(dt) {
-  const p = S.player;
   for (let i = S.hostileShots.length - 1; i >= 0; i--) {
     const s = S.hostileShots[i];
     s.life -= dt;
+    // A shot in flight has no allegiance: it homes on, and hits, whoever is
+    // closest to it right now. Fixing it to one player at spawn would let a
+    // teammate walk through a fireball aimed at someone else.
+    const p = nearestPlayer(s.x, s.y);
+    if (!p) { swapRemove(S.hostileShots, i); continue; }
     if (s.homing) {
       const want = angleTo(s.x, s.y, p.x, p.y);
       const cur = Math.atan2(s.vy, s.vx);
@@ -868,21 +980,29 @@ export function updateHostileShots(dt) {
       continue;
     }
     const r = s.size + 10;
-    if ((p.x - s.x) ** 2 + (p.y - s.y) ** 2 < r * r) {
-      damagePlayer(s.dmg);
+    const struck = S.players.find((q) => !q.dead && !q.downed
+      && (q.x - s.x) ** 2 + (q.y - s.y) ** 2 < r * r);
+    if (struck) {
+      damagePlayer(s.dmg, null, struck);
       burst(s.x, s.y, 8, s.color, { speed: 130 });
       swapRemove(S.hostileShots, i);
     }
   }
 }
 
-/** Hazard zones (boss telegraphs, ice, webs) tick against the player. */
+/**
+ * Hazard zones (boss telegraphs, ice, webs) tick against EVERY player standing
+ * in them. A cone still only fires once — `z.hit` becomes the set of people it
+ * has already caught, so one telegraph cannot hit the same person twice but can
+ * still catch two people who are both in it.
+ */
 export function updateHazards(dt) {
-  const p = S.player;
   for (let i = S.zones.length - 1; i >= 0; i--) {
     const z = S.zones[i];
+    for (const p of S.players) {
+    if (p.dead || p.downed) continue;
     if (z.kind === 'cone') {
-      if (!z.hit) {
+      if (!(z.hit ||= new Set()).has(p)) {
         const d = Math.hypot(p.x - z.x, p.y - z.y);
         if (d <= z.range) {
           const a = angleTo(z.x, z.y, p.x, p.y);
@@ -890,8 +1010,8 @@ export function updateHazards(dt) {
           while (da > Math.PI) da -= TAU;
           while (da < -Math.PI) da += TAU;
           if (Math.abs(da) <= z.spread / 2) {
-            z.hit = true;
-            damagePlayer(z.payload);
+            z.hit.add(p);
+            damagePlayer(z.payload, null, p);
           }
         }
       }
@@ -902,9 +1022,10 @@ export function updateHazards(dt) {
         p.chilled = Math.max(p.chilled || 0, z.slow || 0.4);
         if (z.kind === 'thorn') {
           z.pTick = (z.pTick || 0) - dt;
-          if (z.pTick <= 0) { z.pTick = 1; damagePlayer(6 * dmgScale(S.time / 60)); }
+          if (z.pTick <= 0) { z.pTick = 1; damagePlayer(6 * dmgScale(S.time / 60), null, p); }
         }
       }
+    }
     }
   }
 }

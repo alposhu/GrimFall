@@ -73,13 +73,14 @@ console.log('skip              ok');
 startRun('ranger', 'normal');
 S.player.hpBase = 1e9;
 S.player.hp = 1e9;
-const view = computeView(1280, 720, 1.4);
+// A fresh view each frame — see the note in arena-smoke.mjs.
+const view = () => computeView(1280, 720, 1.4);
 canvas.width = 1280; canvas.height = 720;
 
 const seen = new Set();
 let cutscenesRun = 0, wasInCutscene = false;
 for (let i = 0; i < 30 * 60 * 25 && S.running; i++) {
-  update(1 / 30, view);
+  update(1 / 30, view());
   if (S.cutscene && !wasInCutscene) cutscenesRun++;
   // The world must be frozen while a cutscene plays.
   if (S.cutscene) check(S.pendingBoss !== null, 'a cutscene is playing with no boss queued');

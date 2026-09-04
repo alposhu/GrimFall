@@ -380,6 +380,7 @@ export const PASSIVES = {
   cooldown:  { name: 'Haste',      icon: 'cooldown',  max: 5, step: 0.1,  fmt: (v) => `-${Math.round(v * 100)}% cooldown`, desc: 'Every weapon fires more often.' },
   amount:    { name: 'Multitude',  icon: 'amount',    max: 3, step: 1,    fmt: (v) => `+${v} projectile${v > 1 ? 's' : ''}`, desc: 'One more of almost everything.' },
   swiftness: { name: 'Swiftness',  icon: 'swiftness', max: 5, step: 0.09, fmt: (v) => `+${Math.round(v * 100)}% move speed`, desc: 'Outrun the crowd.' },
+  longshot:  { name: 'Longshot',   icon: 'longshot',  max: 5, step: 0.16, fmt: (v) => `+${Math.round(v * 100)}% attack range`, desc: 'Your weapons find targets further out.' },
   magnet:    { name: 'Lodestone',  icon: 'magnet',    max: 5, step: 0.35, fmt: (v) => `+${Math.round(v * 100)}% pickup range`, desc: 'Drops come to you.' },
   vitality:  { name: 'Vitality',   icon: 'vitality',  max: 25, step: 20,   fmt: (v) => `+${v} max health`, desc: 'A deeper pool to spend.' },
   armor:     { name: 'Armour',     icon: 'armor',     max: 25, step: 1,    fmt: (v) => `-${v.toFixed(0)} damage taken`, desc: 'Blunts every incoming hit.' },
@@ -468,6 +469,7 @@ export const META_UPGRADES = [
   { id: 'm_hp',      name: 'Endurance',   icon: 'vitality',  max: 5, cost: [60, 130, 240, 420, 700],  fmt: (l) => `+${l * 10} max health` },
   { id: 'm_armor',   name: 'Hardening',   icon: 'armor',     max: 3, cost: [140, 320, 640],           fmt: (l) => `-${l} damage taken` },
   { id: 'm_speed',   name: 'Light Step',  icon: 'swiftness', max: 4, cost: [70, 150, 280, 480],       fmt: (l) => `+${l * 4}% move speed` },
+  { id: 'm_reach',   name: 'Longshot',    icon: 'longshot',  max: 4, cost: [90, 200, 380, 650],       fmt: (l) => `+${l * 6}% attack range` },
   { id: 'm_magnet',  name: 'Lodestone',   icon: 'magnet',    max: 4, cost: [50, 110, 210, 360],       fmt: (l) => `+${l * 15}% pickup range` },
   { id: 'm_haste',   name: 'Quickening',  icon: 'cooldown',  max: 4, cost: [120, 260, 480, 820],      fmt: (l) => `-${l * 3}% cooldown` },
   { id: 'm_growth',  name: 'Insight',     icon: 'area',      max: 4, cost: [90, 190, 350, 600],       fmt: (l) => `+${l * 6}% experience` },
@@ -489,7 +491,39 @@ export function xpForLevel(level) {
 }
 
 /** Global enemy scaling over the run. */
-export function hpScale(minutes) { return 1 + minutes * 0.42 + Math.pow(minutes, 1.9) * 0.028; }
+/**
+ * How much harder the run gets per extra player.
+ *
+ * Deliberately not one multiplier. Four players put out roughly four times the
+ * damage, so the crowd has to grow to stay threatening — but scaling health at
+ * the same rate would make every individual creature a chore, and scaling the
+ * damage each one deals would make being caught alone a death sentence rather
+ * than a mistake. So the numbers pull apart: many more of them, a little
+ * tougher, hitting no harder.
+ *
+ * These are starting points and they are meant to be argued with — the whole
+ * reason they are named functions of the player count rather than constants
+ * buried in the spawner is so that a playtest can move them.
+ */
+export const COOP_SPAWN = 0.62;   // extra share of the wave per extra player
+export const COOP_HP = 0.18;      // extra health per extra player
+export const COOP_MAX = 0.55;     // extra room in the live cap per extra player
+
+/** 0 on your own, 1 for two players, 3 for a full room. */
+let extraPlayers = 0;
+export function setCoopScale(playerCount) { extraPlayers = Math.max(0, (playerCount || 1) - 1); }
+export const coopExtra = () => extraPlayers;
+
+export function hpScale(minutes) {
+  return (1 + minutes * 0.42 + Math.pow(minutes, 1.9) * 0.028) * (1 + extraPlayers * COOP_HP);
+}
+// Untouched on purpose: a creature that hits harder because your friends turned
+// up punishes the player who gets separated, which is the moment co-op most
+// needs to stay survivable.
 export function dmgScale(minutes) { return 1 + minutes * 0.14; }
-export function spawnRate(minutes) { return 1.1 + minutes * 0.66 + Math.pow(minutes, 1.7) * 0.045; }
-export function maxAlive(minutes) { return Math.min(300, 70 + minutes * 14); }
+export function spawnRate(minutes) {
+  return (1.1 + minutes * 0.66 + Math.pow(minutes, 1.7) * 0.045) * (1 + extraPlayers * COOP_SPAWN);
+}
+export function maxAlive(minutes) {
+  return Math.min(300 * (1 + extraPlayers * COOP_MAX), (70 + minutes * 14) * (1 + extraPlayers * COOP_MAX));
+}

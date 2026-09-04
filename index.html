@@ -19,9 +19,10 @@
 <div id="app">
   <canvas id="game"></canvas>
 
-  <!-- Skip the opening film. A real button, because on a phone there is
-       nothing else on screen to tell you a tap would do anything. -->
-  <button id="introSkip" class="intro-skip" type="button" hidden>Skip <span aria-hidden="true">&#9654;&#9654;</span></button>
+  <!-- Co-op diagnostics. Hidden unless a networked run is going and F3 has
+       been pressed; there is no way to reach it in single player because there
+       would be nothing in it. -->
+  <div id="netHud" class="net-hud" hidden aria-hidden="true"></div>
 
   <!-- Touch stick -->
   <div id="joystick" class="joystick" style="display:none">
@@ -88,12 +89,6 @@
 
     <!-- Title -->
     <section id="titleScreen" class="screen">
-      <!-- The moving backdrop. `preload="none"` so it never competes with the
-           boot: the title screen is reached after the game is already loaded,
-           and the menu reads perfectly well on the plain background for the
-           second before the first frame arrives. -->
-      <video id="menuBg" class="menu-bg" muted loop playsinline preload="none"
-             disablepictureinpicture tabindex="-1" aria-hidden="true"></video>
       <div class="title-wrap">
         <h1 class="logo">
           <picture>
@@ -106,6 +101,7 @@
           <button class="menu-btn primary" id="continueBtn" data-action="continue" hidden><i class="ui-icon i-play" aria-hidden="true"></i><span>Continue</span><small id="continueSub"></small></button>
           <button class="menu-btn primary" data-action="play"><i class="ui-icon i-play" aria-hidden="true"></i><span>Begin a Run</span></button>
           <button class="menu-btn" id="loadBtn" data-action="load" hidden><i class="ui-icon i-doc" aria-hidden="true"></i><span>Load Run</span></button>
+          <button class="menu-btn" id="coopBtn" data-action="coop" hidden><i class="ui-icon i-team" aria-hidden="true"></i><span>Play Together (BETA)</span></button>
           <button class="menu-btn" data-action="heroes"><i class="ui-icon i-team" aria-hidden="true"></i><span>Heroes</span></button>
           <button class="menu-btn" data-action="arena"><i class="ui-icon i-skull" aria-hidden="true"></i><span>Boss Arena</span></button>
           <button class="menu-btn" data-action="sanctuary"><i class="ui-icon i-chest" aria-hidden="true"></i><span>Sanctuary</span></button>
@@ -122,6 +118,16 @@
         &middot; Voices by <a href="https://dillonbecker.com" target="_blank" rel="noopener">Dillon Becker</a>
         &middot; SFX by <a href="https://heltonyan.itch.io/pixelcombat" target="_blank" rel="noopener">Helton Yan</a></div>
       </div>
+
+      <!-- The attract prompt. It is a real button, not a caption: it is the
+           only control on screen until it is used, so it has to be reachable by
+           keyboard and readable by a screen reader like any other. -->
+      <button class="press-start" id="pressStart" type="button">Click to PLAY</button>
+
+      <!-- Which build this is. Deliberately OUTSIDE .title-wrap so the attract
+           state does not hide it: the first screen after an upload is exactly
+           where the question "did that actually go live?" gets asked. -->
+      <div id="buildStamp" class="build-stamp"></div>
     </section>
 
     <!-- Hero select -->
@@ -347,6 +353,47 @@
     </section>
 
     <!-- Saved runs -->
+    <!-- Co-op lobby. One screen with three states — choosing, connecting and
+         waiting in a room — swapped by a class rather than by three separate
+         screens, so the back stack and the screen switcher only learn one new
+         name. -->
+    <section id="coopScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">Play Together (BETA)</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+
+        <p class="panel-sub" id="coopSub">Up to four of you, one long hour. Everyone plays on their own device.</p>
+
+        <div class="coop-setup" id="coopSetup">
+          <label class="coop-field" for="coopName">Your name
+            <input type="text" id="coopName" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Player">
+          </label>
+          <button class="menu-btn primary" id="coopHostBtn"><i class="ui-icon i-team" aria-hidden="true"></i><span>Host a game</span></button>
+          <div class="coop-or"><span>or join one</span></div>
+          <label class="coop-field" for="coopCode">Game code
+            <input type="text" id="coopCode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" class="coop-code-input">
+          </label>
+          <button class="menu-btn" id="coopJoinBtn"><span>Join</span></button>
+        </div>
+
+        <div class="coop-room" id="coopRoom" hidden>
+          <div class="coop-code-row">
+            <span class="coop-code-label">Game code</span>
+            <strong class="coop-code" id="coopCodeOut">----</strong>
+          </div>
+          <p class="panel-sub">Read this out to the others. They pick <em>Play Together</em>, then <em>Join</em>.</p>
+          <ul class="coop-players" id="coopPlayers"></ul>
+          <div class="coop-actions">
+            <button class="chip-btn" id="coopReadyBtn"><span>I'm ready</span></button>
+            <button class="menu-btn primary" id="coopStartBtn" disabled><i class="ui-icon i-play" aria-hidden="true"></i><span>Start the run</span></button>
+          </div>
+        </div>
+
+        <p class="coop-note" id="coopNote" role="status" aria-live="polite"></p>
+        <button class="menu-btn" data-action="back"><span>Back</span></button>
+      </div>
+    </section>
+
     <section id="savesScreen" class="screen">
       <div class="panel">
         <header class="panel-head"><h2 class="panel-title" id="savesTitle">Saved Runs</h2>

@@ -41,7 +41,7 @@ const OUT = path.resolve(ROOT, outArg >= 0 ? args[outArg + 1] : 'dist');
 
 // What ships. Everything else does not — the list is an allowlist rather than
 // an ignore list, so a new development folder cannot leak by being forgotten.
-const SHIP_DIRS = ['src', 'css', 'img', 'audio', 'fonts', 'video'];
+const SHIP_DIRS = ['src', 'css', 'img', 'audio', 'fonts'];
 const SHIP_FILES = ['index.html', 'manifest.webmanifest', 'LICENSE'];
 
 // Inside those folders, these never ship. Tested against the path with
@@ -53,14 +53,13 @@ const EXCLUDE = [
   /\.map$/,                       // source maps
   /(^|[/])node_modules([/]|$)/,
   /\.(md|py|zip|psd|aseprite)$/i,
-  /(^|[/])video[/]README\.txt$/i, // a note to the developer
 ];
 
-// Referenced but allowed to be absent. The intro plays a film if one is there
-// and draws its own if not, so a missing intro.mp4 is a supported state rather
-// than a broken link — but it still has to be listed here on purpose, so that
-// a genuinely missing file is never waved through by accident.
-const OPTIONAL = new Set(['video/intro.mp4']);
+// Referenced but allowed to be absent. Empty since the game stopped shipping
+// video: every asset the markup names is now one that has to be there. Kept as
+// the seam it is, so that when something IS optional it gets listed on purpose
+// rather than a genuinely missing file being waved through by accident.
+const OPTIONAL = new Set();
 
 const problems = [];
 const check = (c, m) => { if (!c) problems.push(m); };
@@ -132,6 +131,37 @@ const hashes = inline.map((m) => {
 //
 // `frame-ancestors` is deliberately absent: it is ignored in a meta tag, and
 // itch.io serves HTML5 games inside an iframe, so it must not be set anyway.
+// Multiplayer is OFF unless this build was told where the co-op server lives.
+//
+//   GRIMFALL_SERVER=wss://grimfall.example.com npm run build:zip
+//
+// One variable does two jobs, because doing only one of them produces a build
+// that is broken in a way nothing reports: the address is written into the page
+// for src/net/config.js to read, AND the exact origin is added to `connect-src`.
+// A page that knows the address but is forbidden to reach it fails silently in
+// the browser console and nowhere else.
+//
+// Left unset — the default, and what every build so far has been — the policy
+// below is character-for-character the locked-down one this game shipped with.
+const SERVER = (process.env.GRIMFALL_SERVER || '').trim();
+let serverOrigin = '';
+if (SERVER) {
+  let u;
+  try {
+    u = new URL(SERVER.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:'));
+  } catch (e) {
+    console.error(`
+  GRIMFALL_SERVER is not a URL: ${SERVER}
+`);
+    process.exit(1);
+  }
+  // Only the origin reaches the CSP. A path or query in `connect-src` is
+  // ignored for WebSockets anyway, and narrowing to the exact host is the
+  // entire value of widening it at all.
+  const scheme = u.protocol === 'https:' ? 'wss' : 'ws';
+  serverOrigin = `${scheme}://${u.host}`;
+}
+
 const CSP = [
   "default-src 'none'",
   `script-src 'self'${hashes.length ? ' ' + hashes.join(' ') : ''}`,
@@ -141,7 +171,7 @@ const CSP = [
   "font-src 'self'",
   "img-src 'self' data: blob:",
   "media-src 'self' data: blob:",
-  "connect-src 'self'",
+  `connect-src 'self'${serverOrigin ? ' ' + serverOrigin : ''}`,
   "manifest-src 'self'",
   "worker-src 'self' blob:",
   "base-uri 'none'",
@@ -158,9 +188,22 @@ const PERMISSIONS = [
   'magnetometer=()', 'microphone=()', 'payment=()', 'usb=()', 'interest-cohort=()',
 ].join(', ');
 
-const head = `<meta http-equiv="Content-Security-Policy" content="${CSP}">
+// A stamp saying which build this is.
+//
+// Without one there is no way to answer the question that comes up every single
+// time something is uploaded: is the thing I am looking at the thing I just
+// built, or is a cache showing me last week's? Guessing at that from whether a
+// feature "looks new" is unreliable and slow, and it is the reason a perfectly
+// good upload gets re-uploaded three times.
+//
+// Minutes, not seconds: it is read aloud and compared by eye.
+const BUILD_ID = new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z';
+
+const head = `<meta name="grimfall-build" content="${BUILD_ID}">
+<meta http-equiv="Content-Security-Policy" content="${CSP}">
 <meta http-equiv="Permissions-Policy" content="${PERMISSIONS}">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="no-referrer">${SERVER ? `
+<meta name="grimfall-server" content="${SERVER}">` : ''}
 `;
 check(html.includes('<meta charset="UTF-8">'), 'index.html has no charset to anchor the injection to');
 html = html.replace('<meta charset="UTF-8">', `<meta charset="UTF-8">\n${head.trim()}`);
@@ -380,6 +423,8 @@ for (const [top, size] of [...byTop].sort((a, b) => b[1] - a[1])) {
 }
 console.log(`total             ${all.length} files, ${mb(total)}`);
 console.log(`csp               ok (${CSP.split(';').length} directives, ${hashes.length} inline hashes)`);
+console.log(`multiplayer       ${serverOrigin ? `on  (${serverOrigin})` : 'off (set GRIMFALL_SERVER to enable)'}`);
+console.log(`build id          ${BUILD_ID}   <- shown on the title screen`);
 console.log(`references        ok (${refs} resolved inside the build)`);
 console.log(`credits           ok (${sources.length} SOURCE.txt files gathered)`);
 

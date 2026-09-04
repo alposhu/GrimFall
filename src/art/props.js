@@ -274,6 +274,10 @@ const ICONS = {
   armor:     { pal: { a: '#c9d2e0', b: '#5a6274' }, map: m('aaaaaaaa./abbbbbba./abbbbbba./abbbbbba./.abbbba../.abbbba../..abba.../...aa...../........../..........') },
   regen:     { pal: { a: '#9dff8f', b: '#2f7a34', w: '#ffffff' }, map: m('...aa...../...aa...../.aaaaaa.../.aaaaaa.../...aa...../...aa...../........../.w.....w../..w...w.../..........') },
   fortune:   { pal: { a: '#ffe07a', b: '#c9922a' }, map: m('...aaa..../..aaaaa.../.aabbbaa../.aabbbaa../.aabbbaa../..aaaaa.../...aaa..../....a...../....a...../..........') },
+  // Longshot: an arrow already gone, with the distance it crossed behind it.
+  // Deliberately not a bow — the passive lengthens every weapon's reach, and
+  // half of them are not archery.
+  longshot:  { pal: { a: '#ffd75e', b: '#c9922a', w: '#ffffff' }, map: m('........w./.......ww./b.....waaa/.b...waaaa/..b.waaaaa/.b...waaaa/b.....waaa/.......ww./........w./..........') },
   luck:      { pal: { a: '#9dff8f', b: '#ffffff' }, map: m('..aa.aa.../.aaaaaaa../.aaaaaaa../..aaaaa.../.aa.a.aa../aa..a..aa/....a...../....a...../....a...../..........') },
 };
 

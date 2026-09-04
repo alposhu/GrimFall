@@ -1,0 +1,12 @@
+# Build output — rebuilt inside the image, and stale copies must not win.
+dist/
+grimfall-web/
+grimfall-web.zip
+
+# Sources for the art pipeline. Large, and the game does not read them at
+# runtime: everything they produce is already committed under img/ and audio/.
+art-source/
+
+.git/
+node_modules/
+*.log
