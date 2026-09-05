@@ -18,6 +18,6 @@
     "lint:imports": "node tools/unused-imports.cjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }

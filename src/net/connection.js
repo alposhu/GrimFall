@@ -57,6 +57,16 @@ export function connect() {
   if (!url) return Promise.reject(new Error('this build has no multiplayer server configured'));
   if (socket && status === 'online') return Promise.resolve();
 
+  // Every browser this game supports has WebSocket, so this is really a guard
+  // for Node: the suites drive this module directly, and Node had no global
+  // WebSocket before 22. Without the check the ReferenceError lands in the
+  // catch below and is reported as "could not reach the server" — which sent a
+  // CI failure looking for a network problem that was never there.
+  if (typeof WebSocket === 'undefined') {
+    setStatus('offline');
+    return Promise.reject(new Error('this runtime has no WebSocket (Node 22+ is required)'));
+  }
+
   setStatus('connecting');
   return new Promise((resolve, reject) => {
     let settled = false;

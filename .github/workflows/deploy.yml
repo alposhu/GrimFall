@@ -28,9 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 22, not 20: the co-op tests drive the real client module, which opens a
+      # WebSocket. Node grew a global `WebSocket` in 22 — on 20 there is none,
+      # so those two suites failed here while passing on any developer machine
+      # with a current Node. (20 also left maintenance in April 2026.)
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # Creates the Pages site if it does not exist yet. Without this the
       # deploy step fails with a 404 on a repository where Pages has never
