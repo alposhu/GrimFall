@@ -5,7 +5,12 @@
 # with one.
 services:
   - type: web
-    name: grimfall
+    # The hostname comes from this name: grimfall-coop.onrender.com. It is not
+    # `grimfall` because somebody else already has that one, and Render will
+    # not create a service whose subdomain is taken. The zip built for itch.io
+    # has this exact address compiled into it, so renaming the service here
+    # means rebuilding that zip.
+    name: grimfall-coop
     runtime: docker            # older Render blueprints call this `env: docker`
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
