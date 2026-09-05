@@ -47,8 +47,48 @@ jobs:
 
       # The suite is the gate. A build that fails its own tests should not
       # become the thing players are looking at.
-      - name: Test
-        run: npm test
+      #
+      # Run one suite per step rather than `npm test`, so a failure names
+      # itself in the Actions list. As a single step, all nineteen suites are
+      # one red X and the only way to learn which broke is to open the log.
+      - name: headless
+        run: node tools/headless.mjs 24
+      - name: quality
+        run: node tools/quality-smoke.mjs
+      - name: art
+        run: node tools/art-smoke.mjs
+      - name: sheet
+        run: node tools/sheet-smoke.mjs
+      - name: weapon
+        run: node tools/weapon-smoke.mjs
+      - name: food
+        run: node tools/food-smoke.mjs
+      - name: music
+        run: node tools/music-smoke.mjs
+      - name: voice
+        run: node tools/voice-smoke.mjs
+      - name: demo
+        run: node tools/demo-smoke.mjs
+      - name: cutscene
+        run: node tools/cutscene-smoke.mjs
+      - name: market
+        run: node tools/market-smoke.mjs
+      - name: save
+        run: node tools/save-smoke.mjs
+      - name: backup
+        run: node tools/backup-smoke.mjs
+      - name: arena
+        run: node tools/arena-smoke.mjs
+      - name: ui
+        run: node tools/ui-smoke.mjs
+      - name: boot
+        run: node tools/boot-smoke.mjs
+      - name: net
+        run: node tools/net-smoke.mjs
+      - name: coop
+        run: node tools/coop-smoke.mjs
+      - name: links
+        run: node tools/link-check.mjs
 
       - name: Build
         run: npm run build
