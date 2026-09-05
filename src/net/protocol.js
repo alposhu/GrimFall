@@ -129,4 +129,7 @@ export const GAME = {
   LEVELUP: 'l',                // { seq, id } — everyone pauses
   RESUMED: 'r',                // { seq, id }
   ORPHANS: 'o',                // { owner } — a client is gone, take its enemies
+  // The lobby camp, not the run. Its own type because it is sent while the
+  // room is still in the lobby, when none of the above mean anything yet.
+  HUB: 'h',                    // { x, y, d, m } — where somebody is standing
 };

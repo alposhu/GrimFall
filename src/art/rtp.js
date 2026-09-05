@@ -39,7 +39,7 @@ const FACE = 144;                // one portrait cell on a face sheet
 const LOAD_TIMEOUT = 6000;       // matches sheets.js: art must never hang boot
 
 const ATLASES = [
-  'ground', 'props', 'signs', 'banners', 'items', 'balloons',
+  'ground', 'terrain', 'props', 'signs', 'banners', 'items', 'balloons',
   'folk', 'actors', 'actor_faces', 'vendor_faces',
 ];
 const img = new Map();
@@ -54,6 +54,20 @@ export const RTP_PROPS = [
   'firewood', 'pebbles', 'haystack', 'wheat', 'cabbages', 'berries', 'stump', 'log',
   'flowers', 'shrub', 'crate_tall', 'shelf_bare', 'shelf_bread', 'shelf_fish', 'arch', 'awning',
   'counter',
+  // The waystation's own. Appended, because this list's ORDER is the atlas
+  // layout — inserting anywhere above renames every prop after it.
+  'tree', 'thicket', 'dead_tree', 'dead_birch', 'toadstool', 'mushrooms',
+];
+
+/**
+ * Named ground materials, in the order build-rtp-art.py writes terrain.png.
+ *
+ * Named rather than numbered like `ground.png`, because the waystation's map
+ * is authored by hand and `'cobble'` in a district description says what it is
+ * where `5` says nothing.
+ */
+export const RTP_TERRAIN = [
+  'grass', 'moss', 'dirt', 'sand', 'road', 'cobble', 'brick', 'clay', 'slab', 'dark',
 ];
 
 export const RTP_SIGNS = [
@@ -83,6 +97,7 @@ const PROP_SIZE = {
   tent: [144, 144], tent_red: [144, 144], counter: [96, 96],
   crate_tall: [48, 96], shelf_bare: [48, 96], shelf_bread: [48, 96],
   shelf_fish: [48, 96], arch: [48, 96],
+  tree: [96, 96], thicket: [96, 96], dead_tree: [48, 96], dead_birch: [48, 96],
 };
 const sizeOf = (name) => PROP_SIZE[name] || [T, T];
 
@@ -151,6 +166,16 @@ export function rtpGround(variant, size = 32) {
   const i = ((variant % n) + n) % n;
   return sprite(`rtp:ground:${i}:${size}`, () => cut(src, i * T, 0, T, T, size, size));
 }
+
+/** One named ground material, drawn at `size`. */
+export function rtpTerrain(name, size = T) {
+  const src = img.get('terrain');
+  const i = RTP_TERRAIN.indexOf(name);
+  if (!src || i < 0) return null;
+  return sprite(`rtp:terrain:${name}:${size}`, () => cut(src, i * T, 0, T, T, size, size));
+}
+
+export const hasTerrain = () => img.has('terrain');
 
 /** How many paving variants the atlas actually holds. */
 export const rtpGroundCount = () => (img.has('ground') ? Math.round(img.get('ground').width / T) : 0);

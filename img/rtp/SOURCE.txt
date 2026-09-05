@@ -36,6 +36,9 @@ WHAT IS HERE
                          heroes wear one; Ada and Leon do not.
   actor_faces.png 576x288  Actor2 portraits, in the same order.
   balloons.png  384x480  Balloon - ten expressions, eight frames each.
+  terrain.png   480x48   Ten named ground materials for the Waystation, from
+                         Outside_A5. Toned to dusk harder than the market's
+                         paving - the camp is outdoors under a bruised sky.
   items.png     192x96   One icon per shop good, cut from IconSet and keyed
                          by the good's own id - so a Whetstone is a smith's
                          hammer, a Commission is a sword, a Clockwork Spring

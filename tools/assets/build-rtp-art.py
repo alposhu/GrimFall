@@ -96,6 +96,33 @@ PROPS = [
     ("arch",       "Outside_B.png",  4, 14, 1, 2),
     ("awning",     "Outside_B.png",  2, 13, 1, 1),
     ("counter",    "Outside_B.png",  0, 10, 2, 2),
+
+    # --- the waystation ----------------------------------------------------
+    # Appended, never inserted: src/art/rtp.js indexes props.png by position,
+    # so adding to the END is free and inserting anywhere else silently
+    # renames every prop after the insertion point.
+    ("tree",       "Outside_B.png",  8,  6, 2, 2),
+    ("thicket",    "Outside_B.png", 10,  6, 2, 2),
+    ("dead_tree",  "Outside_B.png",  8, 13, 1, 2),
+    ("dead_birch", "Outside_B.png",  9, 13, 1, 2),
+    ("toadstool",  "Outside_B.png", 11, 13, 1, 1),
+    ("mushrooms",  "Outside_B.png", 10, 13, 1, 1),
+]
+
+# --- terrain --------------------------------------------------------------
+# Named ground materials for the waystation, one 48px tile each. Named rather
+# than indexed like ground.png, because the hub's map is authored by hand and
+# `'cobble'` in a district description is readable where `3` is not.
+#
+# Toned less harshly than the market's paving: the waystation is outdoors under
+# a bruised sky, not a square lit by braziers, so it keeps more of its own
+# colour. Grass stays green enough to read as grass.
+TERRAIN = [
+    ("grass",   "Outside_A5.png", 0, 2), ("moss",    "Outside_A5.png", 4, 2),
+    ("dirt",    "Outside_A5.png", 2, 2), ("sand",    "Outside_A5.png", 1, 2),
+    ("road",    "Outside_A5.png", 0, 3), ("cobble",  "Outside_A5.png", 5, 3),
+    ("brick",   "Outside_A5.png", 1, 3), ("clay",    "Outside_A5.png", 2, 3),
+    ("slab",    "Outside_A5.png", 0, 5), ("dark",    "Outside_A5.png", 7, 3),
 ]
 # Trade signs get their own strip so the shop code can index them by name.
 SIGNS = [
@@ -120,6 +147,18 @@ for name, c, r in SIGNS:
     s = load("tilesets/Outside_B.png").crop((c * T, r * T, c * T + T, r * T + T))
     signs.append(tone(s, 0.88, (54, 38, 44), 0.06))
 save(sheet(signs, len(signs), T, T), "signs.png")
+
+# --- terrain --------------------------------------------------------------
+terrain = []
+for name, f, c, r in TERRAIN:
+    t = load("tilesets/" + f).crop((c * T, r * T, c * T + T, r * T + T))
+    # Toned to dusk, and hard. The RTP is lit for a bright noon and Grimfall is
+    # not a bright game: at 0.82 the grass came out a cheerful mid-green that
+    # made the camp look like a different product from the run it sits in front
+    # of. This lands it near the market's own paving, which is the neighbouring
+    # space and the right thing to match.
+    terrain.append(tone(t, 0.62, (52, 38, 50), 0.22))
+save(sheet(terrain, len(terrain), T, T), "terrain.png")
 
 # --- banners --------------------------------------------------------------
 # Outside_C row 12-13: hanging cloth for the far wall.

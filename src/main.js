@@ -9,7 +9,7 @@ import {
   setSfxEnabled, setSfxVolume, setVoiceVolume, setVoiceBusEnabled,
 } from './core/audio.js';
 import { setVoiceEnabled } from './core/voice.js';
-import { initInput, setJoystickMode, showJoystick, resetStick, consumePressed, clearPressed, IS_TOUCH } from './core/input.js';
+import { initInput, setJoystickMode, showJoystick, resetStick, consumePressed, clearPressed, pollInput, input, IS_TOUCH } from './core/input.js';
 import { initQuality, setQualityMode, sampleFrame, canvasSize } from './core/quality.js';
 import { CHARACTERS, heroSprites, heroPortrait } from './art/hero.js';
 import { preloadHeroSheets, loadedSheets } from './art/sheets.js';
@@ -37,6 +37,9 @@ import {
 } from './game/game.js';
 import { M, enterMarket, updateMarket, interact, closeShop } from './game/market.js';
 import { renderMarket } from './game/marketRender.js';
+import { enterHub, updateHub, hubTarget, H as HUB } from './game/hub.js';
+import { renderHub } from './game/hubRender.js';
+import { joinHubNet, leaveHubNet, tickHubNet, handleHubRelay, inHubNet } from './net/hubNet.js';
 import { useFlask, FLASK_IDS } from './game/shop.js';
 import { STALL_KINDS, PROP_KINDS, VENDOR_IDS, stallSprite, marketProp, vendorSprite, cobbleTile } from './art/market.js';
 import { ITEM_ICONS, itemIcon, goodIcon, GOOD_ICONS } from './art/items.js';
@@ -52,7 +55,7 @@ let zoom = 1;
 const VIEW_SHORT = 340;     // world units across the shorter side of the viewport
 let lastW = -1, lastH = -1;  // the backing store we last asked for
 let cssW = 0, cssH = 0;
-let mode = 'boot';           // 'boot' | 'intro' | 'menu' | 'run' | 'market'
+let mode = 'boot';           // 'boot' | 'intro' | 'menu' | 'run' | 'market' | 'hub'
 let lastTime = 0;
 let attractT = 0;
 let levelUpOpen = false;
@@ -208,6 +211,10 @@ async function boot() {
 
   ui.initUI({
     onSkipCutscene: skipCutscene,
+    onHub: toHub,
+    // A room stops being a form the moment there is somebody in it, so that is
+    // when the camp opens and the party panel steps aside.
+    onCoopRoom: toHub,
     onStart: beginRun,
     onStartArena: beginArena,
     onPause: togglePause,
@@ -428,6 +435,64 @@ function resumeSaved(slot) {
 }
 
 // ---------------------------------------------------------------------------
+// The Waystation
+// ---------------------------------------------------------------------------
+//
+// The camp in front of a run. Reachable from the menu on your own, and the
+// place a co-op party gathers — when there is a lobby, everybody in it is
+// standing here, and you can see them.
+function toHub() {
+  mode = 'hub';
+  ui.hideAll();
+  ui.showHUD(false);
+  showJoystick(IS_TOUCH);
+  clearPressed();
+  enterHub();
+  if (netlink.lobbyState()) joinHubNet();
+}
+
+/**
+ * Step out of the camp.
+ *
+ * Somebody in a party is not done with co-op just because they walked away from
+ * the fire, so leaving the camp puts them back on the party panel rather than
+ * dropping them to the title and out of the room. Alone, there is no room to
+ * stay in and the title is the right place.
+ */
+function leaveHub(toPanel = false) {
+  mode = 'menu';
+  showJoystick(false);
+  if (toPanel && netlink.lobbyState()) { ui.action('coop'); return; }
+  leaveHubNet();
+  toTitle();
+}
+
+/**
+ * Standing at something and pressing the button.
+ *
+ * The map knows where things are; this knows what they mean. Keeping the two
+ * apart is what lets the camp be rearranged without touching a menu, and a
+ * menu be renamed without touching the map.
+ */
+function useHubPoint() {
+  const at = hubTarget();
+  if (!at) return;
+  sfx('select');
+  // The Blight is the one landmark that is only a landmark. It opens nothing,
+  // on purpose: a camp where every single thing is a button is a menu with
+  // scenery, and somewhere to just stand is what makes the rest of it a place.
+  if (at.id === 'blight') return;
+  const WHERE = {
+    gate: 'heroes', chronicle: 'help', sanctuary: 'sanctuary',
+    fire: 'coop', arena: 'arena',
+  };
+  const dest = WHERE[at.id];
+  if (!dest) return;
+  leaveHub(true);
+  if (dest !== 'coop') ui.action(dest);
+}
+
+// ---------------------------------------------------------------------------
 // The market
 // ---------------------------------------------------------------------------
 function toMarket() {
@@ -530,7 +595,13 @@ function loop(now) {
   const opts = { shakeEnabled: settings.screenShake };
   const frameStart = performance.now();
 
-  if (mode === 'market') {
+  if (mode === 'hub') {
+    // The run polls inside update(); the camp has to ask for itself.
+    pollInput();
+    updateHub(dt, input, { w: canvas.width / zoom, h: canvas.height / zoom });
+    if (inHubNet()) tickHubNet(dt);
+    renderHub(ctx, canvas, zoom);
+  } else if (mode === 'market') {
     const view = computeView(canvas.width, canvas.height, zoom);
     updateMarket(dt, { w: canvas.width / zoom, h: canvas.height / zoom });
     renderMarket(ctx, canvas, zoom);
@@ -594,6 +665,14 @@ function handleKeys() {
   // Any key gets you past a boss entrance you have already seen.
   if (S.cutscene) {
     if (consumePressed('Escape') || consumePressed('Space') || consumePressed('Enter')) skipCutscene();
+    return;
+  }
+
+  if (mode === 'hub') {
+    if (consumePressed('Escape')) { leaveHub(true); return; }
+    if (consumePressed('Space') || consumePressed('Enter') || consumePressed('KeyE')) {
+      useHubPoint();
+    }
     return;
   }
 

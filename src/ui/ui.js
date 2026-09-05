@@ -56,6 +56,27 @@ function iconImg(name, size = 32) {
 }
 
 // ---------------------------------------------------------------------------
+/**
+ * Go wherever a named destination goes.
+ *
+ * The single list of what the game's menu entries mean. `data-action` on a
+ * button and a landmark id in the Waystation both come through here, so the two
+ * can never disagree about where "sanctuary" leads.
+ */
+export function action(a) {
+  if (a === 'back') back();
+  else if (a === 'play' || a === 'heroes') openHeroes();
+  else if (a === 'arena') openArena();
+  else if (a === 'sanctuary') openSanctuary();
+  else if (a === 'options') openOptions();
+  else if (a === 'help') go('helpScreen');
+  else if (a === 'continue') continueRun();
+  else if (a === 'load') openSaves('load');
+  else if (a === 'coop') openCoop();
+  else if (a === 'saveRun') openSaves('save');
+  else if (a === 'hub') hooks.onHub?.();
+}
+
 export function openCoop() {
   go('coopScreen');
   openCoopScreen();
@@ -91,22 +112,14 @@ export function initUI(callbacks) {
   selectedHero = store.meta().lastCharacter || 'ranger';
   selectedDiff = store.settings().difficulty || 'normal';
 
-  // Menu routing
+  // Menu routing. The dispatch lives in `action()` below rather than inline
+  // here, because the menu buttons are no longer the only thing that navigates
+  // — walking up to the gate in the Waystation opens the same screen the Begin
+  // a Run button does, and two copies of this list would drift.
   document.querySelectorAll('[data-action]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const a = btn.dataset.action;
       sfx('select');
-      if (a === 'back') back();
-      else if (a === 'play') openHeroes();
-      else if (a === 'heroes') openHeroes();
-      else if (a === 'arena') openArena();
-      else if (a === 'sanctuary') openSanctuary();
-      else if (a === 'options') openOptions();
-      else if (a === 'help') go('helpScreen');
-      else if (a === 'continue') continueRun();
-      else if (a === 'load') openSaves('load');
-      else if (a === 'coop') openCoop();
-      else if (a === 'saveRun') openSaves('save');
+      action(btn.dataset.action);
     });
     btn.addEventListener('pointerenter', () => sfx('hover'));
   });
@@ -138,7 +151,10 @@ export function initUI(callbacks) {
     if (el.titleScreen.classList.contains('awaiting')) { e.preventDefault(); wake(); }
   });
 
-  initCoop(el, { onCoopStart: (m) => hooks.onCoopStart?.(m) });
+  initCoop(el, {
+    onCoopStart: (m) => hooks.onCoopStart?.(m),
+    onCoopRoom: () => hooks.onCoopRoom?.(),
+  });
 
   el.interactBtn.addEventListener('click', () => hooks.onInteract?.());
 

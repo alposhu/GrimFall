@@ -20,6 +20,7 @@ import { normaliseCode, MAX_PLAYERS } from '../net/protocol.js';
 let el = null;
 let hooks = {};
 let unsubscribe = [];
+let enteredRoom = false;
 
 const NAME_KEY = 'grimfallName';
 
@@ -45,6 +46,15 @@ function renderLobby(state) {
   el.coopSetup.hidden = true;
   el.coopRoom.hidden = false;
   el.coopCodeOut.textContent = state.code;
+
+  // The first lobby message is the moment this stopped being a form and became
+  // a room with people in it, so that is when the camp opens. Once only: every
+  // later update would otherwise throw the player back outside whatever they
+  // had opened.
+  if (!enteredRoom) {
+    enteredRoom = true;
+    hooks.onCoopRoom?.();
+  }
 
   const talking = voice.speaking();
   el.coopPlayers.replaceChildren(...state.players.map((p) => {
@@ -286,6 +296,7 @@ export function openCoopScreen() {
  */
 export function closeCoopScreen() {
   if (net.lobbyState()?.started) return;
+  enteredRoom = false;
   voice.endVoice();
   net.disconnect();
   clearLog();
