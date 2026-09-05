@@ -183,9 +183,16 @@ const CSP = [
 
 // A page that asks for none of these should say so. Cheap, and it is the kind
 // of thing a security review looks for first.
+// The microphone is the one capability that depends on how this was built.
+// Party voice chat needs it, and a build with no co-op server has no way to
+// reach voice chat at all — so a build without GRIMFALL_SERVER stays exactly as
+// locked down as it was before any of this existed, and only a multiplayer
+// build asks for the permission it can actually use. `self` is not a grant:
+// the browser still asks the player, every time, and they can still say no.
 const PERMISSIONS = [
   'accelerometer=()', 'camera=()', 'geolocation=()', 'gyroscope=()',
-  'magnetometer=()', 'microphone=()', 'payment=()', 'usb=()', 'interest-cohort=()',
+  'magnetometer=()', SERVER ? 'microphone=(self)' : 'microphone=()',
+  'payment=()', 'usb=()', 'interest-cohort=()',
 ].join(', ');
 
 // A stamp saying which build this is.
@@ -207,7 +214,53 @@ const head = `<meta name="grimfall-build" content="${BUILD_ID}">
 `;
 check(html.includes('<meta charset="UTF-8">'), 'index.html has no charset to anchor the injection to');
 html = html.replace('<meta charset="UTF-8">', `<meta charset="UTF-8">\n${head.trim()}`);
+
+// ---------------------------------------------------------------------------
+// Cache busting
+//
+// THE BUG THIS FIXES. Phones were showing an old game — last week's creature
+// art, collisions that had been added and were not there. Desktop was fine.
+// Nothing was wrong with the build: the browser had `src/art/mobs.js` in its
+// cache and no reason to ask for it again, because the filename had not
+// changed. Names are stable here on purpose — they are readable, and nothing
+// in this project rewrites imports — so nothing ever told a cache that a file
+// it already had was stale.
+//
+// It shows on phones and not on desktop because the two are reloaded very
+// differently. A developer refreshes constantly, and reaches for a hard
+// refresh the moment anything looks wrong. A phone reopens the page from
+// history, days apart, and has no hard refresh to reach for. Put itch.io's CDN
+// in front of that and an old file can survive a long time.
+//
+// So every reference to a script or a stylesheet gets `?v=<build>`. The URL
+// changes exactly when the build changes, which is exactly when a cache should
+// miss. Only code is stamped: the 43MB of audio is the one thing that MUST
+// stay cached — it has not changed since it was recorded, and stamping it
+// would re-download all of it on every deploy for nothing.
+// ---------------------------------------------------------------------------
+const VERSION = BUILD_ID.replace(/[^0-9]/g, '');       // digits only — it is a URL
+
+/** Add ?v= to a relative .js or .css reference that does not already carry one. */
+function stamp(text) {
+  return text
+    // ES module specifiers: `from './x.js'`, `import './x.js'`, `import('./x.js')`
+    .replace(/(\b(?:from|import)\s*\(?\s*['"])(\.{1,2}\/[^'"?]+\.js)(['"])/g,
+      (_, a, spec, b) => a + spec + '?v=' + VERSION + b)
+    // href="css/style.css" and src="src/main.js" in the page itself
+    .replace(/((?:href|src)=")([^"?:]+\.(?:js|css))(")/g,
+      (_, a, spec, b) => a + spec + '?v=' + VERSION + b);
+}
+
+html = stamp(html);
 fs.writeFileSync(indexPath, html);
+
+let stamped = 0;
+for (const file of walk(OUT)) {
+  if (!/\.(js|css)$/.test(file)) continue;
+  const before = fs.readFileSync(file, 'utf8');
+  const after = stamp(before);
+  if (after !== before) { fs.writeFileSync(file, after); stamped++; }
+}
 
 // GitHub Pages runs Jekyll by default, which drops anything starting with `_`.
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
@@ -285,7 +338,11 @@ for (const rel of [...exists]) {
   for (const m of text.matchAll(REF)) {
     const raw = m[1] || m[2] || m[3];
     if (!raw || /^(https?:|data:|blob:|\/\/)/.test(raw)) continue;
-    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(rel), raw));
+    // The cache-busting stamp below turns `./x.js` into `./x.js?v=…`; a file is
+    // still the file it was before the query was added.
+    const bare = raw.split('?')[0].split('#')[0];
+    if (!bare) continue;
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(rel), bare));
     if (OPTIONAL.has(resolved)) continue;
     refs++;
     check(exists.has(resolved), `${rel} refers to ${raw}, which is not in the build`);
@@ -425,6 +482,7 @@ console.log(`total             ${all.length} files, ${mb(total)}`);
 console.log(`csp               ok (${CSP.split(';').length} directives, ${hashes.length} inline hashes)`);
 console.log(`multiplayer       ${serverOrigin ? `on  (${serverOrigin})` : 'off (set GRIMFALL_SERVER to enable)'}`);
 console.log(`build id          ${BUILD_ID}   <- shown on the title screen`);
+console.log(`cache             ok (?v=${VERSION} on ${stamped} code files)`);
 console.log(`references        ok (${refs} resolved inside the build)`);
 console.log(`credits           ok (${sources.length} SOURCE.txt files gathered)`);
 

@@ -124,6 +124,14 @@
            keyboard and readable by a screen reader like any other. -->
       <button class="press-start" id="pressStart" type="button">Click to PLAY</button>
 
+      <!-- iPhone Safari has no Fullscreen API, so the browser's bars cannot be
+           hidden by anything on this page. Add to Home Screen is the only route
+           to a borderless game there, and it is shown once. -->
+      <p class="home-tip" id="homeTip" hidden>
+        <span>For a full screen with no browser bars: tap Share, then <b>Add to Home Screen</b>.</span>
+        <button type="button" id="homeTipClose" aria-label="Dismiss">OK</button>
+      </p>
+
       <!-- Which build this is. Deliberately OUTSIDE .title-wrap so the attract
            state does not hide it: the first screen after an upload is exactly
            where the question "did that actually go live?" gets asked. -->
@@ -380,9 +388,23 @@
           <div class="coop-code-row">
             <span class="coop-code-label">Game code</span>
             <strong class="coop-code" id="coopCodeOut">----</strong>
+            <button class="chip-btn" id="coopRecodeBtn" hidden><span>New code</span></button>
           </div>
           <p class="panel-sub">Read this out to the others. They pick <em>Play Together</em>, then <em>Join</em>.</p>
           <ul class="coop-players" id="coopPlayers"></ul>
+
+          <div class="coop-chat">
+            <div class="coop-chat-head">
+              <span>Party chat</span>
+              <button class="chip-btn" id="coopMicBtn" aria-pressed="false"><span>Mic off</span></button>
+            </div>
+            <ul class="coop-log" id="coopLog" role="log" aria-live="polite"></ul>
+            <form class="coop-say" id="coopSayForm">
+              <input type="text" id="coopSay" maxlength="200" autocomplete="off" placeholder="Say something…" aria-label="Message the party">
+              <button class="chip-btn" type="submit"><span>Send</span></button>
+            </form>
+          </div>
+
           <div class="coop-actions">
             <button class="chip-btn" id="coopReadyBtn"><span>I'm ready</span></button>
             <button class="menu-btn primary" id="coopStartBtn" disabled><i class="ui-icon i-play" aria-hidden="true"></i><span>Start the run</span></button>

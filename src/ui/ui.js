@@ -5,6 +5,7 @@
 
 import { clamp, formatTime, formatNumber } from '../core/util.js';
 import { sfx } from '../core/audio.js';
+import { goFullscreen, shouldOfferHomeScreen, dismissHomeScreenTip } from '../core/screenfit.js';
 import { say, setVoiceActor } from '../core/voice.js';
 import * as store from '../core/storage.js';
 import { CHARACTERS, characterById, heroPortrait, heroFace } from '../art/hero.js';
@@ -80,10 +81,11 @@ export function initUI(callbacks) {
     'portalScreen', 'portalKicker', 'portalMarketBtn', 'portalOnwardBtn',
     'savesScreen', 'savesTitle', 'savesSub', 'slotList',
     'savesNote', 'exportSaveBtn', 'importSaveBtn', 'importSaveInput',
-    'continueBtn', 'continueSub', 'loadBtn', 'pressStart',
+    'continueBtn', 'continueSub', 'loadBtn', 'pressStart', 'homeTip', 'homeTipClose',
     'coopScreen', 'coopBtn', 'coopSetup', 'coopRoom', 'coopName', 'coopCode',
     'coopHostBtn', 'coopJoinBtn', 'coopCodeOut', 'coopPlayers', 'coopReadyBtn',
     'coopStartBtn', 'coopNote', 'coopSub',
+    'coopRecodeBtn', 'coopMicBtn', 'coopLog', 'coopSayForm', 'coopSay',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -113,7 +115,24 @@ export function initUI(callbacks) {
   // "Click to PLAY" that only works on the twelve characters it is written
   // across is a worse promise than no promise. The button is still a real
   // button underneath, so a keyboard and a screen reader get a target.
-  const wake = () => { if (dismissAttract()) sfx('select'); };
+  // The first tap is the only moment a browser will grant fullscreen, and this
+  // is the first tap. Where the API does not exist — an iPhone — this does
+  // nothing and the tip below is shown instead.
+  const wake = () => {
+    goFullscreen();
+    if (dismissAttract()) sfx('select');
+  };
+
+  if (el.homeTip && shouldOfferHomeScreen()) {
+    el.homeTip.hidden = false;
+    el.homeTipClose?.addEventListener('click', (e) => {
+      // Not a tap on the attract screen: dismissing the tip must not also start
+      // the game, which is what the whole-screen handler below would do.
+      e.stopPropagation();
+      el.homeTip.hidden = true;
+      dismissHomeScreenTip();
+    });
+  }
   el.pressStart?.addEventListener('click', wake);
   el.titleScreen?.addEventListener('pointerdown', (e) => {
     if (el.titleScreen.classList.contains('awaiting')) { e.preventDefault(); wake(); }

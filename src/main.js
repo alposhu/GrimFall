@@ -14,6 +14,7 @@ import { initQuality, setQualityMode, sampleFrame, canvasSize } from './core/qua
 import { CHARACTERS, heroSprites, heroPortrait } from './art/hero.js';
 import { preloadHeroSheets, loadedSheets } from './art/sheets.js';
 import { preloadRtp, loadedAtlases, rtpFolkCount } from './art/rtp.js';
+import { preloadInterface, PRELOAD_STEPS } from './core/preload.js';
 import { folkSprites, FOLK_COUNT } from './art/folk.js';
 import { MOB_KEYS, CHAMPION_KEYS, mobSprite, championSprite } from './art/bestiary.js';
 import { REDESIGNED, bossArt, bossPortraitArt } from './art/bosses.js';
@@ -252,6 +253,13 @@ async function boot() {
   // leaves that hero drawn in code.
   // The market's artwork decodes in the same breath. Both always resolve, so
   // a blocked file costs that one thing its art and nothing else.
+  // The interface's own artwork and fonts go in the same wait. Without this the
+  // boot bar finishes, the menu appears, and only THEN do the panel frames and
+  // the display face start downloading — which on a phone is a second of
+  // hollow buttons after the game has already said it is ready.
+  let uiDone = 0;
+  const uiJob = preloadInterface(() => { uiDone++; });
+
   await Promise.all([preloadHeroSheets(), preloadRtp()]);
 
   // The generator is consumed a few milliseconds at a time so the progress bar
@@ -261,21 +269,28 @@ async function boot() {
     REDESIGNED.length + 1 + BIOMES.length + 8 + FOOD_IDS.length +
     WEAPON_IDS.length + PASSIVE_IDS.length + 1 +
     4 + STALL_KINDS.length + PROP_KINDS.length + VENDOR_IDS.length + FOLK_COUNT +
-    ITEM_ICONS.length + GOOD_IDS.length + BALLOON_KINDS.length + BUDGIE_IDS.length;
+    ITEM_ICONS.length + GOOD_IDS.length + BALLOON_KINDS.length + BUDGIE_IDS.length +
+    PRELOAD_STEPS;
   let done = 0;
   await new Promise((resolve) => {
     const step = () => {
       const started = performance.now();
       while (performance.now() - started < 8) {
         const r = gen.next();
-        if (r.done) { ui.setBootProgress(1); resolve(); return; }
+        if (r.done) { resolve(); return; }
         done++;
-        ui.setBootProgress(Math.min(0.99, done / total));
+        ui.setBootProgress(Math.min(0.99, (done + uiDone) / total));
       }
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   });
+
+  // Whichever of the two finishes last is what the player is really waiting
+  // for. Awaited here rather than earlier so the sprite work and the downloads
+  // overlap instead of queueing.
+  await uiJob;
+  ui.setBootProgress(1);
 
   const drawn = loadedSheets();
   if (drawn.length) console.info(`Grimfall: hand-drawn character art loaded for ${drawn.join(', ')}.`);

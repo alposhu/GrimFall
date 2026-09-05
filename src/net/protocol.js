@@ -19,6 +19,10 @@ export const MSG = {
   START: 'start',              // {}                  -> host only, begin the run
   LEAVE: 'leave',              // {}                  -> deliberate exit
   PONG: 'pong',                // {}                  -> answer to a heartbeat
+  RECODE: 'recode',            // {}                  -> host only, new code
+  CHAT: 'chat',                // { text }            -> say something to the room
+  VOICE: 'voice',              // { on }              -> mic on or off
+  SIGNAL: 'signal',            // { to, data }        -> WebRTC offer/answer/ice
 
   // Gameplay travels inside ONE message type. The server does not read it, does
   // not validate it and has no schema for it: it stamps who sent it and passes
@@ -35,7 +39,21 @@ export const MSG = {
   STARTED: 'started',          // { seed, difficulty, players[] }
   DENIED: 'denied',            // { reason }          — a request that cannot stand
   PING: 'ping',                // {}                  -> heartbeat
+  SAID: 'said',                // { from, name, text, at }  — one chat line
+  HISTORY: 'history',          // { lines[] }         — the backlog, on arrival
 };
+
+/**
+ * The longest thing anyone may say at once.
+ *
+ * Enforced on the SERVER as well as in the input's maxlength, because the
+ * client is a browser and the browser is not ours: the field is a courtesy to
+ * honest players, and the check in rooms.js is the one that actually holds.
+ */
+export const MAX_CHAT = 200;
+
+/** How much backlog a room keeps, so someone joining sees what was said. */
+export const CHAT_HISTORY = 40;
 
 /**
  * Room codes are read aloud and typed by hand, so the alphabet drops every

@@ -11,7 +11,7 @@
 // PHASE 1 handles connection and lobby only.
 // ---------------------------------------------------------------------------
 
-import { MSG, cleanName } from './protocol.js';
+import { MSG, cleanName, MAX_CHAT } from './protocol.js';
 import { serverUrl } from './config.js';
 
 let socket = null;
@@ -117,6 +117,17 @@ export function connect() {
         case MSG.PING:
           send(MSG.PONG);
           break;
+        case MSG.SAID:
+          emit('said', msg);
+          break;
+        case MSG.HISTORY:
+          emit('history', msg);
+          break;
+        case MSG.SIGNAL:
+          // Voice call setup. Passed out untouched, exactly like RELAY — this
+          // module introduces the two browsers and has no part in the call.
+          emit('signal', msg);
+          break;
         case MSG.RELAY:
           // Gameplay. Handed straight out; this module has no opinion on what
           // is inside and deliberately never grows one.
@@ -159,6 +170,10 @@ export const createGame = (name) => send(MSG.CREATE, { name: cleanName(name) });
 export const joinGame = (code, name) => send(MSG.JOIN, { code, name: cleanName(name) });
 export const setReady = (ready) => send(MSG.READY, { ready: !!ready });
 export const startGame = () => send(MSG.START);
+export const newCode = () => send(MSG.RECODE);
+export const sendChat = (text) => send(MSG.CHAT, { text: String(text).slice(0, MAX_CHAT) });
+export const setVoice = (on) => send(MSG.VOICE, { on: !!on });
+export const signal = (to, data) => send(MSG.SIGNAL, { to, data });
 
 /**
  * Send a gameplay payload to the room, or to one player.

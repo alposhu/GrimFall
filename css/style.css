@@ -1178,8 +1178,14 @@ kbd {
    because these two can outgrow a phone in landscape, and a centred flex item
    taller than its own scroll container puts its top out of reach - auto
    margins collapse to zero instead. */
-#shopScreen, #savesScreen, #portalScreen { align-items: center; }
-#shopScreen > .panel, #savesScreen > .panel, #portalScreen > .panel { margin-block: auto; }
+#shopScreen, #savesScreen, #portalScreen, #coopScreen { align-items: center; }
+#shopScreen > .panel, #savesScreen > .panel, #portalScreen > .panel,
+#coopScreen > .panel { margin-block: auto; }
+
+/* Without a width the lobby is as wide as its widest line of text, which put a
+   four-character code field and two buttons in a column against the left
+   edge. */
+#coopScreen > .panel { width: min(520px, 100%); }
 
 /* --- the portal's two doors ---------------------------------------------- */
 .portal-panel { width: min(680px, 94vw); }
@@ -1362,6 +1368,77 @@ kbd {
   .opt-row .seg button { flex: 1; }
 }
 
+/* ---------------------------------------------------------------------------
+   Phones, specifically
+   ---------------------------------------------------------------------------
+   `pointer: coarse` above sizes every control for a fingertip, and it is right
+   to. But it fires on tablets and phones alike, and 48px buttons that look
+   generous on an iPad's 810 points are enormous on a 390-point phone: eight
+   menu entries at that size are most of the screen, so the wordmark and the
+   footer get squeezed and the whole menu reads as a blown-up version of
+   itself. That is the difference the tablet/phone comparison is describing —
+   not a bug in either, one size being asked to serve two very different
+   amounts of room.
+
+   So the sizes come back down here, and only here. 44px is the floor for
+   anything tappable — the comfortable-tap threshold, and below it this stops
+   being a phone layout and starts being a small desktop one. Nothing loses a
+   tap target; it loses the padding around it. */
+@media (max-width: 560px) {
+  .menu { width: min(290px, 82vw); gap: 7px; }
+  .menu-btn { min-height: 44px; font-size: 14px; }
+
+  /* The base rule for a coarse pointer adds 15px of vertical padding on top of
+     a 44px minimum, which on a phone is 15px of nothing. */
+  .menu-btn { padding: 10px 14px; }
+  .chip-btn { min-height: 44px; padding: 10px 14px; font-size: 12px; }
+
+  .tagline { font-size: 12px; }
+
+  /* Panels: the frame is 16px of drawn woodwork on a phone, so the padding
+     inside it can be smaller without the content touching the border. */
+  .panel { padding: 14px; }
+  .panel-title { font-size: 15px; }
+  .panel-sub { font-size: 12px; }
+
+  .coop-code { font-size: 26px; }
+  .coop-log { height: 108px; font-size: 12px; }
+  .coop-player { padding: 7px 10px; font-size: 12px; }
+  .coop-field input, .coop-say input { font-size: 16px; }   /* 16px: see below */
+}
+
+/* The one-time "Add to Home Screen" line on iPhone Safari, where the browser
+   bars cannot be hidden any other way. Sits under the attract prompt and goes
+   away for good when dismissed. */
+.home-tip {
+  display: flex; align-items: center; gap: 10px;
+  max-width: min(420px, 86vw);
+  margin: 14px auto 0;
+  padding: 9px 12px;
+  background: rgba(9, 6, 15, 0.72);
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-sm);
+  font-size: 12px; line-height: 1.4;
+  color: var(--over-2);
+  text-align: left;
+}
+.home-tip b { color: var(--over); }
+.home-tip button {
+  flex: none;
+  min-height: 32px; padding: 6px 12px;
+  font: 500 12px/1 var(--font-display);
+  color: var(--over); background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.22); border-radius: var(--radius-sm);
+}
+
+/* Anything smaller than 16px in a focused field makes iOS Safari zoom the page
+   to "help", and it does not zoom back out. The layout is then wider than the
+   screen with no way to fix it but a reload. So every text input the player can
+   focus stays at 16px, on every screen size, whatever else shrinks. */
+input[type="text"], input[type="number"], input[type="search"], textarea, select {
+  font-size: max(16px, 1em);
+}
+
 /* A tap leaves :hover stuck on touch screens, so drop the motion there. */
 @media (hover: none) {
   .menu-btn:hover, .card:hover, .hero-card:hover, .icon-btn:hover,
@@ -1425,6 +1502,7 @@ kbd {
   content: ''; flex: 1; height: 2px; background: var(--line);
 }
 
+#coopRecodeBtn { margin-left: auto; }
 .coop-code-row {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 10px; background: var(--well); border: 2px solid var(--line);
@@ -1454,6 +1532,60 @@ kbd {
 .coop-tag.is-ready { background: #2f6a3a; }
 
 .coop-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* --- the party's chat ------------------------------------------------------
+   Given a fixed height rather than letting it grow: a log that pushes the
+   ready and start buttons further down the page every time somebody speaks is
+   a log that hides the buttons people came here to press. */
+.coop-chat {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 4px;
+}
+.coop-chat-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font: 400 10px/1 var(--font-display);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.coop-log {
+  list-style: none; margin: 0; padding: 8px;
+  height: 132px; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 4px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.35;
+}
+.coop-line { display: flex; gap: 6px; align-items: baseline; }
+/* A long word with no spaces in it must wrap rather than widen the panel and
+   put a horizontal scrollbar under the whole lobby. */
+.coop-line-text { min-width: 0; overflow-wrap: anywhere; }
+.coop-line-who { flex: none; font-weight: 700; color: var(--head); }
+.coop-line-who.is-self { color: var(--ember-2); }
+.coop-line-who::after { content: ':'; }
+.coop-line.is-system { color: var(--ink-2); font-style: italic; }
+
+.coop-say { display: flex; gap: 6px; }
+.coop-say input {
+  flex: 1; min-width: 0;
+  padding: 8px 10px;
+  font: inherit; font-size: 15px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+}
+.coop-say input:focus-visible { outline: 2px solid var(--head); outline-offset: 1px; }
+
+/* The microphone dot. Present means the mic is on; lit means sound is coming
+   out of it right now. */
+.coop-mic {
+  width: 9px; height: 9px; flex: none;
+  border-radius: 50%;
+  background: var(--ink-2);
+  opacity: 0.5;
+}
+.coop-mic.is-talking { background: #4fd06a; opacity: 1; box-shadow: 0 0 0 3px rgba(79, 208, 106, 0.25); }
+#coopMicBtn.is-on { background: #2f6a3a; color: #eafbe9; }
 
 .coop-note { min-height: 1.2em; margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
 .coop-note.bad { color: #8f2f1c; }

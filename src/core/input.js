@@ -27,16 +27,39 @@ const KEY_MAP = {
   ArrowRight: 'right', KeyD: 'right',
 };
 
+/**
+ * Is this element one a person is typing into?
+ *
+ * `isContentEditable` covers the case a tag name cannot, and the readonly and
+ * disabled checks matter because a readonly input still takes focus and still
+ * ought not to steer the hero.
+ */
+function isTyping(t) {
+  if (!t || t.nodeType !== 1) return false;
+  if (t.isContentEditable) return true;
+  const tag = t.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return tag === 'INPUT' && !t.disabled && !t.readOnly;
+}
+
 export function initInput({ zoneEl, baseEl, thumbEl } = {}) {
   zone = zoneEl || null; base = baseEl || null; thumb = thumbEl || null;
 
   addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    // A key typed into a text field belongs to the field, not to the game.
+    // Without this the lobby cannot be filled in at all: W, A, S and D are
+    // movement, so they were preventDefault()ed and never reached the input,
+    // and every other key still landed in justPressed — where P means "close
+    // this screen". Typing a name with a P in it bounced you to the menu.
+    if (isTyping(e.target)) return;
     const a = KEY_MAP[e.code];
     if (a) { keys.add(a); e.preventDefault(); }
     justPressed.add(e.code);
   });
   addEventListener('keyup', (e) => {
+    // Not gated on isTyping: a key pressed before focus moved into a field
+    // must still be released, or the hero walks into a wall forever.
     const a = KEY_MAP[e.code];
     if (a) keys.delete(a);
   });

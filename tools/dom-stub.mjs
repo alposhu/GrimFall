@@ -33,6 +33,12 @@ class El {
   constructor(tag = 'div') {
     this.tagName = tag.toUpperCase();
     this.children = [];
+    // The chat log asks how far it is scrolled before deciding whether to
+    // follow a new line. Zeroes mean "not scrolled and nothing to scroll",
+    // which is the honest answer for an element that was never laid out.
+    this.scrollTop = 0;
+    this.scrollHeight = 0;
+    this.clientHeight = 0;
     this.style = {
       _p: {},
       setProperty(k, v) { this._p[k] = v; },
@@ -68,11 +74,15 @@ class El {
       + this.children.map((c) => c.textContent).join(' ');
   }
   set textContent(v) { this._text = v == null ? '' : String(v); this._html = ''; this.children.length = 0; }
-  appendChild(c) { this.children.push(c); return c; }
+  appendChild(c) { c.parent = this; this.children.push(c); return c; }
   prepend(...cs) { this.children.unshift(...cs); }
   getBoundingClientRect() { return { left: 0, top: 0, width: 320, height: 128, right: 320, bottom: 128 }; }
-  append(...cs) { cs.forEach((c) => this.children.push(c)); }
+  append(...cs) { cs.forEach((c) => { c.parent = this; this.children.push(c); }); }
+  replaceChildren(...cs) { this.children.length = 0; this._html = ''; this._text = ''; this.append(...cs); }
   removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); }
+  remove() { this.parent?.removeChild(this); }
+  get firstElementChild() { return this.children[0] || null; }
+  get lastElementChild() { return this.children[this.children.length - 1] || null; }
   setAttribute(k, v) { this[k] = v; }
   getAttribute(k) { return this[k]; }
   addEventListener(type, fn) { (this._handlers[type] ||= []).push(fn); }

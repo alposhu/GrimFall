@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import * as net from '../net/connection.js';
+import * as voice from '../net/voice.js';
 import { multiplayerAvailable } from '../net/config.js';
 import { normaliseCode, MAX_PLAYERS } from '../net/protocol.js';
 
@@ -45,6 +46,7 @@ function renderLobby(state) {
   el.coopRoom.hidden = false;
   el.coopCodeOut.textContent = state.code;
 
+  const talking = voice.speaking();
   el.coopPlayers.replaceChildren(...state.players.map((p) => {
     const li = document.createElement('li');
     li.className = 'coop-player';
@@ -53,6 +55,16 @@ function renderLobby(state) {
     const name = document.createElement('span');
     name.className = 'coop-player-name';
     name.textContent = p.name;
+
+    // A microphone that is on but silent looks exactly like one that failed to
+    // connect, so the dot reports both: present when the mic is live, lit while
+    // that person is actually making sound.
+    if (p.voice) {
+      const mic = document.createElement('span');
+      mic.className = 'coop-mic' + (talking.has(p.id) ? ' is-talking' : '');
+      mic.title = talking.has(p.id) ? `${p.name} is talking` : `${p.name} has a microphone on`;
+      li.append(mic);
+    }
 
     const tag = document.createElement('span');
     tag.className = 'coop-tag';
@@ -69,9 +81,16 @@ function renderLobby(state) {
 
   const me = state.players.find((p) => p.id === net.selfPlayerId());
   const host = net.isHost();
+  el.coopRecodeBtn.hidden = !host;
   el.coopReadyBtn.hidden = host;
   el.coopReadyBtn.querySelector('span').textContent = me?.ready ? 'Not ready' : "I'm ready";
   el.coopStartBtn.hidden = !host;
+
+  // The call follows the room: someone who joins is dialled, someone who leaves
+  // is hung up on. Doing it here means there is one place where "who is in this
+  // game" is decided, rather than a second list that can disagree with the
+  // first.
+  if (voice.voiceSupported()) voice.syncPeers(state.players);
 
   const others = state.players.filter((p) => p.id !== state.hostId);
   const waiting = others.filter((p) => !p.ready).length;
@@ -83,6 +102,66 @@ function renderLobby(state) {
     else note('Everyone is ready.', 'good');
   } else {
     note(me?.ready ? 'Waiting for the host to start.' : 'Mark yourself ready when you are.');
+  }
+}
+
+/**
+ * Add one line to the log.
+ *
+ * Appended rather than re-rendered from a list: chat only ever grows at the
+ * bottom, and rebuilding it would throw away the scroll position of anyone
+ * reading back through it.
+ */
+function addLine(line) {
+  const li = document.createElement('li');
+  const system = !line.from;
+  li.className = 'coop-line' + (system ? ' is-system' : '');
+
+  if (!system) {
+    const who = document.createElement('span');
+    who.className = 'coop-line-who';
+    if (line.from === net.selfPlayerId()) who.classList.add('is-self');
+    who.textContent = line.name;
+    li.append(who);
+  }
+  const what = document.createElement('span');
+  what.className = 'coop-line-text';
+  // textContent, never innerHTML. This is the one string in the game that
+  // arrives from another person, and it is displayed as the characters they
+  // typed rather than as markup.
+  what.textContent = line.text;
+  li.append(what);
+
+  // Follow the newest line only for someone already at the bottom. Yanking the
+  // view down while they are reading older messages is worse than missing one.
+  const atEnd = el.coopLog.scrollHeight - el.coopLog.scrollTop - el.coopLog.clientHeight < 40;
+  el.coopLog.append(li);
+  while (el.coopLog.children.length > 60) el.coopLog.firstElementChild.remove();
+  if (atEnd) el.coopLog.scrollTop = el.coopLog.scrollHeight;
+}
+
+function clearLog() { el.coopLog.replaceChildren(); }
+
+/** Reflect the mic button's state — it is a toggle, so it must read as one. */
+function renderMic(text) {
+  const on = voice.voiceOn();
+  el.coopMicBtn.setAttribute('aria-pressed', String(on));
+  el.coopMicBtn.classList.toggle('is-on', on);
+  el.coopMicBtn.querySelector('span').textContent = text || (on ? 'Mic on' : 'Mic off');
+}
+
+async function toggleMic() {
+  if (!voice.voiceSupported()) { note('This browser cannot do voice chat.', 'bad'); return; }
+  el.coopMicBtn.disabled = true;
+  try {
+    if (voice.voiceOn()) voice.stopVoice();
+    else { renderMic('Asking…'); await voice.startVoice(); }
+    note('');
+  } catch (e) {
+    note(e.message, 'bad');
+  } finally {
+    el.coopMicBtn.disabled = false;
+    renderMic();
   }
 }
 
@@ -153,16 +232,49 @@ export function initCoop(elements, callbacks = {}) {
 
   el.coopStartBtn.addEventListener('click', () => net.startGame());
 
+  // A new code for when the old one has been read out to the wrong person, or
+  // left on a stream. Confirmed first: the people already here keep playing,
+  // but anyone still trying to type the old code is locked out by it.
+  el.coopRecodeBtn.addEventListener('click', () => {
+    const n = (net.lobbyState()?.players.length || 1) - 1;
+    const warn = n > 0
+      ? `Change the code? The ${n === 1 ? 'player' : `${n} players`} already here stay in, but anyone you gave the old code to will not be able to join.`
+      : 'Change the code? Anyone you gave the old one to will not be able to join.';
+    if (!confirm(warn)) return;
+    net.newCode();
+  });
+
+  el.coopMicBtn.addEventListener('click', toggleMic);
+
+  el.coopSayForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = el.coopSay.value.trim();
+    if (!text) return;
+    net.sendChat(text);
+    el.coopSay.value = '';
+  });
+
+  // The dot next to a name lights while that person is talking, which is the
+  // only visible proof the call is working at all.
+  voice.setVoiceListener(() => {
+    const state = net.lobbyState();
+    if (state && !el.coopRoom.hidden) renderLobby(state);
+  });
+
   unsubscribe = [
     net.on('lobby', renderLobby),
     net.on('denied', (m) => note(m.reason, 'bad')),
-    net.on('lost', () => { toSetup(); note('The connection dropped.', 'bad'); }),
+    net.on('lost', () => { voice.endVoice(); toSetup(); note('The connection dropped.', 'bad'); }),
     net.on('started', (m) => hooks.onCoopStart?.({ ...m, selfId: net.selfPlayerId() })),
+    net.on('said', addLine),
+    net.on('history', (m) => { clearLog(); m.lines.forEach(addLine); }),
+    net.on('signal', voice.handleSignal),
   ];
 }
 
 /** Opening the screen never connects — that waits for a deliberate button. */
 export function openCoopScreen() {
+  renderMic();
   if (net.lobbyState()) renderLobby(net.lobbyState());
   else { toSetup(); note(''); }
 }
@@ -174,7 +286,9 @@ export function openCoopScreen() {
  */
 export function closeCoopScreen() {
   if (net.lobbyState()?.started) return;
+  voice.endVoice();
   net.disconnect();
+  clearLog();
   toSetup();
   note('');
 }

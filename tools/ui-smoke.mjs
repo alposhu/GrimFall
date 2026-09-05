@@ -377,6 +377,25 @@ byId.skipBtn.click();
 check(S.pendingLevels === 0, 'skipping a level-up left it pending');
 console.log('skip              ok');
 
+// --- the boot screen must wait for the artwork the menu is made of ----------
+//
+// The list in preload.js exists so the loading bar covers the interface as
+// well as the game. A stylesheet that grows a new panel image would quietly
+// stop being covered by it, and the symptom — one piece of chrome popping in a
+// beat late on a phone — is too small to catch by eye and too easy to blame on
+// the network.
+const { INTERFACE_IMAGES } = await import('../src/core/preload.js');
+const cssText = fs.readFileSync(path.join(ROOT, 'css', 'style.css'), 'utf8');
+const wanted = new Set();
+for (const m of cssText.matchAll(/url\(['"]?\.\.\/(img\/[^)'"]+)['"]?\)/g)) wanted.add(m[1]);
+const listed = new Set(INTERFACE_IMAGES);
+for (const src of wanted) {
+  check(listed.has(src), `style.css uses ${src}, which preload.js does not fetch`);
+}
+for (const src of listed) {
+  check(fs.existsSync(path.join(ROOT, src)), `preload.js fetches ${src}, which does not exist`);
+}
+console.log(`preload           ok (${listed.size} interface images, all in the stylesheet)`);
 if (problems.length) {
   console.error('\nFAILED:');
   problems.forEach((p) => console.error('  - ' + p));

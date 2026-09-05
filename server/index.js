@@ -28,6 +28,7 @@ import { accept } from './ws.js';
 import {
   createRoom, joinRoom, leaveRoom, setReady, startRoom,
   lobbyState, sweepIdle, roomCount, getRoom, resetRooms,
+  recodeRoom, setVoice, say, announce, chatHistory,
 } from './rooms.js';
 import { MSG, PROTOCOL_VERSION, normaliseCode } from '../src/net/protocol.js';
 import { findRoot, serveStatic } from './static.js';
@@ -62,6 +63,18 @@ const sessions = new Map();
 function send(conn, type, data = {}) { conn.send({ type, ...data }); }
 
 function deny(conn, reason) { send(conn, MSG.DENIED, { reason }); }
+
+/** Send one message to everybody in a room. */
+function toRoom(room, message) {
+  if (!room) return;
+  for (const [c, s] of sessions) if (s.room === room) c.send(message);
+}
+
+/** Push a chat line — from a player or from the server itself — to the room. */
+function sayToRoom(room, line) {
+  if (!line) return;
+  toRoom(room, { type: MSG.SAID, ...line });
+}
 
 /** Push the current lobby to everyone still in the room. */
 function broadcastLobby(room) {
@@ -102,6 +115,10 @@ function handle(conn, msg) {
       if (error) { deny(conn, error); return; }
       session.room = room;
       session.playerId = player.id;
+      // The backlog goes to the newcomer BEFORE the arrival is announced, so
+      // they do not read that they themselves have arrived.
+      send(conn, MSG.HISTORY, { lines: chatHistory(room) });
+      sayToRoom(room, announce(room, `${player.name} joined.`));
       broadcastLobby(room);
       return;
     }
@@ -139,6 +156,39 @@ function handle(conn, msg) {
       return;
     }
 
+    case MSG.RECODE: {
+      const { room, error } = recodeRoom(session.room, session.playerId);
+      if (error) { deny(conn, error); return; }
+      sayToRoom(room, announce(room, 'The game code changed.'));
+      broadcastLobby(room);
+      return;
+    }
+
+    case MSG.CHAT: {
+      // Allowed during a run as well as in the lobby. Being able to say "go
+      // left" while something is chasing you is most of the point.
+      sayToRoom(session.room, say(session.room, session.playerId, msg.text));
+      return;
+    }
+
+    case MSG.VOICE: {
+      setVoice(session.room, session.playerId, msg.on);
+      broadcastLobby(session.room);
+      return;
+    }
+
+    case MSG.SIGNAL: {
+      // WebRTC offers, answers and ICE candidates, forwarded blind. The server
+      // is not part of the call and never sees the audio — it only introduces
+      // two browsers to each other, after which they talk directly.
+      if (!msg.to) return;
+      const out = { type: MSG.SIGNAL, from: session.playerId, data: msg.data };
+      for (const [c, sn] of sessions) {
+        if (sn.room === session.room && sn.playerId === msg.to) c.send(out);
+      }
+      return;
+    }
+
     case MSG.LEAVE:
       dropSession(conn);
       return;
@@ -159,7 +209,9 @@ function dropSession(conn) {
   const { room, playerId } = session;
   if (!room) return;
   const started = room.started;
+  const who = room.players.get(playerId)?.name;
   if (!leaveRoom(room, playerId)) return;
+  if (!started && who) sayToRoom(room, announce(room, `${who} left.`));
   if (started) {
     // Mid-run: the lobby list is no longer what anyone is looking at, but the
     // enemies that client was simulating are now nobody's. The remaining

@@ -6,7 +6,9 @@
 // ---------------------------------------------------------------------------
 
 import crypto from 'node:crypto';
-import { CODE_ALPHABET, CODE_LENGTH, MAX_PLAYERS, cleanName } from '../src/net/protocol.js';
+import {
+  CODE_ALPHABET, CODE_LENGTH, MAX_PLAYERS, cleanName, MAX_CHAT, CHAT_HISTORY,
+} from '../src/net/protocol.js';
 
 /** A lobby nobody has touched in this long is swept, so codes stay reusable. */
 const IDLE_MS = 30 * 60 * 1000;
@@ -40,6 +42,7 @@ export function createRoom(name) {
     started: false,
     seed: 0,
     difficulty: 'normal',
+    chat: [],
     touched: Date.now(),
   };
   rooms.set(code, room);
@@ -70,7 +73,7 @@ function addPlayer(room, name) {
     while (taken.has(`${display} (${n})`)) n++;
     display = `${display} (${n})`;
   }
-  const player = { id, name: display, ready: false, charId: null };
+  const player = { id, name: display, ready: false, charId: null, voice: false };
   room.players.set(id, player);
   room.touched = Date.now();
   return player;
@@ -92,6 +95,71 @@ export function leaveRoom(room, playerId) {
   if (room.hostId === playerId) room.hostId = room.players.keys().next().value;
   return true;
 }
+
+/**
+ * Throw the current code away and issue another.
+ *
+ * For when a code has been read out to the wrong person, or posted somewhere
+ * public. The room, the players in it and everything said so far survive — only
+ * the way IN changes — so this is not the same as everyone leaving and starting
+ * again, which is what people otherwise have to do.
+ *
+ * The old code is released the moment the new one is taken, which is the point:
+ * anyone typing it from here on gets "no game with that code", the same answer
+ * they would get for a code that never existed. Nothing tells them a room moved.
+ */
+export function recodeRoom(room, playerId) {
+  if (!room) return { error: 'no room' };
+  if (room.hostId !== playerId) return { error: 'only the host can change the code' };
+  if (room.started) return { error: 'the run has already started' };
+  const code = freshCode();
+  if (!code) return { error: 'the server is full' };
+  rooms.delete(room.code);
+  room.code = code;
+  rooms.set(code, room);
+  room.touched = Date.now();
+  return { room };
+}
+
+/** Note that someone's microphone is live, so the lobby can show it. */
+export function setVoice(room, playerId, on) {
+  const p = room?.players.get(playerId);
+  if (!p) return false;
+  p.voice = !!on;
+  room.touched = Date.now();
+  return true;
+}
+
+/**
+ * Record a line of chat and hand back the form everyone should see.
+ *
+ * The name is stamped HERE rather than trusted from the sender, so nobody can
+ * put words in a teammate's mouth by lying about who they are. The server
+ * already knows which player a socket belongs to; asking the socket to say so
+ * again would be asking a question we know the answer to.
+ */
+export function say(room, playerId, text) {
+  const p = room?.players.get(playerId);
+  if (!p) return null;
+  const clean = String(text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_CHAT);
+  if (!clean) return null;
+  const line = { from: playerId, name: p.name, text: clean, at: Date.now() };
+  room.chat.push(line);
+  if (room.chat.length > CHAT_HISTORY) room.chat.splice(0, room.chat.length - CHAT_HISTORY);
+  room.touched = Date.now();
+  return line;
+}
+
+/** A system line — somebody arrived, left, or the code changed. */
+export function announce(room, text) {
+  if (!room) return null;
+  const line = { from: '', name: '', text: String(text).slice(0, MAX_CHAT), at: Date.now() };
+  room.chat.push(line);
+  if (room.chat.length > CHAT_HISTORY) room.chat.splice(0, room.chat.length - CHAT_HISTORY);
+  return line;
+}
+
+export const chatHistory = (room) => (room ? room.chat.slice() : []);
 
 export function setReady(room, playerId, ready) {
   const p = room?.players.get(playerId);
@@ -128,7 +196,7 @@ export function lobbyState(room) {
     hostId: room.hostId,
     started: room.started,
     players: [...room.players.values()].map((p) => ({
-      id: p.id, name: p.name, ready: p.ready, charId: p.charId,
+      id: p.id, name: p.name, ready: p.ready, charId: p.charId, voice: p.voice,
     })),
   };
 }

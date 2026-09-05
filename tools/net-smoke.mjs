@@ -12,6 +12,7 @@
 import crypto from 'node:crypto';
 import net from 'node:net';
 import { MSG, normaliseCode, isCode } from '../src/net/protocol.js';
+import { getRoom } from '../server/rooms.js';
 
 const problems = [];
 const check = (c, m) => { if (!c) problems.push(m); };
@@ -189,6 +190,15 @@ const A = await import(`../src/net/connection.js?instance=a`);
 const B = await import(`../src/net/connection.js?instance=b`);
 check(A !== B, 'the two client instances must not be the same module');
 
+/** The next message of this kind that satisfies `want` — ignoring the others. */
+const untilLobby = (mod, want) => new Promise((res, rej) => {
+  const timer = setTimeout(() => rej(new Error('no matching lobby arrived')), 3000);
+  const off = mod.on('lobby', (m) => {
+    if (!want(m)) return;
+    clearTimeout(timer); off(); res(m);
+  });
+});
+
 const once = (mod, event) => new Promise((res, rej) => {
   const timer = setTimeout(() => rej(new Error(`no ${event} arrived`)), 3000);
   const off = mod.on(event, (p) => { clearTimeout(timer); off(); res(p); });
@@ -213,6 +223,53 @@ check(!B.isHost(), 'the joining client must not think it is the host');
 check(A.selfPlayerId() !== B.selfPlayerId(), 'the two clients must have different ids');
 console.log(`two clients        ok (${aSees.players.map((p) => p.name).join(' + ')} in ${room.code})`);
 
+// --- chat -------------------------------------------------------------------
+// The name on a line is stamped by the server from the socket it arrived on,
+// never taken from the message. Anything else lets one player post as another.
+const saidB = once(B, 'said');
+A.sendChat('  meet   at the gate  ');
+const line = await saidB;
+check(line.text === 'meet at the gate', `chat should be tidied, got "${line.text}"`);
+check(line.name === 'Alp', `chat should be stamped with the sender, got "${line.name}"`);
+check(line.from === A.selfPlayerId(), 'chat should carry the sender id');
+
+// A new arrival is told what was said before they got here, or they walk into a
+// conversation with no idea what it is about.
+const C = await import(`../src/net/connection.js?instance=c`);
+await C.connect();
+const historyC = once(C, 'history');
+C.joinGame(room.code, 'Deniz');
+const backlog = await historyC;
+check(backlog.lines.some((l) => l.text === 'meet at the gate'),
+  'someone joining should be sent the backlog');
+check(backlog.lines.some((l) => l.text.includes('Ece joined')),
+  'arrivals should be announced in the log');
+console.log(`chat               ok (${backlog.lines.length} lines of backlog)`);
+
+// --- a new code -------------------------------------------------------------
+// The point of this is that the OLD code stops working. A room that stays
+// reachable by both is a room whose code was never really changed.
+const oldCode = room.code;
+// Wait for the lobby that actually carries a new code, not merely the next one
+// to arrive: C's arrival also produces a lobby message, and which of the two
+// lands first is a race this test has no business caring about.
+const recoded = untilLobby(B, (m) => m.code !== oldCode);
+A.newCode();
+const afterRecode = await recoded;
+check(afterRecode.code !== oldCode, 'the code should have changed');
+check(afterRecode.players.length === 3, 'changing the code must not drop anybody');
+check(!getRoom(oldCode), 'the old code should no longer reach the room');
+check(!!getRoom(afterRecode.code), 'the new code should reach the room');
+
+// And only the host may do it.
+const deniedB = once(B, 'denied');
+B.newCode();
+const refusal = await deniedB;
+check(/host/i.test(refusal.reason), `a guest changing the code should be refused, got "${refusal.reason}"`);
+console.log(`new code           ok (${oldCode} retired, ${afterRecode.code} live)`);
+
+C.disconnect();
+await new Promise((r) => setTimeout(r, 60));
 lobbyA = once(A, 'lobby');
 B.setReady(true);
 const readied = await lobbyA;
