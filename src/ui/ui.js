@@ -76,18 +76,39 @@ function iconImg(name, size = 32) {
  * the way, and the running game was left ticking behind a menu it could not be
  * seen from. A game opened from the inn is an overlay ON the inn, and this is
  * the thread back.
+ *
+ * The same mechanism now covers everything that can be opened AS AN OVERLAY
+ * on the Hearthhall — the minigames, the party panel, and Sanctuary/Arena/Help
+ * when reached by walking up to them rather than from the title screen. All of
+ * them share one failure mode if this is skipped: with no hub "screen" for
+ * `go()` to remember, the ordinary back-stack has nothing to pop, and its
+ * fallback is the title screen — which, worse, then tears down the co-op
+ * connection too, because leaving `coopScreen` normally means leaving the
+ * game. `hubReturn` is what says "no, this one goes back to the room."
  */
-let leaveGame = null;
+let hubReturn = null;
 
 export function openGame(which, mode, onClose = null) {
-  leaveGame = onClose;
+  hubReturn = onClose;
   if (which === 'dice') { openDice(mode); go('diceScreen'); }
   else if (which === 'cups') { openCups(mode); go('cupsScreen'); }
   else if (which === 'knives') { openKnives(mode); go('knivesScreen'); }
   else if (which === 'supper') { openSupper(mode); go('supperScreen'); }
 }
 
-const GAME_SCREENS = ['diceScreen', 'cupsScreen', 'knivesScreen', 'supperScreen'];
+/**
+ * Every screen that can be an overlay on the hall.
+ *
+ * `sanctuaryScreen`/`helpScreen`/`arenaScreen` are dual-purpose — also reached
+ * directly from the title screen, where the ordinary stack-based back IS
+ * correct and must not be bypassed. The list alone cannot tell those two
+ * cases apart; `hubReturn` being set is what actually gates the bypass in
+ * `back()`, and the title-screen path never sets it.
+ */
+const HUB_SCREENS = [
+  'diceScreen', 'cupsScreen', 'knivesScreen', 'supperScreen',
+  'coopScreen', 'hubMenuScreen', 'sanctuaryScreen', 'helpScreen', 'arenaScreen',
+];
 
 export function action(a) {
   if (a === 'back') back();
@@ -100,11 +121,50 @@ export function action(a) {
   else if (a === 'load') openSaves('load');
   else if (a === 'coop') openCoop();
   else if (a === 'saveRun') openSaves('save');
+  else if (a === 'hub-settings') openCoop(true);
 }
 
-export function openCoop() {
+/**
+ * Open the party roster and terms.
+ *
+ * `fromHub` marks this as a check-in on a lobby the player is already
+ * standing in — reached by walking up to the high table or the hearth, or
+ * through the hall's own menu — as opposed to the pre-lobby create/join form
+ * reached from the title screen. The two need different endings: leaving the
+ * FORM before joining anything should tear down whatever connection was made;
+ * leaving the OVERLAY must not, because the whole point of it is that the
+ * player is already in the room and only glancing at who else is there.
+ * Without this distinction, checking the roster and closing it again was
+ * silently disconnecting the player from their own co-op session.
+ */
+export function openCoop(fromHub = false) {
+  hubReturn = fromHub ? () => {} : null;
   go('coopScreen');
   openCoopScreen();
+}
+
+/**
+ * The hall's own menu. Escape opens this while nothing else is showing, so
+ * there is a real place to choose from — check the party, go back to walking
+ * around, or leave for good — rather than the second choice being made by
+ * accident on the way past.
+ */
+export function openHubMenu() {
+  hubReturn = () => {};
+  go('hubMenuScreen');
+}
+
+/**
+ * Sanctuary, the Boss Arena and the help pages, opened as an overlay on the
+ * hall rather than as a destination that replaces it — the same "closing this
+ * must not disconnect anyone, and must not land on the title screen" fix as
+ * the party panel gets, for the same reason.
+ */
+export function openHubOverlay(dest) {
+  hubReturn = () => {};
+  if (dest === 'sanctuary') openSanctuary();
+  else if (dest === 'arena') openArena();
+  else if (dest === 'help') go('helpScreen');
 }
 
 export function initUI(callbacks) {
@@ -141,6 +201,7 @@ export function initUI(callbacks) {
     'knivesThrowBtn', 'knivesAgainBtn', 'knivesTotal', 'knivesLeft', 'knivesPurse',
     'supperScreen', 'supperRail', 'supperStations', 'supperNote', 'supperAgainBtn',
     'supperScore', 'supperServed', 'supperLives', 'supperClock', 'supperPurse',
+    'hubMenuScreen', 'hubQuitBtn',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -273,6 +334,18 @@ From ${when}
   });
   el.toTitleBtn.addEventListener('click', () => { sfx('back'); say('farewell', { force: true }); hooks.onTitle?.(); });
 
+  // The one button in the Hearthhall's menu that actually costs the player
+  // their seat at the table, so it is the one gated behind a confirmation —
+  // a settings panel closed by an accidental second tap must never do this on
+  // its own. The sound plays on confirming, not on the tap that only asks.
+  el.hubQuitBtn?.addEventListener('click', () => {
+    if (!confirm('Return to the main menu? You will leave this game, and anyone still here carries on without you.')) return;
+    sfx('back');
+    hubReturn = null;
+    hideAll();
+    hooks.onQuitHub?.();
+  });
+
   el.rerollBtn.addEventListener('click', () => {
     if (!useReroll()) { sfx('deny'); return; }
     drawCards();
@@ -361,7 +434,12 @@ function stopDemos() {
 // ---------------------------------------------------------------------------
 // Screen routing
 // ---------------------------------------------------------------------------
-const SCREENS = ['bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen', 'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen', 'shopScreen', 'savesScreen', 'portalScreen', 'coopScreen'];
+const SCREENS = [
+  'bootScreen', 'titleScreen', 'heroScreen', 'arenaScreen', 'sanctuaryScreen',
+  'optionsScreen', 'helpScreen', 'pauseScreen', 'levelScreen', 'resultScreen',
+  'shopScreen', 'savesScreen', 'portalScreen', 'coopScreen', 'hubMenuScreen',
+  'diceScreen', 'cupsScreen', 'knivesScreen', 'supperScreen',
+];
 
 export function go(name, remember = true) {
   const current = SCREENS.find((s) => el[s]?.classList.contains('active'));
@@ -396,16 +474,24 @@ export function hideAll(clearStack = true) {
   closeSupper();
 
   SCREENS.forEach((s) => el[s]?.classList.remove('active'));
-  if (clearStack) screenStack = [];
+  if (clearStack) {
+    screenStack = [];
+    // A full reset — entering the hub, returning to the title, starting a run
+    // — means any pending "this overlay goes back to the hall" callback is
+    // stale by definition. Left set, it would wrongly catch the NEXT ordinary
+    // visit to Sanctuary/Arena/Help from the title screen and bypass the
+    // normal back-stack for a screen the player never opened from the hub.
+    hubReturn = null;
+  }
   stopDemos();
 }
 
 export function back() {
-  // A game opened from the inn goes back to the inn, not to wherever the menu
-  // happened to be beforehand.
-  if (leaveGame && GAME_SCREENS.includes(currentScreen())) {
-    const done = leaveGame;
-    leaveGame = null;
+  // An overlay opened from the inn goes back to the inn, not to wherever the
+  // menu happened to be beforehand — see the note above `hubReturn`.
+  if (hubReturn && HUB_SCREENS.includes(currentScreen())) {
+    const done = hubReturn;
+    hubReturn = null;
     hideAll();
     done();
     return;

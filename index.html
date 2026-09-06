@@ -488,6 +488,23 @@
       </div>
     </section>
 
+    <!-- The Hearthhall's own menu. Escape opens this rather than jumping
+         straight to the party panel, so there is somewhere to land between
+         "still standing in the hall" and "checking the roster" — and
+         somewhere to say a real goodbye from, rather than a second Escape
+         press quietly dropping the connection on its way past. -->
+    <section id="hubMenuScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">Menu</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+        <div class="panel-actions">
+          <button class="menu-btn primary" data-action="hub-settings"><i class="ui-icon i-team" aria-hidden="true"></i><span>Party &amp; Terms</span></button>
+          <button class="menu-btn" data-action="back"><i class="ui-icon i-play" aria-hidden="true"></i><span>Back to the Hall</span></button>
+          <button class="menu-btn danger" id="hubQuitBtn"><i class="ui-icon i-exit" aria-hidden="true"></i><span>Return to Main Menu</span></button>
+        </div>
+      </div>
+    </section>
+
     <section id="coopScreen" class="screen">
       <div class="panel">
         <header class="panel-head"><h2 class="panel-title">Play Together (BETA)</h2>

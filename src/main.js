@@ -215,6 +215,7 @@ async function boot() {
     // when the hall opens and the party panel steps aside. This is the ONLY
     // way in: the hall is the lobby, not a place on the menu.
     onCoopRoom: toHub,
+    onQuitHub: quitHubToTitle,
     onStart: beginRun,
     onStartArena: beginArena,
     onPause: togglePause,
@@ -453,17 +454,32 @@ function toHub() {
 }
 
 /**
- * Step out of the hall.
+ * Step out of the hall after walking through the door.
  *
- * Somebody in a party has not left co-op because they walked away from the
- * fire, so this puts them back on the party panel and keeps them in the room.
- * Leaving the room itself is the panel's job, not this one's.
+ * The co-op connection deliberately survives this: a run is about to begin,
+ * via the ordinary "Start the run" flow on the party panel, and it needs the
+ * room that is about to start it.
  */
-function leaveHub(toPanel = true) {
+function leaveHub() {
   mode = 'menu';
   showJoystick(false);
-  if (toPanel && netlink.lobbyState()) { ui.action('coop'); return; }
   leaveHubNet();
+  playMusic('menu');
+  toTitle();
+}
+
+/**
+ * Leave the co-op session for good, from the hall's own menu.
+ *
+ * Unlike `leaveHub`, this always disconnects — chosen only after a
+ * confirmation the player has already seen, so nothing here waits for a
+ * "maybe."
+ */
+function quitHubToTitle() {
+  leaveHubNet();
+  netlink.disconnect();
+  mode = 'menu';
+  showJoystick(false);
   playMusic('menu');
   toTitle();
 }
@@ -480,10 +496,6 @@ function useHubPoint() {
   if (!at) return;
   sfx('select');
 
-  // The map says where things are; this says what they mean. Both the head
-  // table and the hearth open the party panel — one is where the host sets the
-  // terms and the other is where you read the room, and they are the same panel
-  // because splitting it would mean two places to look for one answer.
   // Stairs stay inside the inn — they are the one thing here that moves you
   // without leaving.
   if (at.id === 'upstairs') { goToArea('upper'); return; }
@@ -497,22 +509,32 @@ function useHubPoint() {
   // The inn's games are the same game alone or in company; the only difference
   // is whether there is anybody to send a result to.
   //
-  // The inn is NOT torn down to open one. The panel sits over the room, the
-  // room keeps running behind it, and closing the panel puts the player back in
-  // their chair — which is what leaving a table is.
+  // The inn is NOT torn down to open any of what follows. Every one of these
+  // is an overlay: the room keeps running behind it, and closing it puts the
+  // player back in their chair — which is what leaving a table is. This used
+  // to go through `leaveHub(true)`, which took `mode` out of 'hub' entirely and
+  // routed everything through the party panel regardless of which of these was
+  // actually pressed — so walking up to Sanctuary, the Arena or the shelves in
+  // the snug would silently disconnect the player from their own co-op room a
+  // moment later, when the real destination screen replaced the party panel
+  // `leaveHub` had just opened underneath it.
   if (at.id === 'dice' || at.id === 'cups' || at.id === 'knives' || at.id === 'supper') {
     ui.openGame(at.id, netlink.lobbyState() ? 'table' : 'solo', () => { clearPressed(); });
     return;
   }
 
-  const WHERE = {
-    settings: 'coop', party: 'coop', variants: 'coop',
-    sanctuary: 'sanctuary', help: 'help', arena: 'arena',
-  };
-  const dest = WHERE[at.id];
-  if (!dest) return;
-  leaveHub(true);
-  if (dest !== 'coop') ui.action(dest);
+  // The head table and the hearth both open the party panel — one is where the
+  // host sets the terms and the other is where you read the room, and they are
+  // the same panel because splitting it would mean two places to look for one
+  // answer.
+  if (at.id === 'settings' || at.id === 'party' || at.id === 'variants') {
+    ui.openCoop(true);
+    return;
+  }
+
+  const OVERLAY = { sanctuary: 'sanctuary', help: 'help', arena: 'arena' };
+  const dest = OVERLAY[at.id];
+  if (dest) ui.openHubOverlay(dest);
 }
 
 // ---------------------------------------------------------------------------
@@ -630,7 +652,7 @@ function loop(now) {
       { w: canvas.width / zoom, h: canvas.height / zoom });
     if (inHubNet()) tickHubNet(dt);
     renderHub(ctx, canvas, zoom);
-    if (gone) { leaveHub(false); ui.action('heroes'); }
+    if (gone) { leaveHub(); ui.action('heroes'); }
   } else if (mode === 'market') {
     const view = computeView(canvas.width, canvas.height, zoom);
     updateMarket(dt, { w: canvas.width / zoom, h: canvas.height / zoom });
@@ -699,12 +721,20 @@ function handleKeys() {
   }
 
   if (mode === 'hub') {
-    // With a panel open, Escape closes the panel rather than the inn.
+    // With a panel open, Escape closes THAT panel and nothing more — it
+    // never used to stop there. Opening the party panel directly on the first
+    // press left a second press with no panel of its own to close: `mode` had
+    // already been swapped to 'menu' by then, so the generic Escape handling
+    // further down took over and its fallback is the title screen, taking the
+    // co-op connection down with it as an unrelated side effect of `go()`
+    // leaving `coopScreen` behind. Routing every Escape through one proper
+    // menu — `hubMenuScreen` — means there is always exactly one panel open at
+    // a time and exactly one thing for Escape to close.
     if (ui.currentScreen()) {
       if (consumePressed('Escape')) ui.back();
       return;
     }
-    if (consumePressed('Escape')) { leaveHub(true); return; }
+    if (consumePressed('Escape')) { ui.openHubMenu(); return; }
     if (consumePressed('Space') || consumePressed('Enter') || consumePressed('KeyE')) {
       useHubPoint();
     }

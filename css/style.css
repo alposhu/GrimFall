@@ -1170,7 +1170,7 @@ kbd {
 }
 
 /* --------------------------------------------------------------- panels */
-#pauseScreen, #resultScreen { align-items: center; justify-content: center; }
+#pauseScreen, #resultScreen, #hubMenuScreen { align-items: center; justify-content: center; }
 
 /* The vendor and saves screens are single panels like the two above, and were
    pinned to the top left by nothing more than `.screen` being a bare flex

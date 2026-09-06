@@ -35,6 +35,7 @@ let started = null;
 
 let arenaStarted = null;
 const fired = { interact: 0, leaveShop: 0, drank: [], saved: [], loaded: [], doors: [] };
+let quitFired = 0;
 ui.initUI({
   onStart: (id, diff) => { started = { id, diff }; },
   onStartArena: (id, diff, bossId) => { arenaStarted = { id, diff, bossId }; },
@@ -42,6 +43,7 @@ ui.initUI({
   onResume: () => {},
   onAbandon: () => {},
   onTitle: () => {},
+  onQuitHub: () => { quitFired++; },
   onLevelUpDone: () => {},
   onSetting: () => {},
   onInteract: () => { fired.interact++; },
@@ -285,14 +287,15 @@ console.log('vendor screen     ok');
   const rules = [...bare.matchAll(/([^{}]*)\{([^}]*)\}/g)];
   const declFor = (sel) => rules.filter((m) => m[1].split(',').some((p) => p.trim() === sel))
     .map((m) => m[2]).join(';');
-  for (const id of ['#pauseScreen', '#resultScreen', '#shopScreen', '#savesScreen', '#portalScreen']) {
+  const CENTRED_SCREENS = ['#pauseScreen', '#resultScreen', '#shopScreen', '#savesScreen', '#portalScreen', '#hubMenuScreen'];
+  for (const id of CENTRED_SCREENS) {
     const own = declFor(id);
     const child = declFor(`${id} > .panel`);
     check(/align-items:\s*center/.test(own), `${id} does not centre its panel horizontally`);
     check(/justify-content:\s*center/.test(own) || /margin-block:\s*auto|margin:\s*auto/.test(child),
       `${id} does not centre its panel vertically`);
   }
-  console.log('screen centring   ok (5 single-panel screens, all centred)');
+  console.log(`screen centring   ok (${CENTRED_SCREENS.length} single-panel screens, all centred)`);
 
   // No screen should be a room without a door. Two of these had no visible
   // exit at all and relied on the player guessing at Escape — which a phone
@@ -396,6 +399,118 @@ for (const src of listed) {
   check(fs.existsSync(path.join(ROOT, src)), `preload.js fetches ${src}, which does not exist`);
 }
 console.log(`preload           ok (${listed.size} interface images, all in the stylesheet)`);
+
+// ---------------------------------------------------------------------------
+// The Hearthhall's overlays: closing one must return to the hall, and must
+// never disconnect the co-op session as an accidental side effect.
+//
+// The bug this whole section exists to catch: `back()`'s only fallback is the
+// title screen, and reaching it while `coopScreen` (or any of these) was the
+// screen being left triggers `go()`'s own "leaving coopScreen means leaving
+// the game" rule. A hub-opened overlay has to bypass BOTH of those, or
+// checking the party roster — or, it turns out, closing any of the four
+// minigames at all — silently ends the session and strands the player on the
+// title screen instead of back in the room they were just standing in.
+// ---------------------------------------------------------------------------
+// `hideAll()`, not `showTitle()`: the hub has no UI screen of its own — it is
+// drawn on the canvas — so the real precondition for "an overlay was just
+// opened from the hall" is that NOTHING is active yet, exactly what
+// `toHub()` leaves behind. Resetting with `showTitle()` instead would leave
+// `titleScreen` active underneath, which gets pushed onto the back-stack the
+// instant the overlay opens — and popping it back off "coincidentally" lands
+// on the title screen for an entirely different, correct reason, hiding the
+// exact bug this section exists to catch.
+ui.hideAll();
+
+// A minigame, opened the way the hall opens it, then closed the same way
+// Escape closes it: `ui.back()`, with no dedicated "close a minigame" call of
+// its own to lean on.
+ui.openGame('dice', 'solo', () => {});
+check(byId.diceScreen.classList.contains('active'), 'the dice screen did not open');
+check(ui.currentScreen() === 'diceScreen',
+  'currentScreen() does not recognise an open minigame — Escape could not have closed it either');
+ui.back();
+check(!byId.diceScreen.classList.contains('active'), 'closing the dice screen left it showing');
+check(!byId.titleScreen.classList.contains('active'),
+  'closing a minigame landed on the title screen');
+check(ui.currentScreen() === null, `closing the dice screen should return to the bare hall, landed on "${ui.currentScreen()}"`);
+console.log('hub overlay close ok (a minigame closes to the hall, not the title screen)');
+
+// The party panel, opened as a hub check-in (`fromHub = true`) rather than as
+// the pre-lobby form. Closing it must not run the form's "leaving = leaving
+// the game" teardown.
+ui.openCoop(true);
+check(byId.coopScreen.classList.contains('active'), 'the party panel did not open');
+ui.back();
+check(!byId.coopScreen.classList.contains('active'), 'back() left the party panel showing');
+check(!byId.titleScreen.classList.contains('active'),
+  'closing the party panel from the hall landed on the title screen — this used to also disconnect the session');
+check(ui.currentScreen() === null, 'closing the party panel should return to the bare hall');
+
+// The SAME screen, opened the ORDINARY way — from the title screen, before
+// any lobby exists — must keep behaving exactly as it always did: back() goes
+// to the title screen, because that form really is what "back" means there.
+ui.showTitle();
+dataActionEls.find((b) => b.dataset.action === 'coop').click();
+check(byId.coopScreen.classList.contains('active'), 'the title screen\'s Play Together button did not open the form');
+ui.back();
+check(byId.titleScreen.classList.contains('active'),
+  'backing out of the pre-lobby coop form no longer returns to the title screen');
+console.log('coop screen       ok (hub check-in returns to the hall; the title-screen form still returns to the title)');
+
+// The hall's own Escape menu: open it, use it to reach the party panel, then
+// close THAT — which should land back in the hall directly, not back at the
+// escape menu and not at the title screen.
+ui.hideAll();
+ui.openHubMenu();
+check(byId.hubMenuScreen.classList.contains('active'), 'openHubMenu() did not open the hub menu');
+dataActionEls.find((b) => b.dataset.action === 'hub-settings').click();
+check(byId.coopScreen.classList.contains('active'), 'the hub menu\'s Party & Terms button did not open the party panel');
+check(!byId.hubMenuScreen.classList.contains('active'), 'the hub menu stayed open behind the party panel');
+ui.back();
+check(ui.currentScreen() === null, 'closing the party panel opened from the hub menu did not return to the hall');
+console.log('hub menu          ok (opens the party panel, and closing it returns to the hall)');
+
+// The one button in the hall that actually costs the player their session, and
+// the whole reason it exists: a confirmation the player must actually accept.
+// Cancelling must change nothing at all.
+ui.hideAll();
+ui.openHubMenu();
+const realConfirm = globalThis.confirm;
+globalThis.confirm = () => false;
+byId.hubQuitBtn.click();
+check(quitFired === 0, 'the quit hook fired even though the confirmation was declined');
+check(byId.hubMenuScreen.classList.contains('active'), 'declining the confirmation closed the hub menu anyway');
+globalThis.confirm = () => true;
+byId.hubQuitBtn.click();
+check(quitFired === 1, 'accepting the confirmation did not fire the quit hook exactly once');
+globalThis.confirm = realConfirm;
+console.log('hub quit          ok (declined: nothing happens; accepted: fires once)');
+
+// Sanctuary, Arena and Help are reachable BOTH from the hall and from the
+// title screen, and the two paths need opposite endings. This is the pair the
+// bug hit hardest: reaching any of these three from the hall used to detour
+// through the party panel first (to open it as an "overlay"), which is what
+// actually disconnected the session — the destination screen replacing the
+// party panel a moment later was `go()` leaving `coopScreen` behind.
+for (const [dest, screen] of [['sanctuary', 'sanctuaryScreen'], ['help', 'helpScreen'], ['arena', 'arenaScreen']]) {
+  ui.hideAll();
+  ui.openHubOverlay(dest);
+  check(byId[screen].classList.contains('active'), `openHubOverlay('${dest}') did not open ${screen}`);
+  check(!byId.coopScreen.classList.contains('active'),
+    `openHubOverlay('${dest}') opened the party panel on the way — this is what used to disconnect the session`);
+  ui.back();
+  check(ui.currentScreen() === null, `closing ${screen} from the hall should return to the bare hall`);
+
+  // And the ordinary title-screen path is untouched.
+  ui.showTitle();
+  dataActionEls.find((b) => b.dataset.action === dest).click();
+  check(byId[screen].classList.contains('active'), `the title screen's own ${dest} button broke`);
+  ui.back();
+  check(byId.titleScreen.classList.contains('active'), `${screen} no longer returns to the title screen from the title menu`);
+}
+console.log('hub/menu overlays ok (sanctuary, arena and help: hall returns to the hall, menu returns to the menu)');
+
 if (problems.length) {
   console.error('\nFAILED:');
   problems.forEach((p) => console.error('  - ' + p));
