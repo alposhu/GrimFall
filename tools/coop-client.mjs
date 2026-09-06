@@ -93,6 +93,24 @@ for (let f = 0; f < frames; f++) {
   if (f % 3 === 0) await new Promise((r) => setImmediate(r));
 }
 
+// --- settle -----------------------------------------------------------------
+// Stop simulating and let the wire drain.
+//
+// Without this the snapshot is taken with messages still in flight, so the
+// guest is behind by however much the machine had not got round to flushing —
+// which made the comparison a measure of the RUNNER's speed, not of the
+// protocol. It passed on a developer's machine and failed on a two-core CI box,
+// for no reason anybody could see in the diff.
+//
+// `tickCoop` without `update` is the important part: it moves the network on
+// while nothing new is spawned, so the guest can catch up to a host that has
+// stopped getting further ahead.
+for (let f = 0; f < 40; f++) {
+  tickCoop(dt);
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setTimeout(r, 6));
+}
+
 // Snapshotted BEFORE any final wait. The other client exits at roughly the same
 // moment, and its disconnect legitimately removes it from this client's team —
 // measuring after that would be measuring the teardown rather than the run.
