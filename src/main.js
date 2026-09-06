@@ -37,7 +37,7 @@ import {
 } from './game/game.js';
 import { M, enterMarket, updateMarket, interact, closeShop } from './game/market.js';
 import { renderMarket } from './game/marketRender.js';
-import { enterHub, updateHub, hubTarget, talkToFolk, goToArea } from './game/hub.js';
+import { enterHub, updateHub, hubTarget, talkToFolk, goToArea, beginLeaving } from './game/hub.js';
 import { renderHub } from './game/hubRender.js';
 import { joinHubNet, leaveHubNet, tickHubNet, handleHubRelay, inHubNet } from './net/hubNet.js';
 import { useFlask, FLASK_IDS } from './game/shop.js';
@@ -489,16 +489,24 @@ function useHubPoint() {
   if (at.id === 'upstairs') { goToArea('upper'); return; }
   if (at.id === 'downstairs') { goToArea('ground'); return; }
 
+  // The front door is walked THROUGH. The hall keeps running while it happens —
+  // the door swings, the player walks out, the screen goes with them — and the
+  // run is started when they are actually gone rather than when they pressed.
+  if (at.id === 'door') { beginLeaving(); return; }
+
   // The inn's games are the same game alone or in company; the only difference
   // is whether there is anybody to send a result to.
+  //
+  // The inn is NOT torn down to open one. The panel sits over the room, the
+  // room keeps running behind it, and closing the panel puts the player back in
+  // their chair — which is what leaving a table is.
   if (at.id === 'dice' || at.id === 'cups' || at.id === 'knives' || at.id === 'supper') {
-    leaveHub(true);
-    ui.openGame(at.id, netlink.lobbyState() ? 'table' : 'solo');
+    ui.openGame(at.id, netlink.lobbyState() ? 'table' : 'solo', () => { clearPressed(); });
     return;
   }
 
   const WHERE = {
-    door: 'heroes', settings: 'coop', party: 'coop', variants: 'coop',
+    settings: 'coop', party: 'coop', variants: 'coop',
     sanctuary: 'sanctuary', help: 'help', arena: 'arena',
   };
   const dest = WHERE[at.id];
@@ -611,11 +619,18 @@ function loop(now) {
   const frameStart = performance.now();
 
   if (mode === 'hub') {
-    // The run polls inside update(); the hall has to ask for itself.
-    pollInput();
-    updateHub(dt, input, { w: canvas.width / zoom, h: canvas.height / zoom });
+    // A panel open over the room takes the controls with it. The room still
+    // draws — the point of an overlay is that you can see where you are — but
+    // WASD belongs to whatever is on top, and a player walking blindly out of
+    // their chair while typing into a game is the bug that produces.
+    const overlay = !!ui.currentScreen();
+    if (!overlay) pollInput();
+    // Returns true on the frame the walk-out through the front door finishes.
+    const gone = updateHub(dt, overlay ? { x: 0, y: 0 } : input,
+      { w: canvas.width / zoom, h: canvas.height / zoom });
     if (inHubNet()) tickHubNet(dt);
     renderHub(ctx, canvas, zoom);
+    if (gone) { leaveHub(false); ui.action('heroes'); }
   } else if (mode === 'market') {
     const view = computeView(canvas.width, canvas.height, zoom);
     updateMarket(dt, { w: canvas.width / zoom, h: canvas.height / zoom });
@@ -684,6 +699,11 @@ function handleKeys() {
   }
 
   if (mode === 'hub') {
+    // With a panel open, Escape closes the panel rather than the inn.
+    if (ui.currentScreen()) {
+      if (consumePressed('Escape')) ui.back();
+      return;
+    }
     if (consumePressed('Escape')) { leaveHub(true); return; }
     if (consumePressed('Space') || consumePressed('Enter') || consumePressed('KeyE')) {
       useHubPoint();

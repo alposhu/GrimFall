@@ -69,7 +69,8 @@ export const RTP_PROPS = [
   'scrolls', 'map', 'plant_a', 'plant_b', 'plant_c', 'plant_d',
   'chest', 'chest_open', 'case_wares', 'case_tools', 'sack_a', 'sack_b',
   'phials', 'basket_a', 'basket_b', 'bolts', 'scales', 'wallblades',
-  'wallcrest', 'larder', 'sconce', 'candelabra', 'goldbars',
+  'wallcrest', 'larder', 'sconce', 'candelabra', 'goldbars', 'stair',
+  'stair_stone',
 ];
 
 /**
@@ -120,7 +121,8 @@ const PROP_SIZE = {
   firepit: [48, 96], brickfire: [48, 96], bar: [96, 48], bookcase: [48, 96],
   cupboard: [48, 96], piano: [96, 96], longtable: [96, 48], sofa: [144, 96],
   chair: [48, 96], throne: [48, 96], clock: [48, 96], mirror: [48, 96],
-  banner_gold: [48, 96], banner_red: [48, 96], candelabra: [48, 96],
+  banner_gold: [48, 96], banner_red: [48, 96], candelabra: [48, 96], stair: [96, 96],
+  stair_stone: [96, 96],
 };
 const sizeOf = (name) => PROP_SIZE[name] || [T, T];
 

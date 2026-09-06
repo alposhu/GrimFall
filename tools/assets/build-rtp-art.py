@@ -206,6 +206,11 @@ PROPS = [
     ("sconce",   "Inside_C.png",  9,  1, 1, 1),
     ("candelabra","Inside_C.png",  8,  4, 1, 2),
     ("goldbars",   "Inside_C.png",  8,  7, 1, 1),
+    # The staircase is a FEATURE of a big inn - it is how you know there is an
+    # upstairs before anybody tells you - so it gets the good wooden one rather
+    # than a hole in a wall.
+    ("stair",      "Inside_B.png",  3,  0, 2, 2),
+    ("stair_stone","Inside_B.png",  1,  0, 2, 2),
 ]
 
 # --- terrain --------------------------------------------------------------

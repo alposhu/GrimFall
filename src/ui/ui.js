@@ -70,15 +70,24 @@ function iconImg(name, size = 32) {
 /**
  * Sit down to one of the inn's games. `mode` is 'solo' or 'table'.
  *
- * One entry point for all three so main.js does not have to know which screen
- * belongs to which landmark — the Hearthhall names a game, and this finds it.
+ * `onClose` is how the player gets back to their chair. Without it, leaving a
+ * game screen fell through to the ordinary back-stack and landed on the TITLE:
+ * the inn had been torn down to open the game, the stack had been cleared on
+ * the way, and the running game was left ticking behind a menu it could not be
+ * seen from. A game opened from the inn is an overlay ON the inn, and this is
+ * the thread back.
  */
-export function openGame(which, mode) {
+let leaveGame = null;
+
+export function openGame(which, mode, onClose = null) {
+  leaveGame = onClose;
   if (which === 'dice') { openDice(mode); go('diceScreen'); }
   else if (which === 'cups') { openCups(mode); go('cupsScreen'); }
   else if (which === 'knives') { openKnives(mode); go('knivesScreen'); }
   else if (which === 'supper') { openSupper(mode); go('supperScreen'); }
 }
+
+const GAME_SCREENS = ['diceScreen', 'cupsScreen', 'knivesScreen', 'supperScreen'];
 
 export function action(a) {
   if (a === 'back') back();
@@ -378,12 +387,29 @@ export function go(name, remember = true) {
 // the only place it is ever visible.
 //
 export function hideAll(clearStack = true) {
+  // Whatever route got here — the close button, Escape, a run starting — a
+  // game that was running must stop running. It owns a frame loop and a set of
+  // timers, and neither of them can see that nobody is looking any more.
+  closeDice();
+  closeCups();
+  closeKnives();
+  closeSupper();
+
   SCREENS.forEach((s) => el[s]?.classList.remove('active'));
   if (clearStack) screenStack = [];
   stopDemos();
 }
 
 export function back() {
+  // A game opened from the inn goes back to the inn, not to wherever the menu
+  // happened to be beforehand.
+  if (leaveGame && GAME_SCREENS.includes(currentScreen())) {
+    const done = leaveGame;
+    leaveGame = null;
+    hideAll();
+    done();
+    return;
+  }
   const prev = screenStack.pop();
   if (prev === 'pauseScreen' || (!prev && S.running && S.paused)) { go('pauseScreen', false); return; }
   go(prev || 'titleScreen', false);

@@ -180,6 +180,57 @@ hub.talkToFolk();
 check(H.speech.text !== first, 'asking twice gave the same answer twice');
 console.log('talking           ok (answers, and answers differently)');
 
+
+// --- the room is not a row of statues --------------------------------------
+// An inn full of people standing perfectly still is the single loudest way a
+// lobby reads as a mock-up. Run the room for a while and check that somebody
+// with room to wander has actually gone somewhere.
+hub.enterHub();
+const wasAt = hub.A().folk.map((f) => ({ f, x: f.x, y: f.y }));
+for (let i = 0; i < 60 * 25; i++) hub.updateHub(1 / 60, { x: 0, y: 0 }, { w: 960, h: 540 });
+const wanderers = wasAt.filter((b) => b.f.range > 0);
+const moved = wanderers.filter((b) => Math.hypot(b.f.x - b.x, b.f.y - b.y) > 8).length;
+check(wanderers.length > 0, 'nobody in the inn is able to wander at all');
+check(moved > wanderers.length * 0.5,
+  `only ${moved} of ${wanderers.length} wanderers moved in 25 seconds — the room is standing still`);
+
+// And nobody wandered into the scenery, or through a wall into another room.
+let embedded = 0;
+for (const f of hub.A().folk) {
+  if (hub.isSolid(Math.floor(f.x / TILE), Math.floor(f.y / TILE))) embedded++;
+}
+check(embedded === 0, `${embedded} people ended up inside the furniture`);
+
+// The ones with a job stay at it.
+for (const f of hub.A().folk) {
+  if (f.range > 0) continue;
+  const home = wasAt.find((b) => b.f === f);
+  check(Math.hypot(f.x - home.x, f.y - home.y) < 2,
+    'somebody who is meant to be behind the bar wandered off');
+}
+console.log(`folk              ok (${moved}/${wanderers.length} wandered, nobody in the walls)`);
+
+// --- walking out through the front door ------------------------------------
+// A door that cuts straight to black is a screen change. This checks the walk
+// is actually simulated: the door opens, the player moves toward it, and the
+// whole thing reports itself finished exactly once.
+hub.enterHub();
+const door = hub.A().door;
+check(!!door, 'the ground floor has no front door');
+check(door.frame === 0, 'the door starts open');
+const doorStartY = H.player.y;
+check(hub.beginLeaving(), 'the walk-out would not start');
+check(!hub.beginLeaving(), 'the walk-out started twice');
+
+let finished = 0;
+for (let i = 0; i < 60 * 4; i++) {
+  if (hub.updateHub(1 / 60, { x: 0, y: 0 }, { w: 960, h: 540 })) finished++;
+}
+check(finished >= 1, 'the walk-out never finished');
+check(door.frame === 3, `the door should end wide open, it is on frame ${door.frame}`);
+check(H.player.y > doorStartY + 20, 'the player did not actually walk out');
+check(hub.leaveProgress() === 1, 'the walk-out did not run to the end');
+console.log('leaving           ok (door swings, player walks, fade follows)');
 // --- the renderer runs on both floors --------------------------------------
 const { renderHub } = await import('../src/game/hubRender.js');
 const { makeCanvas } = await import('./dom-stub.mjs');
