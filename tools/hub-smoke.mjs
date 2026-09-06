@@ -133,7 +133,8 @@ console.log('stairs            ok (both floors, arriving somewhere solid-free)')
 
 // --- the ids the game wires to must all exist ------------------------------
 const WIRED = {
-  ground: ['door', 'settings', 'party', 'sanctuary', 'help', 'arena', 'dice', 'upstairs'],
+  ground: ['door', 'settings', 'party', 'sanctuary', 'help', 'arena',
+    'dice', 'cups', 'knives', 'upstairs'],
   upper: ['downstairs', 'help', 'variants'],
 };
 for (const [id, ids] of Object.entries(WIRED)) {

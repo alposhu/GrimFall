@@ -139,6 +139,11 @@ const GROUND = {
     // --- the game room ----------------------------------------------------
     ['roundtable', 47, 30, true], ['stool', 46, 31, true], ['stool', 49, 31, true],
     ['roundtable', 53, 30, true], ['stool', 52, 31, true], ['stool', 55, 31, true],
+    // the knife board, hung where there is a wall to bury a blade in
+    ['wallblades', 50, 26, true], ['crossed', 51, 26, true], ['swords', 49, 26, true],
+    ['sidetable', 50, 28, true], ['keg', 55, 27, true],
+    // Piet's end of the bar
+    ['clothtable', 13, 20, true], ['stool_red', 12, 21, true], ['stool_red', 14, 21, true],
     ['clothtable', 47, 35, true], ['clothtable', 53, 35, true],
     ['stool_red', 46, 36, true], ['stool_red', 54, 36, true],
     ['piano', 44, 28, true], ['stool', 44, 30, true],
@@ -175,6 +180,7 @@ const GROUND = {
     [47, 30, 'bottles'], [53, 30, 'tart'],
     [47, 35, 'supper'], [53, 35, 'casserole'],
     [9, 17, 'steins'], [11, 17, 'goblets'], [7, 17, 'ale'],
+    [13, 20, 'cups'], [50, 28, 'bottles'],
     [46, 7, 'fruit'], [50, 7, 'greens'], [54, 7, 'sweets'],
   ],
 
@@ -200,10 +206,10 @@ const GROUND = {
       'Gold you bank is kept. Gold in your pocket when you fall is not.',
       'I weigh what you bring back. I do not ask where it came from.',
     ]],
-    ['bard', 'Piet the Bard', 2, 45, 29, 'east', [
+    ['bard', 'Piet the Bard', 2, 13, 19, 'west', [
+      'Three cups, one coin. No luck in it at all — that is what people hate.',
       'I have a song about the Sovereign. It is short. Nobody survives the chorus.',
-      'Roll against me if you like. I have never won and I have never stopped.',
-      'They say the Blight took the west road. I say the west road took itself.',
+      'Watch the cup, not my hands. Everyone watches the hands.',
     ]],
     ['gambler', 'Old Ren', 4, 50, 31, 'north', [
       'Five dice, one re-roll, highest total takes it. That is the whole of it.',
@@ -236,7 +242,9 @@ const GROUND = {
     { id: 'sanctuary', x: 50, y: 8, r: 92, label: 'Market row — the Sanctuary' },
     { id: 'help', x: 41, y: 6, r: 74, label: 'The shelves — how to play' },
     { id: 'arena', x: 9, y: 18, r: 84, label: 'The bar — the Boss Arena' },
-    { id: 'dice', x: 50, y: 30, r: 90, label: "Old Ren's table — a game of dice" },
+    { id: 'dice', x: 50, y: 31, r: 74, label: "Old Ren's table — a game of dice" },
+    { id: 'cups', x: 13, y: 21, r: 70, label: "Piet's cups — find the coin" },
+    { id: 'knives', x: 50, y: 27, r: 72, label: 'The knife board — three throws' },
     { id: 'upstairs', x: 55, y: 20, r: 78, label: 'The stair — rooms above' },
   ],
 };

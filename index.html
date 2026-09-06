@@ -365,6 +365,71 @@
          waiting in a room — swapped by a class rather than by three separate
          screens, so the back stack and the screen switcher only learn one new
          name. -->
+    <!-- Three Cups, run by Piet at the end of the bar. Pure observation: the
+         shuffle is decided before the first cup moves, and in a party everyone
+         watches the identical one. -->
+    <section id="cupsScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">Three Cups</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+
+        <p class="panel-sub">Watch the coin. The cups get faster every round.</p>
+
+        <div class="cups-stage">
+          <span class="cups-coin" id="cupsCoin" hidden></span>
+          <div class="cups-row" id="cupsRow"></div>
+        </div>
+
+        <p class="dice-note" id="cupsNote" role="status" aria-live="polite"></p>
+
+        <ul class="game-stats">
+          <li>Streak <strong id="cupsStreak">0</strong></li>
+          <li>Best <strong id="cupsBest">0</strong></li>
+          <li>House purse <strong id="cupsPurse">0</strong></li>
+        </ul>
+
+        <div class="dice-actions">
+          <button class="menu-btn primary" id="cupsAgainBtn" hidden><span>Again</span></button>
+        </div>
+        <button class="menu-btn" data-action="back"><span>Leave the bar</span></button>
+      </div>
+    </section>
+
+    <!-- The Knife Board, on the wall behind Oswin's counter. Reflex: a marker
+         sweeps, you press, and it speeds up with every knife. -->
+    <section id="knivesScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">The Knife Board</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+
+        <p class="panel-sub">Three knives. Stop the sweep in the pin.</p>
+
+        <div class="knife-board" id="knivesBoard">
+          <span class="knife-ring r-outer"></span>
+          <span class="knife-ring r-middle"></span>
+          <span class="knife-ring r-inner"></span>
+          <span class="knife-ring r-pin"></span>
+          <span class="knife-marker" id="knivesMarker"></span>
+        </div>
+
+        <p class="dice-note" id="knivesNote" role="status" aria-live="polite"></p>
+
+        <ul class="game-stats">
+          <li>Board <strong id="knivesTotal">0</strong></li>
+          <li>Knives left <strong id="knivesLeft">3</strong></li>
+          <li>House purse <strong id="knivesPurse">0</strong></li>
+        </ul>
+
+        <div class="dice-actions">
+          <button class="menu-btn primary" id="knivesThrowBtn"><span>Throw</span></button>
+          <button class="menu-btn" id="knivesAgainBtn" hidden><span>Another board</span></button>
+        </div>
+
+        <ul class="dice-table" id="knivesTable" hidden></ul>
+        <button class="menu-btn" data-action="back"><span>Leave the board</span></button>
+      </div>
+    </section>
+
     <!-- Sovereign's Dice, played at Old Ren's table in the Hearthhall. Alone
          against the house, or with whoever else is in the party. -->
     <section id="diceScreen" class="screen">
@@ -376,6 +441,10 @@
 
         <div class="dice-hand" id="diceHand"></div>
         <p class="dice-note" id="diceNote" role="status" aria-live="polite"></p>
+
+        <ul class="game-stats">
+          <li>House purse <strong id="dicePurse">0</strong></li>
+        </ul>
 
         <div class="dice-actions">
           <button class="menu-btn primary" id="diceRollBtn"><span>Throw</span></button>

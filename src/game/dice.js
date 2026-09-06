@@ -134,6 +134,22 @@ export function settle(round) {
   return round.winner;
 }
 
+/**
+ * What winning a hand is worth.
+ *
+ * Deliberately the smallest prize in the inn. Dice is the game you play while
+ * talking to somebody — it asks almost nothing of you, so it pays almost
+ * nothing, and the board and the cups stay worth crossing the room for. A draw
+ * pays a single coin because ending a hand with nothing at all makes the draw
+ * feel like a bug rather than a result.
+ */
+export function prize(result) {
+  if (!result) return 0;
+  if (result.kind === 'draw') return 1;
+  // A little more for a big hand, so a 27 feels different from a 17.
+  return 5 + Math.max(0, Math.floor((result.score - 18) / 3));
+}
+
 /** Has everybody at the table finished throwing? */
 export const everybodyDone = (round) =>
   round.order.length > 0 && round.order.every((id) => round.hands[id]?.done);

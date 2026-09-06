@@ -134,4 +134,6 @@ export const GAME = {
   // room is still in the lobby, when none of the above mean anything yet.
   HUB: 'h',                    // { x, y, d, m } — where somebody is standing
   DICE: 'x',                   // { k, hand } — the game at Old Ren's table
+  CUPS: 'c',                   // { k, wire, correct } — Piet's cups
+  KNIVES: 'n',                 // { k, wire } — the board on Oswin's wall
 };

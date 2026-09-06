@@ -1533,6 +1533,120 @@ input[type="text"], input[type="number"], input[type="search"], textarea, select
 
 .coop-actions { display: flex; flex-direction: column; gap: 8px; }
 
+/* --- what the inn's games have in common ---------------------------------- */
+.game-stats {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  display: flex; gap: 8px;
+}
+.game-stats li {
+  flex: 1; text-align: center;
+  padding: 7px 4px;
+  background: var(--panel-2); border: 2px solid var(--line);
+  font: 400 9px/1.5 var(--font-display);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.game-stats strong {
+  display: block; margin-top: 3px;
+  font-size: 17px; letter-spacing: 0; text-transform: none;
+  color: var(--ember-2);
+}
+
+/* --- Three Cups -------------------------------------------------------------
+   The cups are moved with `transform`, which is the one property a browser will
+   animate without touching layout — three elements sliding past each other at
+   200ms a swap is exactly the case where anything else drops frames. */
+.cups-stage {
+  position: relative;
+  height: 128px;
+  margin: 10px 0 2px;
+  display: grid; place-items: center;
+}
+.cups-row {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+}
+.cup {
+  position: absolute;
+  width: 74px; height: 86px;
+  background: linear-gradient(#8a5a2b, #613c1b 62%, #4a2c13);
+  border: 3px solid #2b1a0c;
+  /* Narrower at the base than the rim, which is what makes it read as a cup
+     upside down rather than as a box. */
+  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+  /* The slide writes `--x` and the lift composes with it here. A cup cannot
+     have two `transform` declarations, and lifting one mid-shuffle has to keep
+     it where the shuffle put it. */
+  --x: 0px;
+  transform: translateX(var(--x));
+  will-change: transform;
+}
+.cup::after {
+  content: ''; position: absolute; left: 8%; right: 8%; top: 8px; height: 5px;
+  background: rgba(255, 226, 168, 0.22);
+}
+.cups-row.is-live .cup { cursor: pointer; }
+.cups-row.is-live .cup:hover { filter: brightness(1.2); }
+.cup.is-lifted { transform: translateX(var(--x)) translateY(-38px); }
+
+.cups-coin {
+  position: absolute;
+  bottom: 16px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(#ffe89a, #ffd75e 55%, #b07a12);
+  border: 2px solid #6d4906;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+/* --- The Knife Board --------------------------------------------------------
+   Rings drawn as nested boxes rather than a radial gradient: the scoring bands
+   are hard edges with exact proportions, and a gradient would put the drawn
+   edge somewhere other than where the maths says it is. */
+.knife-board {
+  position: relative;
+  height: 150px;
+  margin: 12px 0 4px;
+  background: linear-gradient(#4a3526, #33241a);
+  border: 3px solid #241a12;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  touch-action: none;
+}
+.knife-ring {
+  position: absolute; top: 0; bottom: 0;
+  left: 50%; transform: translateX(-50%);
+}
+.knife-ring.r-outer  { width: 75%; background: #5e4630; }
+.knife-ring.r-middle { width: 45%; background: #6f5236; }
+.knife-ring.r-inner  { width: 22%; background: #8a3b2a; }
+.knife-ring.r-pin    { width: 8%;  background: #ffd75e; }
+
+.knife-marker {
+  position: absolute; top: -4px; bottom: -4px;
+  width: 4px; margin-left: -2px;
+  background: #f6f2e8;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
+}
+.knife {
+  position: absolute; top: 50%; width: 3px; height: 46px;
+  margin: -23px 0 0 -1px;
+  background: #d9d2c4;
+  border: 1px solid #2b241c;
+}
+.knife::after {
+  content: ''; position: absolute; left: -3px; bottom: -7px;
+  width: 9px; height: 10px; background: #6b4a24; border: 1px solid #2b241c;
+}
+
+@media (max-width: 560px) {
+  .cups-stage { height: 112px; }
+  .cup { width: 62px; height: 74px; }
+  .knife-board { height: 128px; }
+  .game-stats li { font-size: 8px; }
+  .game-stats strong { font-size: 15px; }
+}
+
 /* --- Sovereign's Dice -------------------------------------------------------
    The dice are drawn as pips in a 3x3 grid rather than set as a glyph: the
    Unicode die faces are a font's opinion, they are not pixel art, and at this

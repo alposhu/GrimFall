@@ -29,6 +29,8 @@ import { goodIcon } from '../art/items.js';
 import { M, vendorReact, playerReact } from '../game/market.js';
 import { initCoop, openCoopScreen, closeCoopScreen } from './coop.js';
 import { initDice, openDice, closeDice } from './dice.js';
+import { initCups, openCups, closeCups } from './cups.js';
+import { initKnives, openKnives, closeKnives } from './knives.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -64,10 +66,16 @@ function iconImg(name, size = 32) {
  * button and a landmark id in the Hearthhall both come through here, so the two
  * can never disagree about where "sanctuary" leads.
  */
-/** Sit down at Old Ren's table. `mode` is 'solo' or 'table'. */
-export function openDiceTable(mode) {
-  openDice(mode);
-  go('diceScreen');
+/**
+ * Sit down to one of the inn's games. `mode` is 'solo' or 'table'.
+ *
+ * One entry point for all three so main.js does not have to know which screen
+ * belongs to which landmark — the Hearthhall names a game, and this finds it.
+ */
+export function openGame(which, mode) {
+  if (which === 'dice') { openDice(mode); go('diceScreen'); }
+  else if (which === 'cups') { openCups(mode); go('cupsScreen'); }
+  else if (which === 'knives') { openKnives(mode); go('knivesScreen'); }
 }
 
 export function action(a) {
@@ -115,7 +123,11 @@ export function initUI(callbacks) {
     'coopRecodeBtn', 'coopMicBtn', 'coopLog', 'coopSayForm', 'coopSay',
     'coopTerms', 'coopDiff',
     'diceScreen', 'diceHand', 'diceNote', 'diceTable',
-    'diceRollBtn', 'diceRerollBtn', 'diceStandBtn', 'diceAgainBtn',
+    'diceRollBtn', 'diceRerollBtn', 'diceStandBtn', 'diceAgainBtn', 'dicePurse',
+    'cupsScreen', 'cupsRow', 'cupsCoin', 'cupsNote', 'cupsAgainBtn',
+    'cupsStreak', 'cupsBest', 'cupsPurse',
+    'knivesScreen', 'knivesBoard', 'knivesMarker', 'knivesNote', 'knivesTable',
+    'knivesThrowBtn', 'knivesAgainBtn', 'knivesTotal', 'knivesLeft', 'knivesPurse',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -161,6 +173,8 @@ export function initUI(callbacks) {
   });
 
   initDice(el);
+  initCups(el);
+  initKnives(el);
   initCoop(el, {
     onCoopStart: (m) => hooks.onCoopStart?.(m),
     onCoopRoom: () => hooks.onCoopRoom?.(),
@@ -342,6 +356,8 @@ export function go(name, remember = true) {
   // waiting on a name that is never going to be ready.
   if (current === 'coopScreen' && name !== 'coopScreen') closeCoopScreen();
   if (current === 'diceScreen' && name !== 'diceScreen') closeDice();
+  if (current === 'cupsScreen' && name !== 'cupsScreen') closeCups();
+  if (current === 'knivesScreen' && name !== 'knivesScreen') closeKnives();
   if (remember && current && current !== name) screenStack.push(current);
   hideAll(false);
   el[name]?.classList.add('active');

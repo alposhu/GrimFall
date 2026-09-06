@@ -489,11 +489,11 @@ function useHubPoint() {
   if (at.id === 'upstairs') { goToArea('upper'); return; }
   if (at.id === 'downstairs') { goToArea('ground'); return; }
 
-  // The dice table is the same game alone or in company; the only difference is
-  // whether there is anybody to send a hand to.
-  if (at.id === 'dice') {
+  // The inn's games are the same game alone or in company; the only difference
+  // is whether there is anybody to send a result to.
+  if (at.id === 'dice' || at.id === 'cups' || at.id === 'knives') {
     leaveHub(true);
-    ui.openDiceTable(netlink.lobbyState() ? 'table' : 'solo');
+    ui.openGame(at.id, netlink.lobbyState() ? 'table' : 'solo');
     return;
   }
 

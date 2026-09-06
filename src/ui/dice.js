@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import * as game from '../game/dice.js';
+import * as purse from '../game/purse.js';
 import * as net from '../net/connection.js';
 import { GAME } from '../net/protocol.js';
 import { sfx } from '../core/audio.js';
@@ -25,6 +26,7 @@ let hooks = {};
 let round = null;
 let mode = game.SOLO;
 let off = null;
+let paid = 0;
 
 /** A die face, drawn as pips rather than a glyph, so it reads at any size. */
 const PIPS = {
@@ -95,11 +97,15 @@ function renderTable() {
     return li;
   }));
 
+  el.dicePurse.textContent = purse.purseCoin();
   if (round.winner) {
     const w = round.winner;
+    const coin = paid > 0 ? ` ${paid} gold.` : '';
     note(w.kind === 'draw'
-      ? `A draw on ${w.score}. Nobody pays.`
-      : (w.hand.id === 'me' ? `You take it with ${w.score}.` : `${w.hand.name} takes it with ${w.score}.`));
+      ? `A draw on ${w.score}.${coin || ' Nobody pays.'}`
+      : (w.hand.id === 'me'
+        ? `You take it with ${w.score}.${coin || ' The house is out of coin.'}`
+        : `${w.hand.name} takes it with ${w.score}.`));
   }
 }
 
@@ -108,12 +114,18 @@ function maybeSettle() {
   if (round.phase === 'done') return;
   if (!game.everybodyDone(round)) return;
   const result = game.settle(round);
-  sfx(result?.kind === 'win' && result.hand.id === 'me' ? 'levelup' : 'select');
+  // Only a hand YOU are in pays you, and only out of what the house has left.
+  const mine = result?.kind === 'draw'
+    ? result.hands.some((h) => h.id === 'me')
+    : result?.hand?.id === 'me';
+  paid = mine ? purse.payOut(game.prize(result)) : 0;
+  sfx(mine && result.kind === 'win' ? 'levelup' : 'select');
   renderHand();
   renderTable();
 }
 
 function begin() {
+  paid = 0;
   round = game.newRound();
   // In a party the round is keyed off the room so everybody rolls into the same
   // one; alone it is just a number. Either way the dice themselves are rolled

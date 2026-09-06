@@ -25,6 +25,11 @@ const DEFAULTS = {
     upgrades: {},           // id -> level
     unlocked: ['ranger'],   // character ids
     lastCharacter: 'ranger',
+    // What the Hearthhall can still pay out today. See src/game/purse.js for
+    // why the inn's games draw on a capped, slowly-refilling pot rather than
+    // printing gold: it is the one thing stopping the lobby from being a better
+    // way to earn than the game.
+    purse: { coin: 120, at: 0 },
   },
   records: {
     bestTime: 0,
@@ -128,11 +133,21 @@ export function importProgress({ meta, records, settings } = {}) {
       ? [...new Set(meta.unlocked.filter((x) => typeof x === 'string'))]
       : DEFAULTS.meta.unlocked.slice();
     if (!unlocked.length) unlocked.push('ranger');     // never lock everyone out
+    // A save from before the inn had a purse gets a full one. Anything absurd
+    // in the file — a hand-edited coin count, a timestamp from the future — is
+    // clamped rather than trusted, because this is the one number a player
+    // could edit for free gold.
+    const p = meta.purse && typeof meta.purse === 'object' ? meta.purse : null;
+    const purse = {
+      coin: p ? Math.max(0, Math.min(120, num(p.coin) | 0)) : 120,
+      at: p ? Math.min(Date.now(), Math.max(0, num(p.at) | 0)) : 0,
+    };
     state.meta = {
       gold: Math.max(0, num(meta.gold) | 0),
       upgrades,
       unlocked,
       lastCharacter: typeof meta.lastCharacter === 'string' ? meta.lastCharacter : 'ranger',
+      purse,
     };
   }
 
