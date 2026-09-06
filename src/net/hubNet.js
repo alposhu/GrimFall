@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// hubNet.js — the others, walking around the Waystation.
+// hubNet.js — the others, walking around the Hearthhall.
 //
 // This is the same idea as src/net/session.js and deliberately a separate,
 // much smaller piece of it. A run needs enemy ownership, damage events, death,
-// level-ups and orphan adoption; a camp needs one thing — where everybody is.
-// Folding the camp into the run's session would mean teaching that machinery
+// level-ups and orphan adoption; a hall needs one thing — where everybody is.
+// Folding the hall into the run's session would mean teaching that machinery
 // about a mode with no enemies in it, so instead this borrows the one part it
 // actually needs: send a position at a fixed rate, and draw the others BETWEEN
 // the positions rather than at them.
@@ -67,7 +67,7 @@ export function leaveHubNet() {
 export const inHubNet = () => joined;
 
 /**
- * Called every frame while the camp is on screen.
+ * Called every frame while the hall is on screen.
  *
  * Sends on a clock rather than on movement: a player who stops walking still
  * has to say so, or they freeze mid-stride on everyone else's screen.

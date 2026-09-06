@@ -10,6 +10,16 @@ import {
   CODE_ALPHABET, CODE_LENGTH, MAX_PLAYERS, cleanName, MAX_CHAT, CHAT_HISTORY,
 } from '../src/net/protocol.js';
 
+/**
+ * The difficulties a room may be set to.
+ *
+ * Repeated here rather than imported from src/game/config.js on purpose: that
+ * module is the GAME's, it pulls in balance tables the server has no use for,
+ * and the server's job is to reject nonsense, not to know what nightmare does.
+ * tools/net-smoke.mjs checks the two lists still agree.
+ */
+const DIFFICULTIES = ['easy', 'normal', 'hard', 'nightmare'];
+
 /** A lobby nobody has touched in this long is swept, so codes stay reusable. */
 const IDLE_MS = 30 * 60 * 1000;
 
@@ -121,6 +131,29 @@ export function recodeRoom(room, playerId) {
   return { room };
 }
 
+/**
+ * The host sets the terms everyone plays under.
+ *
+ * Held on the ROOM, not on each client, because it has to be the same for
+ * everybody: difficulty scales enemy health and spawn rate, and two clients
+ * disagreeing about it would be two clients simulating different creatures
+ * under the same ids. startRoom() already ships this with the seed, so the
+ * value a run begins with is whatever was set here.
+ */
+export function setSettings(room, playerId, settings = {}) {
+  if (!room) return { error: 'no room' };
+  if (room.hostId !== playerId) return { error: 'only the host can set the terms' };
+  if (room.started) return { error: 'the run has already started' };
+  const want = String(settings.difficulty || '');
+  // Validated against a list rather than trusted: this arrives from a browser,
+  // and an unknown difficulty would reach every client as a scale factor of
+  // undefined.
+  if (!DIFFICULTIES.includes(want)) return { error: 'no such difficulty' };
+  room.difficulty = want;
+  room.touched = Date.now();
+  return { room };
+}
+
 /** Note that someone's microphone is live, so the lobby can show it. */
 export function setVoice(room, playerId, on) {
   const p = room?.players.get(playerId);
@@ -195,6 +228,7 @@ export function lobbyState(room) {
     code: room.code,
     hostId: room.hostId,
     started: room.started,
+    difficulty: room.difficulty,
     players: [...room.players.values()].map((p) => ({
       id: p.id, name: p.name, ready: p.ready, charId: p.charId, voice: p.voice,
     })),

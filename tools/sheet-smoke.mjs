@@ -233,7 +233,26 @@ check(rtp.RTP_ICONS.length <= iconCells,
 // The build script is the other half of that coupling. Its table is read as
 // text rather than run, because it needs Pillow and the owner's MZ install.
 const buildSrc = fs.readFileSync(path.join(ROOT, 'tools', 'assets', 'build-rtp-art.py'), 'utf8');
-const builtProps = [...buildSrc.matchAll(/\("([a-z_]+)",\s*"Outside_[BC]\.png"/g)].map((m) => m[1]);
+// The PROPS table is sliced out first and matched inside, rather than scanned
+// for across the whole file. The earlier version matched on the sheet filename,
+// which quietly stopped seeing props the moment the hall's furniture started
+// coming from Inside_B — the test went on passing while the two lists drifted,
+// which is the one thing it exists to prevent. TERRAIN entries have the same
+// shape as PROPS entries, so the slice is what keeps them out.
+const propsBlock = buildSrc.slice(buildSrc.indexOf('PROPS = ['), buildSrc.indexOf('TERRAIN = ['));
+const builtProps = [...propsBlock.matchAll(/\("([a-z_]+)",\s*"\w+\.png"/g)].map((m) => m[1]);
+
+// The same coupling, for the ground materials. terrain.png is indexed by
+// position too, so a tile inserted rather than appended renames every floor
+// after it — and the symptom is a room that silently paves itself in the wrong
+// stone.
+const terrainBlock = buildSrc.slice(buildSrc.indexOf('TERRAIN = ['), buildSrc.indexOf('CELL = '));
+const builtTerrain = [...terrainBlock.matchAll(/\("([a-z_]+)",\s*"\w+\.png"/g)].map((m) => m[1]);
+check(builtTerrain.length > 0, 'could not read the terrain table out of build-rtp-art.py');
+check(builtTerrain.join() === rtp.RTP_TERRAIN.join(),
+  `build-rtp-art.py and rtp.js disagree on terrain order:
+      built: ${builtTerrain.join(' ')}
+      code:  ${rtp.RTP_TERRAIN.join(' ')}`);
 check(builtProps.length > 0, 'could not read the prop table out of build-rtp-art.py');
 check(builtProps.join() === rtp.RTP_PROPS.join(),
   `build-rtp-art.py and rtp.js disagree on prop order:

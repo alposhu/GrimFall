@@ -107,6 +107,42 @@ PROPS = [
     ("dead_birch", "Outside_B.png",  9, 13, 1, 2),
     ("toadstool",  "Outside_B.png", 11, 13, 1, 1),
     ("mushrooms",  "Outside_B.png", 10, 13, 1, 1),
+
+    # --- the Hearthhall ----------------------------------------------------
+    # Interior furniture, from Inside_B. Appended for the same reason as
+    # everything above: props.png is indexed by position.
+    ("hearth",     "Inside_B.png", 13,  7, 2, 2),
+    ("firepit",    "Inside_B.png", 10,  7, 1, 2),
+    ("brickfire",  "Inside_B.png", 11,  7, 1, 2),
+    ("bar",        "Inside_B.png", 10,  9, 2, 1),
+    ("bar_end",    "Inside_B.png",  8,  9, 1, 1),
+    ("shelf_jars", "Inside_B.png",  8,  7, 1, 1),
+    ("shelf_books","Inside_B.png",  9,  7, 1, 1),
+    ("shelf_kegs", "Inside_B.png",  9,  8, 1, 1),
+    ("bookcase",   "Inside_B.png", 14,  2, 1, 2),
+    ("cupboard",   "Inside_B.png",  8,  2, 1, 2),
+    ("keg",        "Inside_B.png", 12, 10, 1, 1),
+    ("pot",        "Inside_B.png",  9, 10, 1, 1),
+    ("washpot",    "Inside_B.png", 10, 10, 1, 1),
+    ("woodtub",    "Inside_B.png", 11, 10, 1, 1),
+    ("logs",       "Inside_B.png", 12, 11, 1, 1),
+    ("piano",      "Inside_B.png", 13,  9, 2, 2),
+    ("longtable",  "Inside_B.png",  0, 14, 2, 1),
+    ("roundtable", "Inside_B.png",  2, 14, 1, 1),
+    ("clothtable", "Inside_B.png",  3, 14, 1, 1),
+    ("sidetable",  "Inside_B.png",  4, 14, 1, 1),
+    ("sofa",       "Inside_B.png",  0, 12, 3, 2),
+    ("chair",      "Inside_B.png",  4, 12, 1, 2),
+    ("throne",     "Inside_B.png",  6, 12, 1, 2),
+    ("stool",      "Inside_B.png",  0, 15, 1, 1),
+    ("stool_red",  "Inside_B.png",  1, 15, 1, 1),
+    ("clock",      "Inside_B.png",  5, 14, 1, 2),
+    ("mirror",     "Inside_B.png",  6, 14, 1, 2),
+    ("banner_gold","Inside_B.png",  0, 10, 1, 2),
+    ("banner_red", "Inside_B.png",  1, 10, 1, 2),
+    ("swords",     "Inside_B.png",  2, 10, 1, 1),
+    ("crossed",    "Inside_B.png",  3, 10, 1, 1),
+    ("shield",     "Inside_B.png",  2, 11, 1, 1),
 ]
 
 # --- terrain --------------------------------------------------------------
@@ -123,6 +159,14 @@ TERRAIN = [
     ("road",    "Outside_A5.png", 0, 3), ("cobble",  "Outside_A5.png", 5, 3),
     ("brick",   "Outside_A5.png", 1, 3), ("clay",    "Outside_A5.png", 2, 3),
     ("slab",    "Outside_A5.png", 0, 5), ("dark",    "Outside_A5.png", 7, 3),
+    # Interior. The Hearthhall is indoors and needs floorboards and walls, not
+    # grass — and a wall here is a FLOOR tile that happens to be solid, because
+    # a top-down room is drawn as a floor plan with a thick edge.
+    ("plank",   "Inside_A5.png", 2, 2), ("board",   "Inside_A5.png", 2, 3),
+    ("flag",    "Inside_A5.png", 4, 3), ("hearthstone", "Inside_A5.png", 6, 2),
+    ("rug_gold","Inside_A5.png", 1, 5), ("rug_blue", "Inside_A5.png", 2, 5),
+    ("rug_red", "Inside_A5.png", 6, 5), ("wall",     "Inside_A5.png", 2, 0),
+    ("wall_dark", "Inside_A5.png", 7, 2),
 ]
 # Trade signs get their own strip so the shop code can index them by name.
 SIGNS = [
@@ -157,7 +201,13 @@ for name, f, c, r in TERRAIN:
     # made the camp look like a different product from the run it sits in front
     # of. This lands it near the market's own paving, which is the neighbouring
     # space and the right thing to match.
-    terrain.append(tone(t, 0.62, (52, 38, 50), 0.22))
+    # The woven carpets are the most saturated tiles in the whole RTP - a
+    # bright royal blue and a gold that reads as lime at size. Laid as a floor
+    # they became the brightest thing in a dark room by a wide margin, which is
+    # exactly backwards: a rug is meant to sit UNDER the furniture, not shout
+    # over it. They get their own, much harder tone.
+    rug = name.startswith("rug_")
+    terrain.append(tone(t, 0.34 if rug else 0.62, (52, 38, 50), 0.34 if rug else 0.22))
 save(sheet(terrain, len(terrain), T, T), "terrain.png")
 
 # --- banners --------------------------------------------------------------

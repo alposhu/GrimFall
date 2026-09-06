@@ -29,3 +29,33 @@ CHANGES MADE
     - levelled to sit under the game rather than over it
   Result: 2.0 MB. The 58 MB original is kept outside this folder, beside the
   project, as marketplace-source.wav.
+
+-------------------------------------------------------------------------------
+hall-crowd-1.ogg, hall-crowd-2.ogg, hall-fire.ogg
+-------------------------------------------------------------------------------
+The Hearthhall's ambience. From the Runtime Package that ships with RPG Maker
+MZ, from the project owner's own licensed installation - the same licence
+position as the RTP artwork in img/rtp/, recorded there in full.
+
+  hall-crowd-1.ogg   RTP audio/bgs/People1.ogg - a room full of talk
+  hall-crowd-2.ogg   RTP audio/bgs/People2.ogg - a second, busier crowd
+  hall-fire.ogg      RTP audio/bgs/Fire1.ogg   - the hearth
+
+COPYRIGHT
+  RPG Maker MZ and its Runtime Package are (c) Gotcha Gotcha Games / KADOKAWA.
+
+LICENCE
+  The owner holds a licence for RPG Maker MZ. Under the 2023 Gotcha Gotcha
+  Games terms update, MZ's bundled Runtime Package assets may be used in games
+  built with other engines. Only MZ defaults are used.
+
+CHANGES MADE
+  None. RPG Maker's background sounds are authored as seamless loops already,
+  so cutting and crossfading them - which is what market.wav needed - would
+  only degrade a file that is already the right shape for the job.
+
+WHY THREE FILES AND NOT ONE
+  They are different lengths and are started at different moments, so they
+  drift against each other and never repeat as a set. A single crowd loop in a
+  room people stand around in becomes audible as a loop within about a minute,
+  and once heard it cannot be unheard.

@@ -1,5 +1,5 @@
 /*
- * The Waystation, checked without a browser.
+ * The Hearthhall, checked without a browser.
  *
  *   node tools/hub-smoke.mjs
  *
@@ -23,7 +23,7 @@ const { H, TILE, MAP_W, MAP_H, POINTS, SPAWN, MATERIALS } = hub;
 
 hub.buildHub();
 check(H.built, 'the hub did not build');
-check(H.props.length > 60, `a camp with ${H.props.length} things in it is not a camp`);
+check(H.props.length > 60, `a hall with ${H.props.length} things in it is not furnished`);
 
 // --- you can stand where you arrive ----------------------------------------
 const sx = Math.floor(SPAWN.x / TILE);
@@ -50,7 +50,7 @@ while (queue.length) {
 }
 const walkable = MAP_W * MAP_H - H.solid.reduce((n, v) => n + v, 0);
 check(reachable > walkable * 0.9,
-  `only ${reachable} of ${walkable} open tiles can be reached — the camp is cut in two`);
+  `only ${reachable} of ${walkable} open tiles can be reached — the hall is cut in two`);
 
 // --- every point of interest can be stood NEXT to ---------------------------
 // Not stood ON: a signpost is solid, and the player reads it from beside it. So
@@ -72,10 +72,35 @@ for (const pt of POINTS) {
 }
 console.log(`reach             ok (${reachable} tiles, all ${POINTS.length} points reachable)`);
 
+// --- everybody worth talking to can be walked up to -------------------------
+// An NPC standing behind a table is an NPC nobody can reach, and the only
+// symptom is a line of dialogue no player ever sees.
+for (const f of hub.FOLK) {
+  const beside = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    .some(([dx, dy]) => seen[(f.y + dy) * MAP_W + (f.x + dx)]);
+  check(beside, `"${f.id}" is walled in — nobody can stand next to them`);
+  check(f.lines.length > 0, `"${f.id}" has nothing to say`);
+}
+console.log(`folk              ok (${hub.FOLK.length} to talk to, all reachable)`);
+
+// --- talking works ----------------------------------------------------------
+hub.enterHub();
+const keeper = H.folk.find((f) => f.id === 'keeper');
+H.player.x = keeper.x;
+H.player.y = keeper.y + 40;
+hub.updateHub(1 / 60, { x: 0, y: 0 }, { w: 960, h: 540 });
+check(hub.hubFolkTarget() === keeper, 'standing next to the Keeper did not offer a conversation');
+check(hub.talkToFolk(), 'the Keeper did not answer');
+check(!!H.speech && H.speech.who === keeper, 'nothing was said');
+const first = H.speech.text;
+hub.talkToFolk();
+check(H.speech.text !== first, 'asking twice gave the same answer twice');
+console.log('talking           ok (answers, and answers differently)');
+
 // --- the ids the game wires to must all exist ------------------------------
 // main.js maps these to screens. A renamed id silently produces a place you can
 // walk to that does nothing when you press the button.
-const WIRED = ['gate', 'chronicle', 'sanctuary', 'fire', 'arena', 'blight'];
+const WIRED = ['door', 'settings', 'party', 'sanctuary', 'help', 'arena'];
 for (const id of WIRED) {
   check(POINTS.some((p) => p.id === id), `main.js wires "${id}", which the map does not have`);
 }
@@ -101,7 +126,7 @@ check(H.player.moving, 'the player should report as moving while walking');
 
 hub.enterHub();
 for (let i = 0; i < 600; i++) hub.updateHub(1 / 60, { x: -1, y: 0 }, { w: 960, h: 540 });
-check(H.player.x > 0, 'the player walked off the west edge of the world');
+check(H.player.x > 0, 'the player walked out through the west wall');
 check(!hub.isSolid(Math.floor(H.player.x / TILE), Math.floor(H.player.y / TILE)),
   'the player ended up inside a solid tile');
 console.log('walking           ok (moves, faces, and is stopped by the world)');
@@ -149,7 +174,7 @@ try {
 } catch (e) {
   threw = e;
 }
-check(!threw, `drawing the camp threw: ${threw && threw.message}`);
+check(!threw, `drawing the hall threw: ${threw && threw.message}`);
 console.log('render            ok (three frames, with a teammate on screen)');
 
 // Every prop the map places must be a prop the atlas actually ships, or it
@@ -163,4 +188,4 @@ if (problems.length) {
   problems.forEach((p) => console.error('  - ' + p));
   process.exit(1);
 }
-console.log('\nAll Waystation checks passed.');
+console.log('\nAll Hearthhall checks passed.');

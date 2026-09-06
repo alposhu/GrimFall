@@ -10,7 +10,12 @@
  */
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import net from 'node:net';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 import { MSG, normaliseCode, isCode } from '../src/net/protocol.js';
 import { getRoom } from '../server/rooms.js';
 
@@ -246,6 +251,36 @@ check(backlog.lines.some((l) => l.text.includes('Ece joined')),
   'arrivals should be announced in the log');
 console.log(`chat               ok (${backlog.lines.length} lines of backlog)`);
 
+// --- the terms of the run ---------------------------------------------------
+// The host sets difficulty for everybody. It is held on the room because two
+// clients disagreeing about it would simulate different creatures under the
+// same ids.
+const termsB = untilLobby(B, (m) => m.difficulty === 'hard');
+A.setSettings('hard');
+const termed = await termsB;
+check(termed.difficulty === 'hard', `the room should be hard, got ${termed.difficulty}`);
+
+// A guest may not, and nonsense is refused rather than passed through as a
+// scale factor of undefined.
+const noB = once(B, 'denied');
+B.setSettings('easy');
+check(/host/i.test((await noB).reason), 'a guest setting the difficulty should be refused');
+
+const badA = once(A, 'denied');
+A.setSettings('impossible');
+check(/difficulty/i.test((await badA).reason), 'an unknown difficulty should be refused');
+
+// The server keeps its own copy of the list, so it can reject nonsense without
+// importing the game's balance tables. If the game grows a difficulty and the
+// server does not hear about it, players get "no such difficulty" on a setting
+// the menu offered them.
+const cfg = await import('../src/game/config.js');
+const serverList = fs.readFileSync(path.join(ROOT, 'server', 'rooms.js'), 'utf8')
+  .match(/const DIFFICULTIES = \[([^\]]+)\]/)[1]
+  .split(',').map((s) => s.trim().replace(/'/g, '')).filter(Boolean);
+check(serverList.join() === cfg.DIFFICULTY_ORDER.join(),
+  `the server knows [${serverList}] and the game has [${cfg.DIFFICULTY_ORDER}]`);
+console.log(`terms              ok (host-only, ${serverList.length} difficulties agreed)`);
 // --- a new code -------------------------------------------------------------
 // The point of this is that the OLD code stops working. A room that stays
 // reachable by both is a room whose code was never really changed.

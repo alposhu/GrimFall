@@ -37,7 +37,7 @@ import {
 } from './game/game.js';
 import { M, enterMarket, updateMarket, interact, closeShop } from './game/market.js';
 import { renderMarket } from './game/marketRender.js';
-import { enterHub, updateHub, hubTarget, H as HUB } from './game/hub.js';
+import { enterHub, updateHub, hubTarget, talkToFolk } from './game/hub.js';
 import { renderHub } from './game/hubRender.js';
 import { joinHubNet, leaveHubNet, tickHubNet, handleHubRelay, inHubNet } from './net/hubNet.js';
 import { useFlask, FLASK_IDS } from './game/shop.js';
@@ -211,9 +211,9 @@ async function boot() {
 
   ui.initUI({
     onSkipCutscene: skipCutscene,
-    onHub: toHub,
     // A room stops being a form the moment there is somebody in it, so that is
-    // when the camp opens and the party panel steps aside.
+    // when the hall opens and the party panel steps aside. This is the ONLY
+    // way in: the hall is the lobby, not a place on the menu.
     onCoopRoom: toHub,
     onStart: beginRun,
     onStartArena: beginArena,
@@ -435,12 +435,12 @@ function resumeSaved(slot) {
 }
 
 // ---------------------------------------------------------------------------
-// The Waystation
+// The Hearthhall
 // ---------------------------------------------------------------------------
 //
-// The camp in front of a run. Reachable from the menu on your own, and the
-// place a co-op party gathers — when there is a lobby, everybody in it is
-// standing here, and you can see them.
+// The co-op lobby, as a room. Reached from Play Together and from nowhere else
+// — it is not a destination on the menu, it is what a lobby looks like once you
+// are standing in one.
 function toHub() {
   mode = 'hub';
   ui.hideAll();
@@ -448,43 +448,45 @@ function toHub() {
   showJoystick(IS_TOUCH);
   clearPressed();
   enterHub();
+  playMusic('hall');
   if (netlink.lobbyState()) joinHubNet();
 }
 
 /**
- * Step out of the camp.
+ * Step out of the hall.
  *
- * Somebody in a party is not done with co-op just because they walked away from
- * the fire, so leaving the camp puts them back on the party panel rather than
- * dropping them to the title and out of the room. Alone, there is no room to
- * stay in and the title is the right place.
+ * Somebody in a party has not left co-op because they walked away from the
+ * fire, so this puts them back on the party panel and keeps them in the room.
+ * Leaving the room itself is the panel's job, not this one's.
  */
-function leaveHub(toPanel = false) {
+function leaveHub(toPanel = true) {
   mode = 'menu';
   showJoystick(false);
   if (toPanel && netlink.lobbyState()) { ui.action('coop'); return; }
   leaveHubNet();
+  playMusic('menu');
   toTitle();
 }
 
 /**
- * Standing at something and pressing the button.
+ * The button, pressed.
  *
- * The map knows where things are; this knows what they mean. Keeping the two
- * apart is what lets the camp be rearranged without touching a menu, and a
- * menu be renamed without touching the map.
+ * Somebody to talk to comes first — the hall decides who is nearest, and a
+ * person standing between you and a door should be the thing you address.
  */
 function useHubPoint() {
+  if (talkToFolk()) { sfx('select'); return; }
   const at = hubTarget();
   if (!at) return;
   sfx('select');
-  // The Blight is the one landmark that is only a landmark. It opens nothing,
-  // on purpose: a camp where every single thing is a button is a menu with
-  // scenery, and somewhere to just stand is what makes the rest of it a place.
-  if (at.id === 'blight') return;
+
+  // The map says where things are; this says what they mean. Both the head
+  // table and the hearth open the party panel — one is where the host sets the
+  // terms and the other is where you read the room, and they are the same panel
+  // because splitting it would mean two places to look for one answer.
   const WHERE = {
-    gate: 'heroes', chronicle: 'help', sanctuary: 'sanctuary',
-    fire: 'coop', arena: 'arena',
+    door: 'heroes', settings: 'coop', party: 'coop',
+    sanctuary: 'sanctuary', help: 'help', arena: 'arena',
   };
   const dest = WHERE[at.id];
   if (!dest) return;
@@ -596,7 +598,7 @@ function loop(now) {
   const frameStart = performance.now();
 
   if (mode === 'hub') {
-    // The run polls inside update(); the camp has to ask for itself.
+    // The run polls inside update(); the hall has to ask for itself.
     pollInput();
     updateHub(dt, input, { w: canvas.width / zoom, h: canvas.height / zoom });
     if (inHubNet()) tickHubNet(dt);

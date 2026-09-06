@@ -60,7 +60,7 @@ function iconImg(name, size = 32) {
  * Go wherever a named destination goes.
  *
  * The single list of what the game's menu entries mean. `data-action` on a
- * button and a landmark id in the Waystation both come through here, so the two
+ * button and a landmark id in the Hearthhall both come through here, so the two
  * can never disagree about where "sanctuary" leads.
  */
 export function action(a) {
@@ -74,7 +74,6 @@ export function action(a) {
   else if (a === 'load') openSaves('load');
   else if (a === 'coop') openCoop();
   else if (a === 'saveRun') openSaves('save');
-  else if (a === 'hub') hooks.onHub?.();
 }
 
 export function openCoop() {
@@ -107,6 +106,7 @@ export function initUI(callbacks) {
     'coopHostBtn', 'coopJoinBtn', 'coopCodeOut', 'coopPlayers', 'coopReadyBtn',
     'coopStartBtn', 'coopNote', 'coopSub',
     'coopRecodeBtn', 'coopMicBtn', 'coopLog', 'coopSayForm', 'coopSay',
+    'coopTerms', 'coopDiff',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -114,7 +114,7 @@ export function initUI(callbacks) {
 
   // Menu routing. The dispatch lives in `action()` below rather than inline
   // here, because the menu buttons are no longer the only thing that navigates
-  // — walking up to the gate in the Waystation opens the same screen the Begin
+  // — walking up to the door in the Hearthhall opens the same screen the Begin
   // a Run button does, and two copies of this list would drift.
   document.querySelectorAll('[data-action]').forEach((btn) => {
     btn.addEventListener('click', () => {

@@ -87,11 +87,26 @@ const MUSIC_FILES = {
   // The market has no score — it has a crowd. A 48s seamless loop cut from the
   // owner's own field recording, so the hub sounds like somewhere people live.
   //
-  // `layer` is a second loop mixed underneath at a lower level. The two are
-  // different lengths and never restart together, so the square never repeats
-  // itself in a way you can hear, which is the whole point of a hub you stand
-  // around in.
-  market:    { src: 'market.wav', layer: 'market-crowd.ogg', layerGain: 0.34 },
+  // `layers` are extra loops mixed underneath at lower levels. They are
+  // different lengths and never restart together, so a space you stand around
+  // in never repeats itself in a way you can hear.
+  market:    { src: 'market.wav', layers: [{ src: 'market-crowd.ogg', gain: 0.34 }] },
+
+  // The Hearthhall has no score either — it has a room. Three loops rather
+  // than one: they are different lengths and are started at different moments,
+  // so they drift apart and never come back around together. A single crowd
+  // loop in a room people stand around in becomes audible as a loop inside a
+  // minute, and once somebody has heard the seam they hear it every time.
+  //
+  // The hearth sits under both crowds because a fire is the one sound in an inn
+  // that never stops, and it covers the moment a crowd loop turns over.
+  hall: {
+    src: 'hall-crowd-1.ogg',
+    layers: [
+      { src: 'hall-crowd-2.ogg', gain: 0.30 },
+      { src: 'hall-fire.ogg', gain: 0.22 },
+    ],
+  },
 };
 
 const FADE = 0.9;                 // crossfade seconds between contexts
@@ -120,8 +135,8 @@ function fadeTo(gain, value, seconds = FADE) {
 function stopVoice(voice, seconds = FADE) {
   if (!voice) return;
   fadeTo(voice.gain, 0, seconds);
-  if (voice.layerGain) fadeTo(voice.layerGain, 0, seconds);
-  const els = [voice.el, voice.introEl, voice.layerEl].filter(Boolean);
+  for (const lg of voice.layerGains) fadeTo(lg, 0, seconds);
+  const els = [voice.el, voice.introEl, ...voice.layerEls].filter(Boolean);
   setTimeout(() => {
     for (const el of els) { try { el.pause(); el.currentTime = 0; } catch (e) { /* detached */ } }
   }, seconds * 1000 + 60);
@@ -136,7 +151,7 @@ function startFile(name) {
   gain.connect(musicGain);
 
   const loopEl = makeElement(def.src, true);
-  const voice = { name, gain, el: loopEl, introEl: null, layerEl: null, layerGain: null };
+  const voice = { name, gain, el: loopEl, introEl: null, layerEls: [], layerGains: [] };
 
   let failed = false;
   const onError = () => {
@@ -172,17 +187,17 @@ function startFile(name) {
   // A second ambience loop, if this context has one. It is deliberately not
   // wired to `onError`: losing the crowd under the market is not worth
   // dropping the whole context to the synthesiser for.
-  if (def.layer) {
-    const layerEl = makeElement(def.layer, true);
+  for (const layer of def.layers || []) {
+    const layerEl = makeElement(layer.src, true);
     const lg = ctx.createGain();
-    lg.gain.value = def.layerGain ?? 0.3;
+    lg.gain.value = layer.gain ?? 0.3;
     lg.connect(musicGain);
-    voice.layerEl = layerEl;
-    voice.layerGain = lg;
+    voice.layerEls.push(layerEl);
+    voice.layerGains.push(lg);
     try {
       ctx.createMediaElementSource(layerEl).connect(lg);
     } catch (e) {
-      layerEl.volume = def.layerGain ?? 0.3;
+      layerEl.volume = layer.gain ?? 0.3;
     }
     const lp = layerEl.play();
     // Refused layers are picked up by `retryPending` on the next gesture,
@@ -233,7 +248,7 @@ function retryPending() {
 
   // The intro stinger if it has not finished, otherwise the loop.
   const el = voice.introEl && !voice.introEl.ended ? voice.introEl : voice.el;
-  const els = [el, voice.layerEl].filter(Boolean);
+  const els = [el, ...voice.layerEls].filter(Boolean);
 
   for (const target of els) {
     if (!target.paused && !target.ended) continue;      // already going

@@ -1533,6 +1533,21 @@ input[type="text"], input[type="number"], input[type="search"], textarea, select
 
 .coop-actions { display: flex; flex-direction: column; gap: 8px; }
 
+/* The terms of the run. Shown to the whole party, settable by the host — a
+   guest sees what they are about to play, greyed, because four people in a room
+   should not have different ideas about what they agreed to. */
+.coop-terms {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.coop-terms-label {
+  font: 400 10px/1 var(--font-display);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.coop-terms.is-locked .seg button { opacity: 0.72; }
+.coop-terms .seg { width: 100%; }
+.coop-terms .seg button { flex: 1; }
+
 /* --- the party's chat ------------------------------------------------------
    Given a fixed height rather than letting it grow: a log that pushes the
    ready and start buttons further down the page every time somebody speaks is

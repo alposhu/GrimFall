@@ -171,6 +171,7 @@ export const joinGame = (code, name) => send(MSG.JOIN, { code, name: cleanName(n
 export const setReady = (ready) => send(MSG.READY, { ready: !!ready });
 export const startGame = () => send(MSG.START);
 export const newCode = () => send(MSG.RECODE);
+export const setSettings = (difficulty) => send(MSG.SETTINGS, { difficulty });
 export const sendChat = (text) => send(MSG.CHAT, { text: String(text).slice(0, MAX_CHAT) });
 export const setVoice = (on) => send(MSG.VOICE, { on: !!on });
 export const signal = (to, data) => send(MSG.SIGNAL, { to, data });

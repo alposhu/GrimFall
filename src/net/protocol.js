@@ -23,6 +23,7 @@ export const MSG = {
   CHAT: 'chat',                // { text }            -> say something to the room
   VOICE: 'voice',              // { on }              -> mic on or off
   SIGNAL: 'signal',            // { to, data }        -> WebRTC offer/answer/ice
+  SETTINGS: 'settings',        // { difficulty }      -> host only, terms of the run
 
   // Gameplay travels inside ONE message type. The server does not read it, does
   // not validate it and has no schema for it: it stamps who sent it and passes

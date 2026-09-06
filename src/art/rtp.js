@@ -57,6 +57,12 @@ export const RTP_PROPS = [
   // The waystation's own. Appended, because this list's ORDER is the atlas
   // layout — inserting anywhere above renames every prop after it.
   'tree', 'thicket', 'dead_tree', 'dead_birch', 'toadstool', 'mushrooms',
+  // The Hearthhall's furniture.
+  'hearth', 'firepit', 'brickfire', 'bar', 'bar_end', 'shelf_jars', 'shelf_books',
+  'shelf_kegs', 'bookcase', 'cupboard', 'keg', 'pot', 'washpot', 'woodtub', 'logs',
+  'piano', 'longtable', 'roundtable', 'clothtable', 'sidetable', 'sofa', 'chair',
+  'throne', 'stool', 'stool_red', 'clock', 'mirror', 'banner_gold', 'banner_red',
+  'swords', 'crossed', 'shield',
 ];
 
 /**
@@ -68,6 +74,10 @@ export const RTP_PROPS = [
  */
 export const RTP_TERRAIN = [
   'grass', 'moss', 'dirt', 'sand', 'road', 'cobble', 'brick', 'clay', 'slab', 'dark',
+  // Indoors. `wall` and `wall_dark` are floor tiles that happen to be solid —
+  // a top-down room is a floor plan with a thick edge, not a 3D box.
+  'plank', 'board', 'flag', 'hearthstone', 'rug_gold', 'rug_blue', 'rug_red',
+  'wall', 'wall_dark',
 ];
 
 export const RTP_SIGNS = [
@@ -98,6 +108,10 @@ const PROP_SIZE = {
   crate_tall: [48, 96], shelf_bare: [48, 96], shelf_bread: [48, 96],
   shelf_fish: [48, 96], arch: [48, 96],
   tree: [96, 96], thicket: [96, 96], dead_tree: [48, 96], dead_birch: [48, 96],
+  hearth: [96, 96], firepit: [48, 96], brickfire: [48, 96], bar: [96, 48],
+  bookcase: [48, 96], cupboard: [48, 96], piano: [96, 96], longtable: [96, 48],
+  sofa: [144, 96], chair: [48, 96], throne: [48, 96], clock: [48, 96],
+  mirror: [48, 96], banner_gold: [48, 96], banner_red: [48, 96],
 };
 const sizeOf = (name) => PROP_SIZE[name] || [T, T];
 

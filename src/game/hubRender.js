@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// hubRender.js — drawing the Waystation.
+// hubRender.js — drawing the Hearthhall.
 //
 // The layer order is the one every top-down scene needs and most get wrong:
 //
@@ -9,28 +9,32 @@
 //   4. overlays         name tags, the interact prompt
 //
 // Layer 3 is the whole trick. Props and people are not separate passes: if they
-// were, a person would be permanently in front of every tree or permanently
-// behind it, and walking "around" the back of a tent would be impossible to
+// were, a person would be permanently in front of every table or permanently
+// behind it, and walking "around" the back of the bar would be impossible to
 // draw. One list, sorted by the Y of the ground each thing stands on, and a
-// player walking up the map slides behind the tent at exactly the moment their
-// feet pass its base.
+// player walking up the room slides behind a bookcase at exactly the moment
+// their feet pass its base.
 //
-// Only what is on screen is drawn. The map is 72x56 tiles and a view holds
-// maybe 26x15 of them, so the cull is the difference between four thousand
-// draws a frame and four hundred.
+// Only what is on screen is drawn. The room is 56x44 tiles and a view holds
+// maybe 20x11 of them, so the cull is the difference between drawing the whole
+// building every frame and drawing the part of it somebody is looking at.
 // ---------------------------------------------------------------------------
 
 import { H, TILE, MAP_W, MAP_H, WORLD_W, WORLD_H, floorAt } from './hub.js';
-import { rtpTerrain, rtpProp, rtpPropSize, hasTerrain } from '../art/rtp.js';
+import { rtpTerrain, rtpProp, rtpPropSize, hasTerrain, rtpFolkSprites } from '../art/rtp.js';
+import { folkSprites } from '../art/folk.js';
 import { heroSprites } from '../art/hero.js';
 
 // Fallback colours, used when the RTP atlas is missing or still decoding. The
-// camp stays walkable and legible without a single image file — the same
+// hall stays walkable and legible without a single image file — the same
 // promise the market makes.
 const FLAT = {
   grass: '#3c5a34', moss: '#44603a', dirt: '#4d3d2e', sand: '#6b5c3f',
   road: '#4a4238', cobble: '#4f4d4a', brick: '#5a4740', clay: '#5c3f34',
   slab: '#494a4d', dark: '#2b2733',
+  plank: '#4a3526', board: '#3d2c1f', flag: '#474645', hearthstone: '#544a3c',
+  rug_gold: '#6a5320', rug_blue: '#2f3f5c', rug_red: '#5a2a2a',
+  wall: '#3a3a3e', wall_dark: '#1d1a24',
 };
 
 function shadow(ctx, x, y, r, alpha = 0.3) {
@@ -104,6 +108,11 @@ function drawBand(ctx, view) {
     if (p.y < view.top - pad || p.y > view.bottom + pad) continue;
     band.push(p);
   }
+  for (const f of H.folk) {
+    if (f.x < view.left - pad || f.x > view.right + pad) continue;
+    if (f.y < view.top - pad || f.y > view.bottom + pad) continue;
+    band.push(f);
+  }
   band.push(H.player);
   for (const o of H.others) band.push(o);
 
@@ -113,6 +122,7 @@ function drawBand(ctx, view) {
     if (thing.prop) drawProp(ctx, thing);
     else drawAvatar(ctx, thing);
   }
+  drawSpeech(ctx);
 }
 
 function drawProp(ctx, p) {
@@ -130,12 +140,17 @@ function drawProp(ctx, p) {
 }
 
 function drawAvatar(ctx, a) {
-  const set = heroSprites(a.charId || 'ranger', 3);
+  // Townsfolk wear the RTP cast; players wear their hero. Both come back in the
+  // same {south,north,east,west} shape, so there is one drawing path.
+  const set = a.folk !== undefined
+    ? (rtpFolkSprites(a.folk, 1) || folkSprites(a.folk, 3))
+    : heroSprites(a.charId || 'ranger', 3);
+  if (!set) return;
   const frames = set[a.dir] || set.south;
   const img = frames[a.moving ? (a.frame || 0) : 0];
   shadow(ctx, a.x, a.y + 4, 13, 0.32);
   ctx.drawImage(img, Math.round(a.x - img.width / 2), Math.round(a.y - img.height + 6));
-  if (a.name) drawTag(ctx, a);
+  if (a.name && a.folk === undefined) drawTag(ctx, a);
 }
 
 /** A teammate's name over their head. The local player has no tag — they know. */
@@ -156,6 +171,54 @@ function drawTag(ctx, a) {
 }
 
 /**
+ * What somebody just said, over their head.
+ *
+ * Anchored to the SPEAKER, not to the screen: you have to be able to tell which
+ * of six people in a busy room is talking, and a line at the bottom of the
+ * screen cannot tell you that.
+ */
+function drawSpeech(ctx) {
+  const sp = H.speech;
+  if (!sp) return;
+  const who = sp.who;
+
+  ctx.save();
+  ctx.font = '500 14px "Pixelify Sans", monospace';
+  ctx.textAlign = 'center';
+
+  // Wrapped by hand: canvas has no text box, and a single long line runs off
+  // both sides of a room this wide.
+  const words = sp.text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const next = line ? line + ' ' + w : w;
+    if (ctx.measureText(next).width > 260 && line) { lines.push(line); line = w; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+
+  const wide = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
+  const tall = lines.length * 18 + 14;
+  const x = who.x;
+  const y = who.y - 62 - tall;
+
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = '#0d0a14';
+  ctx.fillRect(Math.round(x - wide / 2), Math.round(y), Math.round(wide), tall);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = '#7a5c2e';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(Math.round(x - wide / 2), Math.round(y), Math.round(wide), tall);
+
+  ctx.fillStyle = '#ffd75e';
+  ctx.fillText(who.name, Math.round(x), Math.round(y + 15));
+  ctx.fillStyle = '#e8e2d8';
+  lines.forEach((l, i) => ctx.fillText(l, Math.round(x), Math.round(y + 33 + i * 18)));
+  ctx.restore();
+}
+
+/**
  * What you are standing at.
  *
  * Drawn in SCREEN space, not world space: a label anchored to the world drifts
@@ -164,13 +227,14 @@ function drawTag(ctx, a) {
  */
 function drawPrompt(ctx, canvas, zoom) {
   const near = H.near;
-  if (!near) return;
+  const folk = H.nearFolk;
+  if (!near && !folk) return;
+  const text = folk ? `Talk to ${folk.name}` : near.label;
   const bounce = Math.sin(H.t * 5) * 2;
 
   ctx.save();
   ctx.font = '500 15px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
-  const text = near.label;
   const w = ctx.measureText(text).width + 28;
   const x = canvas.width / 2;
   const y = canvas.height - 54 + bounce;
@@ -187,5 +251,5 @@ function drawPrompt(ctx, canvas, zoom) {
   ctx.restore();
 }
 
-/** The whole map, small, for a minimap or a debug view. */
+/** The room's extent, for a minimap or a debug view. */
 export const hubBounds = () => ({ w: WORLD_W, h: WORLD_H });

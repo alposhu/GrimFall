@@ -28,7 +28,7 @@ import { accept } from './ws.js';
 import {
   createRoom, joinRoom, leaveRoom, setReady, startRoom,
   lobbyState, sweepIdle, roomCount, getRoom, resetRooms,
-  recodeRoom, setVoice, say, announce, chatHistory,
+  recodeRoom, setVoice, say, announce, chatHistory, setSettings,
 } from './rooms.js';
 import { MSG, PROTOCOL_VERSION, normaliseCode } from '../src/net/protocol.js';
 import { findRoot, serveStatic } from './static.js';
@@ -168,6 +168,14 @@ function handle(conn, msg) {
       // Allowed during a run as well as in the lobby. Being able to say "go
       // left" while something is chasing you is most of the point.
       sayToRoom(session.room, say(session.room, session.playerId, msg.text));
+      return;
+    }
+
+    case MSG.SETTINGS: {
+      const { room, error } = setSettings(session.room, session.playerId, msg);
+      if (error) { deny(conn, error); return; }
+      sayToRoom(room, announce(room, `The run is set to ${room.difficulty}.`));
+      broadcastLobby(room);
       return;
     }
 

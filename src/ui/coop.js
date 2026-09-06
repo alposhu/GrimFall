@@ -48,7 +48,7 @@ function renderLobby(state) {
   el.coopCodeOut.textContent = state.code;
 
   // The first lobby message is the moment this stopped being a form and became
-  // a room with people in it, so that is when the camp opens. Once only: every
+  // a room with people in it, so that is when the hall opens. Once only: every
   // later update would otherwise throw the player back outside whatever they
   // had opened.
   if (!enteredRoom) {
@@ -92,6 +92,16 @@ function renderLobby(state) {
   const me = state.players.find((p) => p.id === net.selfPlayerId());
   const host = net.isHost();
   el.coopRecodeBtn.hidden = !host;
+
+  // The terms are shown to everybody and settable by one. A guest sees which
+  // difficulty they are about to play, greyed — hiding it would mean the four
+  // people in the room have different ideas about what they agreed to.
+  const diff = state.difficulty || 'normal';
+  for (const b of el.coopDiff.querySelectorAll('button')) {
+    b.classList.toggle('on', b.dataset.diff === diff);
+    b.disabled = !host;
+  }
+  el.coopTerms.classList.toggle('is-locked', !host);
   el.coopReadyBtn.hidden = host;
   el.coopReadyBtn.querySelector('span').textContent = me?.ready ? 'Not ready' : "I'm ready";
   el.coopStartBtn.hidden = !host;
@@ -255,6 +265,12 @@ export function initCoop(elements, callbacks = {}) {
   });
 
   el.coopMicBtn.addEventListener('click', toggleMic);
+
+  el.coopDiff.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-diff]');
+    if (!b || b.disabled) return;
+    net.setSettings(b.dataset.diff);
+  });
 
   el.coopSayForm.addEventListener('submit', (e) => {
     e.preventDefault();
