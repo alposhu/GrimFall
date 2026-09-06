@@ -20,7 +20,7 @@
 // building every frame and drawing the part of it somebody is looking at.
 // ---------------------------------------------------------------------------
 
-import { H, TILE, MAP_W, MAP_H, WORLD_W, WORLD_H, floorAt } from './hub.js';
+import { H, A, TILE, MAP_W, MAP_H, WORLD_W, WORLD_H, floorAt } from './hub.js';
 import { rtpTerrain, rtpProp, rtpPropSize, hasTerrain, rtpFolkSprites } from '../art/rtp.js';
 import { folkSprites } from '../art/folk.js';
 import { heroSprites } from '../art/hero.js';
@@ -72,9 +72,9 @@ export function renderHub(ctx, canvas, zoom = 1) {
 
 function drawFloor(ctx, view) {
   const x0 = Math.max(0, Math.floor(view.left / TILE));
-  const x1 = Math.min(MAP_W - 1, Math.ceil(view.right / TILE));
+  const x1 = Math.min(MAP_W() - 1, Math.ceil(view.right / TILE));
   const y0 = Math.max(0, Math.floor(view.top / TILE));
-  const y1 = Math.min(MAP_H - 1, Math.ceil(view.bottom / TILE));
+  const y1 = Math.min(MAP_H() - 1, Math.ceil(view.bottom / TILE));
   const art = hasTerrain();
 
   for (let ty = y0; ty <= y1; ty++) {
@@ -85,7 +85,7 @@ function drawFloor(ctx, view) {
         const tile = rtpTerrain(name, TILE);
         if (tile) { ctx.drawImage(tile, px, py); continue; }
       }
-      ctx.fillStyle = FLAT[name] || FLAT.grass;
+      ctx.fillStyle = FLAT[name] || FLAT.oak;
       ctx.fillRect(px, py, TILE, TILE);
     }
   }
@@ -103,12 +103,13 @@ function drawBand(ctx, view) {
   const band = [];
   const pad = TILE * 3;                 // a tall prop reaches above its own tile
 
-  for (const p of H.props) {
+  const area = A();
+  for (const p of area.props) {
     if (p.x < view.left - pad || p.x > view.right + pad) continue;
     if (p.y < view.top - pad || p.y > view.bottom + pad) continue;
     band.push(p);
   }
-  for (const f of H.folk) {
+  for (const f of area.folk) {
     if (f.x < view.left - pad || f.x > view.right + pad) continue;
     if (f.y < view.top - pad || f.y > view.bottom + pad) continue;
     band.push(f);
@@ -122,6 +123,9 @@ function drawBand(ctx, view) {
     if (thing.prop) drawProp(ctx, thing);
     else drawAvatar(ctx, thing);
   }
+  // The regulars' chatter, then whoever the player is actually talking to —
+  // last, so a conversation is never hidden behind small talk.
+  for (const f of area.folk) if (f.says) bubble(ctx, f, f.says.text, '#cfc7bb', null);
   drawSpeech(ctx);
 }
 
@@ -180,41 +184,55 @@ function drawTag(ctx, a) {
 function drawSpeech(ctx) {
   const sp = H.speech;
   if (!sp) return;
-  const who = sp.who;
+  bubble(ctx, sp.who, sp.text, '#e8e2d8', sp.who.name);
+}
 
+/**
+ * A line of speech over somebody's head.
+ *
+ * Anchored to the SPEAKER, not to the screen: in a room with twenty people in
+ * it you have to be able to tell which one is talking, and a caption at the
+ * bottom of the screen cannot tell you that.
+ */
+function bubble(ctx, who, text, colour, name) {
   ctx.save();
   ctx.font = '500 14px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
 
-  // Wrapped by hand: canvas has no text box, and a single long line runs off
-  // both sides of a room this wide.
-  const words = sp.text.split(' ');
+  // Wrapped by hand: canvas has no text box, and one long line runs off both
+  // sides of a room this wide.
+  const words = text.split(' ');
   const lines = [];
   let line = '';
   for (const w of words) {
     const next = line ? line + ' ' + w : w;
-    if (ctx.measureText(next).width > 260 && line) { lines.push(line); line = w; }
+    if (ctx.measureText(next).width > 250 && line) { lines.push(line); line = w; }
     else line = next;
   }
   if (line) lines.push(line);
 
   const wide = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
-  const tall = lines.length * 18 + 14;
+  const head = name ? 18 : 0;
+  const tall = lines.length * 18 + 14 + head;
   const x = who.x;
-  const y = who.y - 62 - tall;
+  const y = who.y - 58 - tall;
 
-  ctx.globalAlpha = 0.92;
+  ctx.globalAlpha = name ? 0.92 : 0.78;
   ctx.fillStyle = '#0d0a14';
   ctx.fillRect(Math.round(x - wide / 2), Math.round(y), Math.round(wide), tall);
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = '#7a5c2e';
+  ctx.strokeStyle = name ? '#7a5c2e' : '#3b3442';
   ctx.lineWidth = 2;
   ctx.strokeRect(Math.round(x - wide / 2), Math.round(y), Math.round(wide), tall);
 
-  ctx.fillStyle = '#ffd75e';
-  ctx.fillText(who.name, Math.round(x), Math.round(y + 15));
-  ctx.fillStyle = '#e8e2d8';
-  lines.forEach((l, i) => ctx.fillText(l, Math.round(x), Math.round(y + 33 + i * 18)));
+  let ty = y + 15;
+  if (name) {
+    ctx.fillStyle = '#ffd75e';
+    ctx.fillText(name, Math.round(x), Math.round(ty));
+    ty += head;
+  }
+  ctx.fillStyle = colour;
+  lines.forEach((l, i) => ctx.fillText(l, Math.round(x), Math.round(ty + i * 18)));
   ctx.restore();
 }
 
@@ -252,4 +270,4 @@ function drawPrompt(ctx, canvas, zoom) {
 }
 
 /** The room's extent, for a minimap or a debug view. */
-export const hubBounds = () => ({ w: WORLD_W, h: WORLD_H });
+export const hubBounds = () => ({ w: WORLD_W(), h: WORLD_H() });

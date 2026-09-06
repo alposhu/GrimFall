@@ -49,20 +49,27 @@ const img = new Map();
 // writes them, and these two lists are the only place that coupling lives.
 // ---------------------------------------------------------------------------
 export const RTP_PROPS = [
-  'lamppost', 'stall_wood', 'stall_stone', 'tent', 'tent_red', 'barrel', 'tub', 'bucket',
-  'washtub', 'urn', 'crate', 'well', 'trestle', 'signpost', 'fence', 'basket',
-  'firewood', 'pebbles', 'haystack', 'wheat', 'cabbages', 'berries', 'stump', 'log',
-  'flowers', 'shrub', 'crate_tall', 'shelf_bare', 'shelf_bread', 'shelf_fish', 'arch', 'awning',
-  'counter',
-  // The waystation's own. Appended, because this list's ORDER is the atlas
-  // layout — inserting anywhere above renames every prop after it.
-  'tree', 'thicket', 'dead_tree', 'dead_birch', 'toadstool', 'mushrooms',
-  // The Hearthhall's furniture.
-  'hearth', 'firepit', 'brickfire', 'bar', 'bar_end', 'shelf_jars', 'shelf_books',
-  'shelf_kegs', 'bookcase', 'cupboard', 'keg', 'pot', 'washpot', 'woodtub', 'logs',
-  'piano', 'longtable', 'roundtable', 'clothtable', 'sidetable', 'sofa', 'chair',
-  'throne', 'stool', 'stool_red', 'clock', 'mirror', 'banner_gold', 'banner_red',
-  'swords', 'crossed', 'shield',
+  'lamppost', 'stall_wood', 'stall_stone', 'tent', 'tent_red', 'barrel',
+  'tub', 'bucket', 'washtub', 'urn', 'crate', 'well',
+  'trestle', 'signpost', 'fence', 'basket', 'firewood', 'pebbles',
+  'haystack', 'wheat', 'cabbages', 'berries', 'stump', 'log',
+  'flowers', 'shrub', 'crate_tall', 'shelf_bare', 'shelf_bread', 'shelf_fish',
+  'arch', 'awning', 'counter', 'tree', 'thicket', 'dead_tree',
+  'dead_birch', 'toadstool', 'mushrooms', 'hearth', 'firepit', 'brickfire',
+  'bar', 'bar_end', 'shelf_jars', 'shelf_books', 'shelf_kegs', 'bookcase',
+  'cupboard', 'keg', 'pot', 'washpot', 'woodtub', 'logs',
+  'piano', 'longtable', 'roundtable', 'clothtable', 'sidetable', 'sofa',
+  'chair', 'throne', 'stool', 'stool_red', 'clock', 'mirror',
+  'banner_gold', 'banner_red', 'swords', 'crossed', 'shield', 'teapot',
+  'cups', 'jug', 'wine', 'goblets', 'ale', 'steins',
+  'bottles', 'glasses', 'roast_bird', 'greens', 'fruit', 'roast',
+  'shellfish', 'pasta', 'sweets', 'supper', 'casserole', 'stewpot',
+  'breakfast', 'breadboard', 'soup', 'tart', 'cask_a', 'cask_b',
+  'plates', 'choppingboard', 'claypot', 'pan', 'tome', 'ledger',
+  'scrolls', 'map', 'plant_a', 'plant_b', 'plant_c', 'plant_d',
+  'chest', 'chest_open', 'case_wares', 'case_tools', 'sack_a', 'sack_b',
+  'phials', 'basket_a', 'basket_b', 'bolts', 'scales', 'wallblades',
+  'wallcrest', 'larder', 'sconce', 'candelabra', 'goldbars',
 ];
 
 /**
@@ -73,11 +80,14 @@ export const RTP_PROPS = [
  * where `5` says nothing.
  */
 export const RTP_TERRAIN = [
-  'grass', 'moss', 'dirt', 'sand', 'road', 'cobble', 'brick', 'clay', 'slab', 'dark',
-  // Indoors. `wall` and `wall_dark` are floor tiles that happen to be solid —
-  // a top-down room is a floor plan with a thick edge, not a 3D box.
-  'plank', 'board', 'flag', 'hearthstone', 'rug_gold', 'rug_blue', 'rug_red',
-  'wall', 'wall_dark',
+  'grass', 'moss', 'dirt', 'sand', 'road', 'cobble',
+  'brick', 'clay', 'slab', 'dark', 'plank', 'board',
+  'flag', 'hearthstone', 'rug_gold', 'rug_blue', 'rug_red', 'wall',
+  'wall_dark', 'oak', 'parquet', 'kitchen', 'marble', 'carpet_tl',
+  'carpet_t', 'carpet_tr', 'carpet_l', 'carpet_c', 'carpet_r', 'carpet_bl',
+  'carpet_b', 'carpet_br', 'rugblue_tl', 'rugblue_t', 'rugblue_tr', 'rugblue_l',
+  'rugblue_c', 'rugblue_r', 'rugblue_bl', 'rugblue_b', 'rugblue_br', 'walltop',
+  'wallhigh', 'walllow',
 ];
 
 export const RTP_SIGNS = [
@@ -103,15 +113,14 @@ const ICON_INDEX = new Map(RTP_ICONS.map((n, i) => [n, i]));
 // bounds would need pixel access we do not have in every context, so the sizes
 // are recorded instead — they come from the build script's own output.
 const PROP_SIZE = {
-  lamppost: [48, 144], stall_wood: [96, 96], stall_stone: [96, 96],
-  tent: [144, 144], tent_red: [144, 144], counter: [96, 96],
-  crate_tall: [48, 96], shelf_bare: [48, 96], shelf_bread: [48, 96],
-  shelf_fish: [48, 96], arch: [48, 96],
-  tree: [96, 96], thicket: [96, 96], dead_tree: [48, 96], dead_birch: [48, 96],
-  hearth: [96, 96], firepit: [48, 96], brickfire: [48, 96], bar: [96, 48],
-  bookcase: [48, 96], cupboard: [48, 96], piano: [96, 96], longtable: [96, 48],
-  sofa: [144, 96], chair: [48, 96], throne: [48, 96], clock: [48, 96],
-  mirror: [48, 96], banner_gold: [48, 96], banner_red: [48, 96],
+  lamppost: [48, 144], stall_wood: [96, 96], stall_stone: [96, 96], tent: [144, 144],
+  tent_red: [144, 144], crate_tall: [48, 96], shelf_bare: [48, 96], shelf_bread: [48, 96],
+  shelf_fish: [48, 96], arch: [48, 96], counter: [96, 96], tree: [96, 96],
+  thicket: [96, 96], dead_tree: [48, 96], dead_birch: [48, 96], hearth: [96, 96],
+  firepit: [48, 96], brickfire: [48, 96], bar: [96, 48], bookcase: [48, 96],
+  cupboard: [48, 96], piano: [96, 96], longtable: [96, 48], sofa: [144, 96],
+  chair: [48, 96], throne: [48, 96], clock: [48, 96], mirror: [48, 96],
+  banner_gold: [48, 96], banner_red: [48, 96], candelabra: [48, 96],
 };
 const sizeOf = (name) => PROP_SIZE[name] || [T, T];
 

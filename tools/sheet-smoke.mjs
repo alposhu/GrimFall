@@ -242,17 +242,25 @@ const buildSrc = fs.readFileSync(path.join(ROOT, 'tools', 'assets', 'build-rtp-a
 const propsBlock = buildSrc.slice(buildSrc.indexOf('PROPS = ['), buildSrc.indexOf('TERRAIN = ['));
 const builtProps = [...propsBlock.matchAll(/\("([a-z_]+)",\s*"\w+\.png"/g)].map((m) => m[1]);
 
-// The same coupling, for the ground materials. terrain.png is indexed by
-// position too, so a tile inserted rather than appended renames every floor
-// after it — and the symptom is a room that silently paves itself in the wrong
-// stone.
-const terrainBlock = buildSrc.slice(buildSrc.indexOf('TERRAIN = ['), buildSrc.indexOf('CELL = '));
-const builtTerrain = [...terrainBlock.matchAll(/\("([a-z_]+)",\s*"\w+\.png"/g)].map((m) => m[1]);
-check(builtTerrain.length > 0, 'could not read the terrain table out of build-rtp-art.py');
-check(builtTerrain.join() === rtp.RTP_TERRAIN.join(),
-  `build-rtp-art.py and rtp.js disagree on terrain order:
-      built: ${builtTerrain.join(' ')}
-      code:  ${rtp.RTP_TERRAIN.join(' ')}`);
+// The terrain atlas names its tiles in a manifest the build script writes, and
+// rtp.js has to agree with it exactly — the atlas is indexed by position, so a
+// tile inserted rather than appended renames every floor after it, and the
+// symptom is a room that silently paves itself in the wrong stone.
+//
+// Compared against the emitted manifest rather than against the script's source
+// table: the carpets are COMPOSED from autotile quarters, not cropped, so they
+// never appear in a table any regex could read. The manifest says what was
+// actually built.
+const manifest = fs.readFileSync(path.join(RTPDIR, 'terrain.txt'), 'utf8')
+  .split('\n').map((l) => l.trim()).filter(Boolean);
+check(manifest.length > 0, 'img/rtp/terrain.txt is empty — re-run build-rtp-art.py');
+check(manifest.join() === rtp.RTP_TERRAIN.join(),
+  `terrain.txt and rtp.js disagree:\n      atlas: ${manifest.join(' ')}\n      code:  ${rtp.RTP_TERRAIN.join(' ')}`);
+
+const terrainPng = readPng(path.join(RTPDIR, 'terrain.png'));
+check(terrainPng.width / 48 === manifest.length,
+  `terrain.png holds ${terrainPng.width / 48} tiles but the manifest names ${manifest.length}`);
+console.log(`terrain           ok (${manifest.length} named tiles, atlas and code agree)`);
 check(builtProps.length > 0, 'could not read the prop table out of build-rtp-art.py');
 check(builtProps.join() === rtp.RTP_PROPS.join(),
   `build-rtp-art.py and rtp.js disagree on prop order:

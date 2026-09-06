@@ -28,6 +28,7 @@ import { rtpVendorFace } from '../art/rtp.js';
 import { goodIcon } from '../art/items.js';
 import { M, vendorReact, playerReact } from '../game/market.js';
 import { initCoop, openCoopScreen, closeCoopScreen } from './coop.js';
+import { initDice, openDice, closeDice } from './dice.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -63,6 +64,12 @@ function iconImg(name, size = 32) {
  * button and a landmark id in the Hearthhall both come through here, so the two
  * can never disagree about where "sanctuary" leads.
  */
+/** Sit down at Old Ren's table. `mode` is 'solo' or 'table'. */
+export function openDiceTable(mode) {
+  openDice(mode);
+  go('diceScreen');
+}
+
 export function action(a) {
   if (a === 'back') back();
   else if (a === 'play' || a === 'heroes') openHeroes();
@@ -107,6 +114,8 @@ export function initUI(callbacks) {
     'coopStartBtn', 'coopNote', 'coopSub',
     'coopRecodeBtn', 'coopMicBtn', 'coopLog', 'coopSayForm', 'coopSay',
     'coopTerms', 'coopDiff',
+    'diceScreen', 'diceHand', 'diceNote', 'diceTable',
+    'diceRollBtn', 'diceRerollBtn', 'diceStandBtn', 'diceAgainBtn',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -151,6 +160,7 @@ export function initUI(callbacks) {
     if (el.titleScreen.classList.contains('awaiting')) { e.preventDefault(); wake(); }
   });
 
+  initDice(el);
   initCoop(el, {
     onCoopStart: (m) => hooks.onCoopStart?.(m),
     onCoopRoom: () => hooks.onCoopRoom?.(),
@@ -331,6 +341,7 @@ export function go(name, remember = true) {
   // is a room you are still holding a slot in, and the others would sit
   // waiting on a name that is never going to be ready.
   if (current === 'coopScreen' && name !== 'coopScreen') closeCoopScreen();
+  if (current === 'diceScreen' && name !== 'diceScreen') closeDice();
   if (remember && current && current !== name) screenStack.push(current);
   hideAll(false);
   el[name]?.classList.add('active');

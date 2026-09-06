@@ -1,334 +1,499 @@
 // ---------------------------------------------------------------------------
-// hub.js — the Hearthhall, the room a co-op party stands in.
+// hub.js — the Hearthhall: the inn a co-op party stands in.
 //
-// WHAT THIS REPLACED, AND WHY.
+// Reached from Play Together and nowhere else. It is not a place on the menu;
+// it is what a lobby looks like once you are in one.
 //
-// The lobby was a form: type a name, type a code, watch a list of names appear.
-// It told you three people were present and gave you no reason to believe it.
-// This is the same lobby as a ROOM — an inn hall you walk around, where the
-// others are people moving and standing next to somebody means something
-// without a line of interface saying so.
+// WHAT THE ROOM IS TRYING TO BE.
 //
-// It is reached from Play Together and from nowhere else. It is not a place on
-// the menu: it is what the lobby looks like once you are in one.
+// A working inn at supper time, not a lobby with furniture in it. That means
+// three things, and all of them are in the data below rather than in clever
+// code:
 //
-// WHY AN INTERIOR.
+//   The floor is warm.  Oak boards, a red carpet with a gold border down the
+//       middle, stone only where stone belongs — the kitchen and the doorway.
+//       The rest of the game is dark on purpose; this is the one room with a
+//       fire going, and arriving somewhere warm is the point of it.
 //
-// A hall has walls, and walls are what make a lobby feel like somewhere you are
-// waiting rather than somewhere you are passing through. Everyone is pushed
-// into the same few hundred square metres, so you end up near each other
-// without being made to stand on a marker — and the room has a middle, which an
-// open field does not, so "meet by the fire" is a thing somebody can say.
+//   The tables are LAID.  Every table in the hall carries a supper: a roast, a
+//       jug, cups, a bowl of something. An empty table reads as a showroom. The
+//       same table with plates on it reads as somewhere people are eating, and
+//       that difference is thirty lines of placement, not a system.
 //
-// HOW THE MAP IS BUILT.
+//   There is somewhere to go.  A bar, a kitchen behind it, a market row, a
+//       game room with dice on the table, and a staircase to rooms upstairs.
+//       A single room, however pretty, is a screen. A building is a place.
 //
-// Declared, not painted. Rooms are rectangles with a floor, walls are drawn
-// from the same declaration that makes them solid, and `buildHub()` turns the
-// lot into a tile grid and a collision grid once. A hand-painted array would be
-// two thousand numbers nobody could read; this is a floor plan you can follow.
+// HOW IT IS BUILT.
+//
+// Declared. Rooms are rectangles with a floor, walls are derived from the same
+// declaration that makes them solid, carpets are laid as a nine-slice so the
+// drawn border lands on the border, and the whole thing is turned into tile
+// grids once at boot. A hand-painted map would be thousands of numbers nobody
+// could read or change.
 //
 // The tiles and furniture are RPG Maker MZ material through the pipeline the
-// Long Market already uses — see img/rtp/SOURCE.txt. Everything falls back to
-// flat colour if the atlas is missing, so the hall stays walkable when the
-// artwork is not there.
+// Long Market already uses — see img/rtp/SOURCE.txt for the licence position.
+// Everything falls back to flat colour if the atlas is missing.
 // ---------------------------------------------------------------------------
 
 import { clamp, makeRng } from '../core/util.js';
 
 export const TILE = 48;
-export const MAP_W = 56;
-export const MAP_H = 44;
-export const WORLD_W = MAP_W * TILE;
-export const WORLD_H = MAP_H * TILE;
-
-/** Just inside the door, facing up the hall. */
-export const SPAWN = { x: 28 * TILE, y: 39 * TILE + TILE / 2 };
 
 const WALK_SPEED = 168;
 const BODY_R = 13;
 
-// ---------------------------------------------------------------------------
-// The floor plan
-// ---------------------------------------------------------------------------
-//
-// Tiles, as [x, y, w, h]. Drawn in order, so a later room cuts into an earlier
-// one — which is how the wings are carved out of the hall rather than fitted
-// around it.
-const ROOMS = [
-  { id: 'hall', rect: [4, 4, 48, 36], floor: 'plank' },        // the whole room
-  { id: 'hearthside', rect: [20, 5, 16, 8], floor: 'hearthstone' },
-  { id: 'dais', rect: [5, 5, 12, 9], floor: 'flag' },           // the head table
-  { id: 'library', rect: [39, 5, 12, 11], floor: 'board' },
-  { id: 'bar', rect: [5, 17, 9, 12], floor: 'flag' },
-  { id: 'music', rect: [5, 31, 11, 8], floor: 'board' },
-  { id: 'armoury', rect: [41, 19, 10, 9], floor: 'flag' },
-  { id: 'door', rect: [24, 36, 8, 4], floor: 'flag' },          // the way out
+export const MATERIALS = [
+  'grass', 'moss', 'dirt', 'sand', 'road', 'cobble', 'brick', 'clay', 'slab', 'dark',
+  'plank', 'board', 'flag', 'hearthstone', 'rug_gold', 'rug_blue', 'rug_red',
+  'wall', 'wall_dark',
+  'oak', 'parquet', 'kitchen', 'marble',
+  'carpet_tl', 'carpet_t', 'carpet_tr', 'carpet_l', 'carpet_c', 'carpet_r',
+  'carpet_bl', 'carpet_b', 'carpet_br',
+  'rugblue_tl', 'rugblue_t', 'rugblue_tr', 'rugblue_l', 'rugblue_c', 'rugblue_r',
+  'rugblue_bl', 'rugblue_b', 'rugblue_br',
+  'walltop', 'wallhigh', 'walllow',
 ];
-
-/** Runners of carpet, laid over the boards. [x, y, w, h, material]. */
-const RUGS = [
-  [26, 14, 4, 22, 'rug_red'],       // the long aisle, door to hearth
-  [7, 6, 8, 6, 'rug_gold'],         // under the head table
-  [41, 7, 8, 7, 'rug_blue'],        // the library
-];
-
-// Furniture. [prop, tileX, tileY, solid].
-const FIXTURES = [
-  // --- the hearth, at the head of the room ---------------------------------
-  ['hearth', 27, 9, true],
-  ['logs', 24, 11, true], ['logs', 31, 11, true],
-  ['sofa', 23, 13, true], ['chair', 33, 12, true], ['chair', 21, 12, true],
-  ['banner_red', 25, 6, true], ['banner_red', 30, 6, true],
-
-  // --- the head table: where the host sets the terms ------------------------
-  ['throne', 11, 8, true],
-  ['clothtable', 9, 10, true], ['clothtable', 10, 10, true],
-  ['clothtable', 11, 10, true], ['clothtable', 12, 10, true],
-  ['banner_gold', 8, 6, true], ['banner_gold', 14, 6, true],
-  ['stool', 9, 12, true], ['stool', 12, 12, true],
-
-  // --- the bar --------------------------------------------------------------
-  ['bar', 7, 20, true], ['bar', 9, 20, true], ['bar_end', 11, 20, true],
-  ['shelf_kegs', 6, 18, true], ['shelf_jars', 7, 18, true], ['shelf_books', 8, 18, true],
-  ['keg', 6, 23, true], ['keg', 7, 23, true], ['woodtub', 9, 23, true],
-  ['stool_red', 7, 22, true], ['stool_red', 9, 22, true], ['stool_red', 11, 22, true],
-  ['pot', 12, 26, true], ['washpot', 6, 26, true],
-
-  // --- the library ----------------------------------------------------------
-  ['bookcase', 40, 6, true], ['bookcase', 41, 6, true], ['bookcase', 42, 6, true],
-  ['bookcase', 48, 6, true], ['bookcase', 49, 6, true], ['bookcase', 50, 6, true],
-  ['roundtable', 44, 10, true], ['stool', 43, 11, true], ['stool', 46, 11, true],
-  ['cupboard', 40, 13, true], ['clock', 50, 13, true],
-
-  // --- the armoury wall -----------------------------------------------------
-  ['swords', 43, 20, true], ['crossed', 45, 20, true], ['shield', 47, 20, true],
-  ['mirror', 49, 21, true],
-  ['cupboard', 42, 24, true], ['cupboard', 43, 24, true],
-  ['sidetable', 46, 25, true], ['sidetable', 47, 25, true],
-
-  // --- the music corner -----------------------------------------------------
-  ['piano', 7, 34, true],
-  ['stool', 7, 36, true], ['stool_red', 9, 36, true],
-  ['sofa', 12, 36, true],
-
-  // --- the long tables, down the middle of the hall -------------------------
-  ['longtable', 20, 20, true], ['longtable', 22, 20, true],
-  ['longtable', 20, 24, true], ['longtable', 22, 24, true],
-  ['longtable', 33, 20, true], ['longtable', 35, 20, true],
-  ['longtable', 33, 24, true], ['longtable', 35, 24, true],
-  ['longtable', 20, 30, true], ['longtable', 22, 30, true],
-  ['longtable', 33, 30, true], ['longtable', 35, 30, true],
-  ['stool', 20, 22, true], ['stool', 23, 22, true], ['stool', 34, 22, true],
-  ['stool', 21, 26, true], ['stool', 24, 26, true], ['stool', 35, 26, true],
-  ['stool_red', 20, 32, true], ['stool_red', 34, 32, true],
-
-  // --- odds and ends --------------------------------------------------------
-  ['keg', 17, 34, true], ['keg', 18, 34, true], ['woodtub', 44, 34, true],
-  ['clothtable', 44, 32, true], ['stool', 45, 33, true],
-  ['mirror', 17, 18, true],
-];
+const mat = (name) => Math.max(0, MATERIALS.indexOf(name));
 
 // ---------------------------------------------------------------------------
-// The people who live here
+// The ground floor
 // ---------------------------------------------------------------------------
-//
-// `folk` indexes the townsfolk atlas (src/art/rtp.js, RTP_FOLK). Their lines
-// are the game explaining itself — the things a new player learns by dying
-// twice, said by somebody standing in a room instead of printed on a help
-// screen nobody opens.
-//
-// Each line is spoken in turn and then the list starts again, so talking to
-// somebody twice is never the same answer twice.
-export const FOLK = [
-  {
-    id: 'keeper', name: 'The Keeper', folk: 15, x: 9, y: 21, dir: 'south',
-    lines: [
+const GROUND = {
+  id: 'ground',
+  w: 60,
+  h: 42,
+  spawn: { x: 30, y: 37 },
+  floor: 'oak',
+
+  // [x, y, w, h, material]. Later wins, so the wings are cut out of the hall.
+  rooms: [
+    [3, 3, 54, 36, 'oak'],           // the hall itself
+    [26, 36, 8, 3, 'flag'],          // the doorway, flagged so boots have somewhere to be
+    [4, 4, 12, 9, 'kitchen'],        // the kitchen, behind the bar
+    [4, 15, 11, 12, 'parquet'],      // the taproom floor in front of the bar
+    [44, 4, 13, 12, 'parquet'],      // market row
+    [43, 26, 14, 12, 'parquet'],     // the game room
+    [24, 4, 14, 8, 'parquet'],       // the hearth end
+  ],
+
+  // Partition walls, [x, y, w, h], put back AFTER the rooms are cut. This is
+  // what makes the kitchen a kitchen rather than a differently-coloured patch
+  // of the same room: you cannot see into it, and you go in through a door.
+  //
+  // Doorways are gaps in this list rather than holes punched afterwards, so a
+  // wall that seals a room off is a wall somebody has to have written down.
+  walls: [
+    [16, 4, 1, 10],                  // kitchen, east side
+    [4, 13, 5, 1], [11, 13, 6, 1],   // kitchen, south side — door at x 9-10
+    [43, 4, 1, 6], [43, 12, 1, 5],   // market row, west side — door at y 10-11
+    [44, 16, 13, 1],                 // market row, south side
+    [42, 26, 1, 4], [42, 33, 1, 6],  // game room, west side — door at y 30-32
+    [43, 25, 14, 1],                 // game room, north side
+  ],
+
+  // Carpets, laid as a nine-slice: [x, y, w, h, prefix].
+  carpets: [
+    [20, 14, 20, 20, 'carpet'],      // the great hall's runner
+    [26, 5, 10, 6, 'carpet'],        // in front of the fire
+  ],
+
+  // [prop, x, y, solid]
+  fixtures: [
+    // --- the hearth, at the head of the room -----------------------------
+    ['hearth', 30, 6, true],
+    ['logs', 27, 7, true], ['logs', 34, 7, true],
+    ['sofa', 26, 10, true], ['chair', 24, 8, true], ['chair', 36, 8, true],
+    ['banner_red', 28, 5, true], ['banner_red', 33, 5, true],
+    ['candelabra', 25, 5, true], ['candelabra', 36, 5, true],
+
+    // --- the long bar, down the west wall ---------------------------------
+    ['bar', 6, 17, true], ['bar', 8, 17, true], ['bar', 10, 17, true],
+    ['bar_end', 12, 17, true],
+    ['shelf_kegs', 5, 15, true], ['shelf_jars', 6, 15, true],
+    ['shelf_books', 7, 15, true], ['shelf_kegs', 8, 15, true],
+    ['keg', 5, 20, true], ['keg', 6, 20, true], ['cask_a', 5, 22, true],
+    ['cask_b', 6, 22, true], ['woodtub', 8, 22, true],
+    ['stool_red', 6, 19, true], ['stool_red', 8, 19, true], ['stool_red', 10, 19, true],
+    ['plant_a', 4, 25, false], ['plant_c', 13, 25, false],
+
+    // --- the kitchen ------------------------------------------------------
+    ['brickfire', 5, 6, true], ['bar_end', 7, 6, true],
+    ['choppingboard', 9, 6, false], ['pan', 10, 6, false],
+    ['stewpot', 11, 6, false],
+    ['cupboard', 13, 5, true], ['cupboard', 14, 5, true],
+    ['larder', 9, 4, true], ['sconce', 11, 4, true],
+    ['sack_a', 5, 11, true], ['sack_b', 6, 11, true], ['basket_a', 8, 11, true],
+    ['basket_b', 9, 11, true], ['claypot', 11, 11, true],
+
+    // --- market row, along the east wall ----------------------------------
+    ['counter', 46, 7, true], ['counter', 50, 7, true], ['counter', 54, 7, true],
+    ['case_wares', 46, 5, true], ['case_tools', 50, 5, true], ['bookcase', 54, 5, true],
+    ['scales', 47, 6, false], ['goldbars', 51, 6, false], ['phials', 55, 6, false],
+    ['chest', 45, 11, true], ['chest_open', 47, 11, true],
+    ['bolts', 51, 11, true], ['basket_b', 53, 11, true],
+    ['plant_b', 44, 14, false], ['plant_d', 56, 14, false],
+    ['wallcrest', 48, 4, true], ['wallblades', 52, 4, true],
+
+    // --- the game room ----------------------------------------------------
+    ['roundtable', 47, 30, true], ['stool', 46, 31, true], ['stool', 49, 31, true],
+    ['roundtable', 53, 30, true], ['stool', 52, 31, true], ['stool', 55, 31, true],
+    ['clothtable', 47, 35, true], ['clothtable', 53, 35, true],
+    ['stool_red', 46, 36, true], ['stool_red', 54, 36, true],
+    ['piano', 44, 28, true], ['stool', 44, 30, true],
+    ['mirror', 56, 28, true], ['plant_a', 44, 37, false],
+
+    // --- the great hall's tables ------------------------------------------
+    ['longtable', 22, 17, true], ['longtable', 24, 17, true],
+    ['longtable', 34, 17, true], ['longtable', 36, 17, true],
+    ['longtable', 22, 23, true], ['longtable', 24, 23, true],
+    ['longtable', 34, 23, true], ['longtable', 36, 23, true],
+    ['longtable', 22, 29, true], ['longtable', 24, 29, true],
+    ['longtable', 34, 29, true], ['longtable', 36, 29, true],
+    ['stool', 22, 19, true], ['stool', 25, 19, true],
+    ['stool', 35, 19, true], ['stool', 38, 19, true],
+    ['stool', 22, 25, true], ['stool', 25, 25, true],
+    ['stool', 35, 25, true], ['stool', 38, 25, true],
+    ['stool_red', 23, 31, true], ['stool_red', 36, 31, true],
+
+    // --- the way out, and the way up --------------------------------------
+    ['banner_gold', 27, 35, true], ['banner_gold', 32, 35, true],
+    ['clock', 20, 35, true], ['plant_c', 39, 35, false],
+    ['bookcase', 41, 5, true], ['bookcase', 41, 7, true],
+  ],
+
+  // A supper on every table. [x, y, item] — drawn on the table's surface and
+  // never solid: you walk up to a table, not through its dinner.
+  laid: [
+    [22, 17, 'roast'], [24, 17, 'jug'], [25, 17, 'cups'],
+    [34, 17, 'roast_bird'], [36, 17, 'goblets'], [37, 17, 'wine'],
+    [22, 23, 'pasta'], [24, 23, 'steins'], [25, 23, 'plates'],
+    [34, 23, 'shellfish'], [36, 23, 'ale'], [37, 23, 'cups'],
+    [22, 29, 'breakfast'], [24, 29, 'teapot'], [25, 29, 'sweets'],
+    [34, 29, 'soup'], [36, 29, 'breadboard'], [37, 29, 'glasses'],
+    [47, 30, 'bottles'], [53, 30, 'tart'],
+    [47, 35, 'supper'], [53, 35, 'casserole'],
+    [9, 17, 'steins'], [11, 17, 'goblets'], [7, 17, 'ale'],
+    [46, 7, 'fruit'], [50, 7, 'greens'], [54, 7, 'sweets'],
+  ],
+
+  // [id, name, folkIndex, x, y, dir, lines[]]
+  folk: [
+    ['keeper', 'Bryn the Keeper', 15, 9, 16, 'south', [
       'Sit where you like. The run will still be there when you are ready.',
-      'Nobody starts until the one at the head table says so. That is the rule.',
-      'Four of you at most. More than that and the hall gets loud.',
-    ],
-  },
-  {
-    id: 'chronicler', name: 'The Chronicler', folk: 6, x: 45, y: 9, dir: 'south',
-    lines: [
-      'Your weapons grow. Take the same one twice and it becomes something else.',
-      'A creature ringed in light is an elite. It hits harder and it drops better.',
-      'Twenty minutes is the whole of it. Survive that and the Sovereign comes.',
-      'Gold you bank is kept. Gold you are carrying when you fall is not.',
-    ],
-  },
-  {
-    id: 'quartermaster', name: 'The Quartermaster', folk: 4, x: 45, y: 22, dir: 'south',
-    lines: [
+      'Nobody leaves until the one at the head table says so. House rule.',
+      'Four of you at most. More than that and I cannot hear myself pour.',
+      'Upstairs if you want quiet. Down here if you want company.',
+    ]],
+    ['cook', 'Marta the Cook', 10, 10, 8, 'south', [
+      'Eat before you go. A dish carries you further than a prayer.',
+      'The stew is always on. It has been on for some years now.',
+      'They come back hungrier than they leave. That is the job.',
+    ]],
+    ['quartermaster', 'Oswin', 16, 48, 8, 'south', [
       'Range is a choice, not a gift. Take the upgrade and you fight further out.',
       'Rocks and trees stop you as surely as they stop them. Use that.',
       'Down is not dead. A friend can stand you back up if they reach you in time.',
-    ],
-  },
-  {
-    id: 'bard', name: 'The Bard', folk: 2, x: 9, y: 34, dir: 'east',
-    lines: [
+    ]],
+    ['coinweigher', 'The Coinweigher', 17, 52, 8, 'south', [
+      'Gold you bank is kept. Gold in your pocket when you fall is not.',
+      'I weigh what you bring back. I do not ask where it came from.',
+    ]],
+    ['bard', 'Piet the Bard', 2, 45, 29, 'east', [
       'I have a song about the Sovereign. It is short. Nobody survives the chorus.',
+      'Roll against me if you like. I have never won and I have never stopped.',
       'They say the Blight took the west road. I say the west road took itself.',
-    ],
-  },
-  {
-    id: 'cook', name: 'The Cook', folk: 10, x: 12, y: 26, dir: 'east',
-    lines: [
-      'Eat before you go. A dish carries you further than a prayer.',
-      'The market opens between bouts. Spend there, not here.',
-    ],
-  },
-  {
-    id: 'stranger', name: 'A Stranger', folk: 8, x: 38, y: 33, dir: 'west',
-    lines: [
+    ]],
+    ['gambler', 'Old Ren', 4, 50, 31, 'north', [
+      'Five dice, one re-roll, highest total takes it. That is the whole of it.',
+      'I have lost more here than I ever earned out there. Worth it.',
+      'Sit down. Nobody plays for anything that matters.',
+    ]],
+    ['scholar', 'The Chronicler', 6, 42, 6, 'west', [
+      'Your weapons grow. Take the same one twice and it becomes something else.',
+      'A creature ringed in light is an elite. It hits harder and it drops better.',
+      'Twenty minutes is the whole of it. Survive that and the Sovereign comes.',
+    ]],
+    ['stranger', 'A Stranger', 8, 26, 32, 'east', [
       'I came in from the road. I do not remember which one.',
       'Something out there is unmaking the words for things. Start with the trees.',
-    ],
-  },
-];
+    ]],
+  ],
 
-// Drinkers and idlers, so the hall is not empty between parties. Purely
-// decorative: they are drawn and they are solid, and they do nothing else.
-const REGULARS = [
-  [3, 19, 26, 'south'], [11, 21, 30, 'north'], [13, 35, 22, 'west'],
-  [1, 22, 32, 'east'], [7, 36, 30, 'south'], [9, 16, 30, 'north'],
-  [5, 30, 33, 'west'], [12, 42, 30, 'north'],
-];
+  // Drinkers and idlers. Decorative, and the reason the room has a noise floor.
+  regulars: [
+    [3, 21, 25, 'north'], [11, 25, 20, 'west'], [13, 35, 21, 'east'],
+    [1, 23, 26, 'east'], [7, 37, 26, 'south'], [9, 12, 20, 'north'],
+    [5, 30, 31, 'west'], [12, 38, 31, 'north'], [0, 7, 18, 'north'],
+    [14, 10, 24, 'east'], [2, 51, 33, 'south'], [6, 45, 34, 'east'],
+  ],
+
+  points: [
+    { id: 'door', x: 30, y: 37, r: 100, label: 'The door — begin the run' },
+    { id: 'settings', x: 30, y: 8, r: 96, label: 'The head of the hall — the terms of the run' },
+    { id: 'party', x: 27, y: 22, r: 92, label: 'The long table — who is here' },
+    { id: 'sanctuary', x: 50, y: 8, r: 92, label: 'Market row — the Sanctuary' },
+    { id: 'help', x: 41, y: 6, r: 74, label: 'The shelves — how to play' },
+    { id: 'arena', x: 9, y: 18, r: 84, label: 'The bar — the Boss Arena' },
+    { id: 'dice', x: 50, y: 30, r: 90, label: "Old Ren's table — a game of dice" },
+    { id: 'upstairs', x: 55, y: 20, r: 78, label: 'The stair — rooms above' },
+  ],
+};
 
 // ---------------------------------------------------------------------------
-// The things you can use
+// Upstairs
 // ---------------------------------------------------------------------------
-export const POINTS = [
-  { id: 'door', x: 28 * TILE, y: 38 * TILE, r: 90, label: 'The door — begin the run' },
-  { id: 'settings', x: 11 * TILE, y: 10 * TILE, r: 92, label: 'The head table — the terms of the run' },
-  { id: 'party', x: 28 * TILE, y: 11 * TILE, r: 96, label: 'The hearth — who is here' },
-  { id: 'sanctuary', x: 9 * TILE, y: 21 * TILE, r: 78, label: 'The bar — the Sanctuary' },
-  { id: 'help', x: 45 * TILE, y: 10 * TILE, r: 84, label: 'The library — how to play' },
-  { id: 'arena', x: 46 * TILE, y: 21 * TILE, r: 84, label: 'The armoury — the Boss Arena' },
-];
+const UPPER = {
+  id: 'upper',
+  w: 44,
+  h: 30,
+  spawn: { x: 38, y: 21 },
+  floor: 'board',
+  rooms: [
+    [3, 3, 38, 24, 'oak'],           // the landing and corridor
+    [5, 5, 10, 8, 'parquet'],        // the study
+    [18, 5, 8, 8, 'oak'],            // a guest room
+    [29, 5, 8, 8, 'oak'],            // another
+    [5, 17, 10, 8, 'oak'],           // a third
+    [18, 17, 8, 8, 'parquet'],       // the long room, for other ways to play
+    [34, 17, 6, 8, 'flag'],          // the stairhead
+  ],
+  // Upstairs is corridors and closed doors, which is what makes it upstairs.
+  walls: [
+    [4, 13, 12, 1],                              // the study's south wall
+    [16, 4, 1, 10],                              // and its east wall
+    [17, 13, 10, 1], [28, 13, 10, 1],            // the two guest rooms
+    [26, 4, 1, 9], [37, 4, 1, 9],
+    [4, 25, 12, 1], [16, 16, 1, 10],             // the third room
+    [17, 25, 10, 1], [26, 16, 1, 10],            // the long room
+    [17, 16, 4, 1], [23, 16, 4, 1],              // its doorway, at x 21-22
+    [33, 16, 1, 10],                             // the stairhead
+  ],
+
+  carpets: [
+    [6, 6, 8, 6, 'rugblue'],
+    [19, 18, 6, 6, 'carpet'],
+  ],
+  fixtures: [
+    // the study
+    ['bookcase', 6, 5, true], ['bookcase', 7, 5, true], ['bookcase', 8, 5, true],
+    ['bookcase', 12, 5, true], ['bookcase', 13, 5, true],
+    ['roundtable', 9, 9, true], ['stool', 8, 10, true], ['stool', 11, 10, true],
+    ['clock', 14, 8, true], ['candelabra', 5, 8, true],
+
+    // guest rooms, plainly furnished
+    ['sofa', 19, 7, true], ['sidetable', 23, 7, true], ['mirror', 25, 6, true],
+    ['sofa', 30, 7, true], ['sidetable', 34, 7, true], ['clock', 36, 6, true],
+    ['sofa', 6, 19, true], ['sidetable', 10, 19, true], ['plant_b', 13, 19, false],
+
+    // the long room — where a party settles on what to play
+    ['longtable', 19, 20, true], ['longtable', 21, 20, true],
+    ['stool', 19, 22, true], ['stool', 22, 22, true], ['stool_red', 24, 21, true],
+    ['banner_gold', 20, 17, true], ['banner_gold', 24, 17, true],
+    ['throne', 22, 18, true],
+
+    // the landing
+    ['plant_a', 16, 15, false], ['plant_c', 28, 15, false],
+    ['wallblades', 27, 4, true], ['wallcrest', 32, 4, true],
+    ['chest', 39, 6, true], ['cask_a', 39, 8, true],
+  ],
+  laid: [
+    [9, 9, 'tome'], [10, 9, 'scrolls'],
+    [19, 20, 'map'], [21, 20, 'ledger'], [22, 20, 'goblets'],
+    [23, 7, 'cups'], [34, 7, 'teapot'], [10, 19, 'wine'],
+  ],
+  folk: [
+    ['archivist', 'The Archivist', 6, 10, 7, 'south', [
+      'Everything anyone did here is written down. Most of it twice.',
+      'The Sovereign has been ended forty-one times. It keeps happening.',
+      'Read if you like. Nothing up here will kill you.',
+    ]],
+    ['warden', 'The Warden', 4, 22, 19, 'south', [
+      'This is where a party decides what it is doing. Sit, argue, then go.',
+      'Different nights, different rules. Ask the one at the head of the table.',
+    ]],
+  ],
+  regulars: [
+    [11, 33, 10, 'south'], [8, 7, 22, 'east'], [1, 26, 21, 'west'],
+  ],
+  points: [
+    { id: 'downstairs', x: 37, y: 21, r: 82, label: 'The stair — back to the hall' },
+    { id: 'help', x: 10, y: 8, r: 80, label: 'The study — how to play' },
+    { id: 'variants', x: 22, y: 20, r: 90, label: 'The long room — how you will play' },
+  ],
+};
+
+const AREA_DEFS = { ground: GROUND, upper: UPPER };
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 export const H = {
   built: false,
-  floor: null,
-  solid: null,
-  props: [],
-  folk: [],                 // the NPCs, as drawable entities
-  player: { x: SPAWN.x, y: SPAWN.y, dir: 'north', frame: 0, moving: false, anim: 0 },
+  areas: {},
+  area: 'ground',
+  player: { x: 0, y: 0, dir: 'north', frame: 0, moving: false, anim: 0 },
   others: [],
-  cam: { x: SPAWN.x, y: SPAWN.y },
-  near: null,               // POINT in reach, or null
-  nearFolk: null,           // NPC in reach, or null
-  speech: null,             // { who, text, until }
+  cam: { x: 0, y: 0 },
+  near: null,
+  nearFolk: null,
+  speech: null,
   t: 0,
 };
 
-export const MATERIALS = [
-  'grass', 'moss', 'dirt', 'sand', 'road', 'cobble', 'brick', 'clay', 'slab', 'dark',
-  'plank', 'board', 'flag', 'hearthstone', 'rug_gold', 'rug_blue', 'rug_red',
-  'wall', 'wall_dark',
-];
-const mat = (name) => Math.max(0, MATERIALS.indexOf(name));
+/** The area the player is standing in. */
+export const A = () => H.areas[H.area];
+export const MAP_W = () => A().w;
+export const MAP_H = () => A().h;
+export const WORLD_W = () => A().w * TILE;
+export const WORLD_H = () => A().h * TILE;
+export const SPAWN = () => ({
+  x: AREA_DEFS[H.area].spawn.x * TILE + TILE / 2,
+  y: AREA_DEFS[H.area].spawn.y * TILE + TILE / 2,
+});
 
-const idx = (tx, ty) => ty * MAP_W + tx;
-const inMap = (tx, ty) => tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H;
+const inArea = (a, tx, ty) => tx >= 0 && ty >= 0 && tx < a.w && ty < a.h;
+const at = (a, tx, ty) => ty * a.w + tx;
 
-function fill(floor, [x, y, w, h], material) {
-  const v = mat(material);
+/**
+ * A rectangle of carpet, laid as a nine-slice.
+ *
+ * The border tiles are drawn art, not a tint — the corner tile has the corner
+ * of the pattern on it — so a rug is only a rug if the right tile lands in the
+ * right place. Anything narrower than two tiles has no middle and is skipped
+ * rather than drawn wrong.
+ */
+function layCarpet(a, x, y, w, h, prefix) {
+  if (w < 2 || h < 2) return;
   for (let ty = y; ty < y + h; ty++) {
-    for (let tx = x; tx < x + w; tx++) if (inMap(tx, ty)) floor[idx(tx, ty)] = v;
+    for (let tx = x; tx < x + w; tx++) {
+      if (!inArea(a, tx, ty)) continue;
+      const vy = ty === y ? 't' : ty === y + h - 1 ? 'b' : '';
+      const vx = tx === x ? 'l' : tx === x + w - 1 ? 'r' : '';
+      const part = (vy + vx) || 'c';
+      a.floor[at(a, tx, ty)] = mat(`${prefix}_${part}`);
+    }
   }
 }
 
 /**
- * Only the bottom row of a tall prop blocks.
+ * Which wall tile a solid square should show.
  *
- * A bookcase is drawn two tiles high and you walk past its top, not through it.
- * Blocking the whole rectangle turns every piece of furniture into a wall twice
- * its real size, and a room furnished that way plays like a maze.
+ * A room drawn with one flat colour behind it is a floor plan. Two tiles of
+ * panelling above every floor edge — a skirting board and the panel above it —
+ * is what makes it read as a wall you could lean on, and it costs one lookup
+ * per tile rather than a lighting model.
  */
-function block(solid, tx, ty, w) {
-  for (let ox = 0; ox < w; ox++) if (inMap(tx + ox, ty)) solid[idx(tx + ox, ty)] = 1;
+function dressWalls(a) {
+  const open = (tx, ty) => inArea(a, tx, ty) && !a.solidBase[at(a, tx, ty)];
+  for (let ty = 0; ty < a.h; ty++) {
+    for (let tx = 0; tx < a.w; tx++) {
+      if (!a.solidBase[at(a, tx, ty)]) continue;
+      let name = 'walltop';
+      if (open(tx, ty + 1)) name = 'walllow';
+      else if (open(tx, ty + 2)) name = 'wallhigh';
+      a.floor[at(a, tx, ty)] = mat(name);
+    }
+  }
 }
 
 const PROP_TILES = {
-  hearth: 2, bar: 2, piano: 2, longtable: 2, sofa: 3,
+  hearth: 2, bar: 2, piano: 2, longtable: 2, sofa: 3, counter: 2,
 };
 const propWidth = (name) => PROP_TILES[name] || 1;
 
-export function buildHub() {
-  if (H.built) return;
-  const floor = new Uint8Array(MAP_W * MAP_H);
-  const solid = new Uint8Array(MAP_W * MAP_H);
-  const props = [];
-  const folk = [];
-  const rng = makeRng(0x4e11);
-
-  // Everything outside the hall is wall. The room is then cut out of it, which
-  // means there is no way to leave a gap in the shell by mistake.
-  floor.fill(mat('wall_dark'));
-  solid.fill(1);
-
-  for (const room of ROOMS) {
-    fill(floor, room.rect, room.floor);
-    const [x, y, w, h] = room.rect;
-    for (let ty = y; ty < y + h; ty++) {
-      for (let tx = x; tx < x + w; tx++) if (inMap(tx, ty)) solid[idx(tx, ty)] = 0;
-    }
-  }
-  for (const [x, y, w, h, material] of RUGS) fill(floor, [x, y, w, h], material);
-
-  // The inside face of the shell, one tile of dressed stone, so the wall reads
-  // as masonry from in here rather than as the void the outside is.
-  for (let ty = 0; ty < MAP_H; ty++) {
-    for (let tx = 0; tx < MAP_W; tx++) {
-      if (!solid[idx(tx, ty)]) continue;
-      let touchesFloor = false;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
-        const nx = tx + dx, ny = ty + dy;
-        if (inMap(nx, ny) && !solid[idx(nx, ny)]) { touchesFloor = true; break; }
-      }
-      if (touchesFloor) floor[idx(tx, ty)] = mat('wall');
-    }
-  }
-
-  const add = (prop, tx, ty, isSolid) => {
-    props.push({ prop, x: tx * TILE + TILE / 2, y: ty * TILE + TILE, sortY: ty * TILE + TILE });
-    if (isSolid) block(solid, tx, ty, propWidth(prop));
+function buildArea(def) {
+  const a = {
+    id: def.id, w: def.w, h: def.h,
+    floor: new Uint8Array(def.w * def.h),
+    solid: new Uint8Array(def.w * def.h),
+    solidBase: new Uint8Array(def.w * def.h),
+    props: [], folk: [], points: def.points,
   };
-  for (const [prop, tx, ty, isSolid] of FIXTURES) add(prop, tx, ty, isSolid);
+  const rng = makeRng(0x4e11 + def.w);
 
-  // The named cast, then the regulars.
-  for (const f of FOLK) {
-    folk.push({
-      id: f.id, name: f.name, folk: f.folk, lines: f.lines, said: 0,
-      x: f.x * TILE + TILE / 2, y: f.y * TILE + TILE / 2,
-      dir: f.dir, frame: 0, anim: rng() * 4, sortY: f.y * TILE + TILE / 2,
-    });
-    solid[idx(f.x, f.y)] = 1;
+  // Everything is wall until a room is cut out of it, so the shell can never
+  // be left with a hole by mistake.
+  a.floor.fill(mat('walltop'));
+  a.solid.fill(1);
+
+  for (const [x, y, w, h, material] of def.rooms) {
+    for (let ty = y; ty < y + h; ty++) {
+      for (let tx = x; tx < x + w; tx++) {
+        if (!inArea(a, tx, ty)) continue;
+        a.floor[at(a, tx, ty)] = mat(material);
+        a.solid[at(a, tx, ty)] = 0;
+      }
+    }
   }
-  for (const [variant, tx, ty, dir] of REGULARS) {
-    folk.push({
+  for (const [x, y, w, h] of def.walls || []) {
+    for (let ty = y; ty < y + h; ty++) {
+      for (let tx = x; tx < x + w; tx++) {
+        if (inArea(a, tx, ty)) a.solid[at(a, tx, ty)] = 1;
+      }
+    }
+  }
+  a.solidBase.set(a.solid);
+  dressWalls(a);
+
+  for (const [x, y, w, h, prefix] of def.carpets) layCarpet(a, x, y, w, h, prefix);
+
+  const add = (prop, tx, ty, isSolid, lift = 0) => {
+    a.props.push({
+      prop,
+      x: tx * TILE + TILE / 2,
+      y: ty * TILE + TILE - lift,
+      sortY: ty * TILE + TILE + (lift ? 1 : 0),
+    });
+    if (isSolid) {
+      for (let ox = 0; ox < propWidth(prop); ox++) {
+        if (inArea(a, tx + ox, ty)) a.solid[at(a, tx + ox, ty)] = 1;
+      }
+    }
+  };
+  for (const [prop, tx, ty, isSolid] of def.fixtures) add(prop, tx, ty, isSolid);
+  // Supper sits ON the table: lifted onto its surface and sorted just after it,
+  // so it draws over the table rather than under it.
+  for (const [tx, ty, item] of def.laid || []) add(item, tx, ty, false, 20);
+
+  for (const [id, name, variant, tx, ty, dir, lines] of def.folk) {
+    a.folk.push({
+      id, name, folk: variant, lines, said: 0,
+      x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2,
+      dir, frame: 0, anim: rng() * 4, sortY: ty * TILE + TILE / 2,
+      home: dir, chat: 0,
+    });
+    if (inArea(a, tx, ty)) a.solid[at(a, tx, ty)] = 1;
+  }
+  for (const [variant, tx, ty, dir] of def.regulars) {
+    a.folk.push({
       id: null, name: null, folk: variant, lines: null,
       x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2,
       dir, frame: 0, anim: rng() * 4, sortY: ty * TILE + TILE / 2,
+      home: dir, chat: 0,
     });
-    solid[idx(tx, ty)] = 1;
+    if (inArea(a, tx, ty)) a.solid[at(a, tx, ty)] = 1;
   }
 
-  props.sort((a, b) => a.sortY - b.sortY);
-  H.floor = floor;
-  H.solid = solid;
-  H.props = props;
-  H.folk = folk;
+  a.props.sort((p, q) => p.sortY - q.sortY);
+  return a;
+}
+
+export function buildHub() {
+  if (H.built) return;
+  for (const key of Object.keys(AREA_DEFS)) H.areas[key] = buildArea(AREA_DEFS[key]);
   H.built = true;
 }
 
-export const floorAt = (tx, ty) => (inMap(tx, ty) ? MATERIALS[H.floor[idx(tx, ty)]] : 'wall_dark');
-export const isSolid = (tx, ty) => (!inMap(tx, ty) ? true : !!H.solid[idx(tx, ty)]);
+export const floorAt = (tx, ty) => {
+  const a = A();
+  return inArea(a, tx, ty) ? MATERIALS[a.floor[at(a, tx, ty)]] : 'walltop';
+};
+export const isSolid = (tx, ty) => {
+  const a = A();
+  return !inArea(a, tx, ty) ? true : !!a.solid[at(a, tx, ty)];
+};
 
 function blocked(x, y, r) {
   const x0 = Math.floor((x - r) / TILE), x1 = Math.floor((x + r) / TILE);
@@ -339,18 +504,27 @@ function blocked(x, y, r) {
   return false;
 }
 
-export function enterHub(at = SPAWN) {
-  buildHub();
-  H.player.x = at.x;
-  H.player.y = at.y;
-  H.player.dir = 'north';
-  H.player.moving = false;
-  H.cam.x = at.x;
-  H.cam.y = at.y;
-  H.others = [];
+/** Move to another floor of the inn, landing on its own arrival mark. */
+export function goToArea(id) {
+  if (!H.areas[id]) return;
+  H.area = id;
+  const s = SPAWN();
+  H.player.x = s.x;
+  H.player.y = s.y;
+  H.cam.x = s.x;
+  H.cam.y = s.y;
   H.near = null;
   H.nearFolk = null;
   H.speech = null;
+}
+
+export function enterHub() {
+  buildHub();
+  H.area = 'ground';
+  goToArea('ground');
+  H.player.dir = 'north';
+  H.player.moving = false;
+  H.others = [];
   H.t = 0;
 }
 
@@ -361,13 +535,48 @@ function move(p, dx, dy, dt) {
   if (!blocked(nx, p.y, BODY_R)) p.x = nx;
   const ny = p.y + dy * step;
   if (!blocked(p.x, ny, BODY_R)) p.y = ny;
-  p.x = clamp(p.x, TILE, WORLD_W - TILE);
-  p.y = clamp(p.y, TILE, WORLD_H - TILE);
+  p.x = clamp(p.x, TILE, WORLD_W() - TILE);
+  p.y = clamp(p.y, TILE, WORLD_H() - TILE);
+}
+
+/**
+ * The regulars talk to each other.
+ *
+ * Not a conversation system — a timer, a nearby neighbour, and a line over one
+ * head at a time. The point is that the room is audibly doing something when
+ * nobody is doing anything, and that costs a few lines rather than a schedule
+ * and a pathfinder.
+ */
+const CHATTER = [
+  'Another.', 'Not for me. Not after last time.', 'Did you see the size of it?',
+  'They went out at dawn and came back at dawn.', 'Pay the man, Ren.',
+  'One more round and I am going home.', 'It is not the walking, it is the coming back.',
+  'She took the west road on purpose.', 'That is not what happened and you know it.',
+  'To the ones who did not.', 'Quiet night. Good.', 'Play something, Piet.',
+];
+
+function updateChatter(a, dt, t) {
+  for (const f of a.folk) {
+    if (f.lines) continue;                 // the named cast speak when spoken to
+    f.chat -= dt;
+    if (f.chat > 0) continue;
+    f.chat = 6 + Math.random() * 14;
+    // Somebody has to be near enough to be talking TO, or it is a person
+    // muttering at a wall.
+    const near = a.folk.find((g) => g !== f
+      && Math.hypot(g.x - f.x, g.y - f.y) < TILE * 3.5);
+    if (!near) continue;
+    f.says = { text: CHATTER[Math.floor(Math.random() * CHATTER.length)], until: t + 3.5 };
+    // They turn to whoever they are speaking to.
+    const dx = near.x - f.x, dy = near.y - f.y;
+    f.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
+  }
 }
 
 export function updateHub(dt, input, view) {
   if (!H.built) return;
   H.t += dt;
+  const a = A();
   const p = H.player;
 
   let dx = input?.x || 0;
@@ -391,23 +600,22 @@ export function updateHub(dt, input, view) {
     o.anim = (o.anim || 0) + (o.moving ? dt * 8 : 0);
     o.frame = o.moving ? Math.floor(o.anim) % 4 : 0;
   }
-
-  // The regulars shift their weight. Nothing moves position — a crowd that
-  // walks needs pathfinding, and a crowd that never twitches looks embalmed.
-  for (const f of H.folk) {
+  for (const f of a.folk) {
     f.anim += dt * 1.4;
     f.frame = Math.floor(f.anim) % 4;
+    if (f.says && H.t > f.says.until) f.says = null;
   }
+  updateChatter(a, dt, H.t);
 
   const halfW = (view?.w || 960) / 2;
   const halfH = (view?.h || 540) / 2;
-  H.cam.x = WORLD_W <= halfW * 2 ? WORLD_W / 2 : clamp(p.x, halfW, WORLD_W - halfW);
-  H.cam.y = WORLD_H <= halfH * 2 ? WORLD_H / 2 : clamp(p.y, halfH, WORLD_H - halfH);
+  H.cam.x = WORLD_W() <= halfW * 2 ? WORLD_W() / 2 : clamp(p.x, halfW, WORLD_W() - halfW);
+  H.cam.y = WORLD_H() <= halfH * 2 ? WORLD_H() / 2 : clamp(p.y, halfH, WORLD_H() - halfH);
 
   // Somebody to talk to beats something to open: the person is the rarer thing
   // and the one you have to be closer to.
   let bestFolk = null, folkD = Infinity;
-  for (const f of H.folk) {
+  for (const f of a.folk) {
     if (!f.lines) continue;
     const d = Math.hypot(f.x - p.x, f.y - p.y);
     if (d < 78 && d < folkD) { bestFolk = f; folkD = d; }
@@ -416,8 +624,9 @@ export function updateHub(dt, input, view) {
 
   let best = null, bestD = Infinity;
   if (!bestFolk) {
-    for (const pt of POINTS) {
-      const d = Math.hypot(pt.x - p.x, pt.y - p.y);
+    for (const pt of a.points) {
+      const wx = pt.x * TILE + TILE / 2, wy = pt.y * TILE + TILE / 2;
+      const d = Math.hypot(wx - p.x, wy - p.y);
       if (d < pt.r && d < bestD) { best = pt; bestD = d; }
     }
   }
@@ -433,8 +642,6 @@ export function talkToFolk() {
   const text = f.lines[f.said % f.lines.length];
   f.said++;
   H.speech = { who: f, text, until: H.t + 5.5 };
-  // They turn to face you, which is most of what makes it feel like being
-  // spoken to rather than at.
   const dx = H.player.x - f.x, dy = H.player.y - f.y;
   f.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
   return true;
@@ -442,3 +649,6 @@ export function talkToFolk() {
 
 export const hubTarget = () => H.near;
 export const hubFolkTarget = () => H.nearFolk;
+
+/** Everything the map declares, for the tests to walk over. */
+export const AREAS = AREA_DEFS;

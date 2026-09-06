@@ -37,7 +37,7 @@ import {
 } from './game/game.js';
 import { M, enterMarket, updateMarket, interact, closeShop } from './game/market.js';
 import { renderMarket } from './game/marketRender.js';
-import { enterHub, updateHub, hubTarget, talkToFolk } from './game/hub.js';
+import { enterHub, updateHub, hubTarget, talkToFolk, goToArea } from './game/hub.js';
 import { renderHub } from './game/hubRender.js';
 import { joinHubNet, leaveHubNet, tickHubNet, handleHubRelay, inHubNet } from './net/hubNet.js';
 import { useFlask, FLASK_IDS } from './game/shop.js';
@@ -484,8 +484,21 @@ function useHubPoint() {
   // table and the hearth open the party panel — one is where the host sets the
   // terms and the other is where you read the room, and they are the same panel
   // because splitting it would mean two places to look for one answer.
+  // Stairs stay inside the inn — they are the one thing here that moves you
+  // without leaving.
+  if (at.id === 'upstairs') { goToArea('upper'); return; }
+  if (at.id === 'downstairs') { goToArea('ground'); return; }
+
+  // The dice table is the same game alone or in company; the only difference is
+  // whether there is anybody to send a hand to.
+  if (at.id === 'dice') {
+    leaveHub(true);
+    ui.openDiceTable(netlink.lobbyState() ? 'table' : 'solo');
+    return;
+  }
+
   const WHERE = {
-    door: 'heroes', settings: 'coop', party: 'coop',
+    door: 'heroes', settings: 'coop', party: 'coop', variants: 'coop',
     sanctuary: 'sanctuary', help: 'help', arena: 'arena',
   };
   const dest = WHERE[at.id];

@@ -143,6 +143,69 @@ PROPS = [
     ("swords",     "Inside_B.png",  2, 10, 1, 1),
     ("crossed",    "Inside_B.png",  3, 10, 1, 1),
     ("shield",     "Inside_B.png",  2, 11, 1, 1),
+
+    # --- what is actually ON the tables -------------------------------------
+    # Inside_C, which is where the RTP keeps the small things. A long table
+    # with nothing on it reads as furniture in a showroom; the same table with
+    # a roast, a jug and four cups on it reads as somewhere people are eating.
+    # These are all one tile, so they sit on a table top rather than replacing
+    # it — the table is drawn first and these are drawn over it.
+    ("teapot",     "Inside_C.png",  0,  0, 1, 1),
+    ("cups",       "Inside_C.png",  2,  0, 1, 1),
+    ("jug",        "Inside_C.png",  5,  0, 1, 1),
+    ("wine",       "Inside_C.png",  1,  1, 1, 1),
+    ("goblets",    "Inside_C.png",  7,  1, 1, 1),
+    ("ale",        "Inside_C.png",  5,  2, 1, 1),
+    ("steins",     "Inside_C.png",  6,  2, 1, 1),
+    ("bottles",    "Inside_C.png",  3,  3, 1, 1),
+    ("glasses",    "Inside_C.png",  7,  3, 1, 1),
+    ("roast_bird", "Inside_C.png",  1,  4, 1, 1),
+    ("greens",     "Inside_C.png",  2,  4, 1, 1),
+    ("fruit",      "Inside_C.png",  3,  4, 1, 1),
+    ("roast",      "Inside_C.png",  4,  4, 1, 1),
+    ("shellfish",  "Inside_C.png",  5,  4, 1, 1),
+    ("pasta",      "Inside_C.png",  6,  4, 1, 1),
+    ("sweets",     "Inside_C.png",  7,  4, 1, 1),
+    ("supper",     "Inside_C.png",  1,  5, 1, 1),
+    ("casserole",  "Inside_C.png",  4,  5, 1, 1),
+    ("stewpot",    "Inside_C.png",  6,  5, 1, 1),
+    ("breakfast",  "Inside_C.png",  0,  6, 1, 1),
+    ("breadboard", "Inside_C.png",  4,  6, 1, 1),
+    ("soup",       "Inside_C.png",  5,  6, 1, 1),
+    ("tart",       "Inside_C.png",  7,  6, 1, 1),
+    ("cask_a",      "Inside_C.png",  0,  7, 1, 1),
+    ("cask_b",      "Inside_C.png",  1,  7, 1, 1),
+    ("plates",     "Inside_C.png",  3,  7, 1, 1),
+    ("choppingboard", "Inside_C.png", 5, 7, 1, 1),
+    ("claypot",    "Inside_C.png",  6,  7, 1, 1),
+    ("pan",        "Inside_C.png",  7,  7, 1, 1),
+
+    # --- and the things around the edges ------------------------------------
+    ("tome",       "Inside_C.png",  0,  8, 1, 1),
+    ("ledger",     "Inside_C.png",  2,  8, 1, 1),
+    ("scrolls",    "Inside_C.png",  0,  9, 1, 1),
+    ("map",        "Inside_C.png",  4,  9, 1, 1),
+    ("plant_a",     "Inside_C.png",  4, 10, 1, 1),
+    ("plant_b",     "Inside_C.png",  5, 10, 1, 1),
+    ("plant_c",     "Inside_C.png",  6, 10, 1, 1),
+    ("plant_d",     "Inside_C.png",  7, 10, 1, 1),
+    ("chest",      "Inside_C.png",  0, 11, 1, 1),
+    ("chest_open", "Inside_C.png",  1, 11, 1, 1),
+    ("case_wares",  "Inside_C.png",  6, 11, 1, 1),
+    ("case_tools",    "Inside_C.png",  7, 11, 1, 1),
+    ("sack_a",      "Inside_C.png",  0, 12, 1, 1),
+    ("sack_b",      "Inside_C.png",  1, 12, 1, 1),
+    ("phials",     "Inside_C.png",  4, 12, 1, 1),
+    ("basket_a",    "Inside_C.png",  0, 13, 1, 1),
+    ("basket_b",    "Inside_C.png",  1, 13, 1, 1),
+    ("bolts",      "Inside_C.png",  4, 13, 1, 1),
+    ("scales",     "Inside_C.png",  7, 13, 1, 1),
+    ("wallblades", "Inside_C.png",  8,  0, 1, 1),
+    ("wallcrest",   "Inside_C.png", 11,  0, 1, 1),
+    ("larder", "Inside_C.png", 10,  1, 1, 1),
+    ("sconce",   "Inside_C.png",  9,  1, 1, 1),
+    ("candelabra","Inside_C.png",  8,  4, 1, 2),
+    ("goldbars",   "Inside_C.png",  8,  7, 1, 1),
 ]
 
 # --- terrain --------------------------------------------------------------
@@ -179,7 +242,12 @@ CELL = 3 * T                      # the largest prop is 3x3
 cells, manifest = [], []
 for name, f, c, r, w, h in PROPS:
     s = load("tilesets/" + f).crop((c * T, r * T, (c + w) * T, (r + h) * T))
-    s = tone(s, 0.80, (54, 38, 44), 0.10)
+    # Anything from an Inside_ sheet belongs to the Hearthhall, which has a fire
+    # going and people in it. Toning it down to the market's dusk made a laid
+    # supper table look like a still life in a crypt.
+    indoors = f.startswith("Inside_")
+    s = tone(s, 0.92 if indoors else 0.80, (60, 44, 40) if indoors else (54, 38, 44),
+             0.05 if indoors else 0.10)
     pad = Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0))
     pad.paste(s, ((CELL - s.width) // 2, CELL - s.height))   # bottom-anchored
     cells.append(pad)
@@ -192,23 +260,114 @@ for name, c, r in SIGNS:
     signs.append(tone(s, 0.88, (54, 38, 44), 0.06))
 save(sheet(signs, len(signs), T, T), "signs.png")
 
+
+# --- the inn's floors, carpets and walls ----------------------------------
+#
+# WHY THESE ARE COMPOSED RATHER THAN CROPPED.
+#
+# The carpet in an inn is a rectangle with an ornate border, and RPG Maker
+# stores that as an AUTOTILE: one 96x144 block holding, in quarter-tiles, every
+# corner and edge a region could need. Cropping a single 48px square out of it
+# gives either a corner or a middle, never a rug.
+#
+# The bottom 2x2 tiles of an A2 block are a closed square with its border, and
+# that is all a rectangular rug needs: read it as a 4x4 grid of 24px quarters
+# and the outer ring IS the border. Nine tiles are composed from it - four
+# corners, four edges, one fill - and the map lays them like a nine-slice. No
+# general autotiler, no 47-tile template, and the result is the drawn border
+# rather than an approximation of it.
+QUARTER = T // 2
+
+
+def nine_slice(sheet, bx, by, prefix, mul, tint, mix):
+    """Nine tiles from the closed-square part of an A2 autotile block."""
+    src = load("tilesets/" + sheet)
+    # The closed square is the bottom two tile-rows of the three-tall block.
+    block = src.crop((bx * 96, by * 144 + T, bx * 96 + 96, by * 144 + 3 * T))
+    q = lambda cx, cy: block.crop((cx * QUARTER, cy * QUARTER,
+                                   cx * QUARTER + QUARTER, cy * QUARTER + QUARTER))
+
+    def tile(qx, qy):
+        """One 48px tile from the four quarters starting at (qx, qy)."""
+        out = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+        out.paste(q(qx, qy), (0, 0))
+        out.paste(q(qx + 1, qy), (QUARTER, 0))
+        out.paste(q(qx, qy + 1), (0, QUARTER))
+        out.paste(q(qx + 1, qy + 1), (QUARTER, QUARTER))
+        return tone(out, mul, tint, mix)
+
+    # Quarter coordinates of each nine-slice piece in the 4x4 grid.
+    return [
+        (prefix + "_tl", tile(0, 0)), (prefix + "_t", tile(1, 0)), (prefix + "_tr", tile(2, 0)),
+        (prefix + "_l",  tile(0, 1)), (prefix + "_c", tile(1, 1)), (prefix + "_r",  tile(2, 1)),
+        (prefix + "_bl", tile(0, 2)), (prefix + "_b", tile(1, 2)), (prefix + "_br", tile(2, 2)),
+    ]
+
+
+def a2_fill(sheet, bx, by, mul, tint, mix):
+    """The plain middle of an A2 block - the material with no border at all."""
+    src = load("tilesets/" + sheet)
+    x = bx * 96 + QUARTER
+    y = by * 144 + T + QUARTER
+    return tone(src.crop((x, y, x + T, y + T)), mul, tint, mix)
+
+
+def a4_wall(bx, by, row, mul, tint, mix):
+    """One tile from an A4 wall block. `row` 0-1 is the top, 2-4 is the face."""
+    src = load("tilesets/Inside_A4.png")
+    x = bx * 96
+    y = by * 240 + row * T
+    return tone(src.crop((x, y, x + T, y + T)), mul, tint, mix)
+
 # --- terrain --------------------------------------------------------------
 terrain = []
 for name, f, c, r in TERRAIN:
     t = load("tilesets/" + f).crop((c * T, r * T, c * T + T, r * T + T))
-    # Toned to dusk, and hard. The RTP is lit for a bright noon and Grimfall is
-    # not a bright game: at 0.82 the grass came out a cheerful mid-green that
-    # made the camp look like a different product from the run it sits in front
-    # of. This lands it near the market's own paving, which is the neighbouring
-    # space and the right thing to match.
     # The woven carpets are the most saturated tiles in the whole RTP - a
     # bright royal blue and a gold that reads as lime at size. Laid as a floor
     # they became the brightest thing in a dark room by a wide margin, which is
     # exactly backwards: a rug is meant to sit UNDER the furniture, not shout
     # over it. They get their own, much harder tone.
     rug = name.startswith("rug_")
-    terrain.append(tone(t, 0.34 if rug else 0.62, (52, 38, 50), 0.34 if rug else 0.22))
-save(sheet(terrain, len(terrain), T, T), "terrain.png")
+    terrain.append((name, tone(t, 0.34 if rug else 0.62, (52, 38, 50), 0.34 if rug else 0.22)))
+
+# The inn. Lit and warm rather than toned to dusk: it is the one interior in
+# the game with a fire going and people in it, and the run it sits in front of
+# is dark enough that arriving somewhere warm is the point.
+INN_TONE = (0.86, (60, 44, 40), 0.08)
+terrain.append(("oak", a2_fill("Inside_A2.png", 7, 0, *INN_TONE)))
+terrain.append(("parquet", a2_fill("Inside_A2.png", 0, 2, *INN_TONE)))
+terrain.append(("kitchen", a2_fill("Inside_A2.png", 1, 0, *INN_TONE)))
+terrain.append(("marble", a2_fill("Inside_A2.png", 5, 2, *INN_TONE)))
+# The carpets go a shade deeper than the boards around them. At the inn's own
+# tone the blue one was the brightest thing in the building, which is backwards:
+# a rug sits under the furniture, it does not shout over it.
+RUG_TONE = (0.70, (58, 42, 44), 0.16)
+terrain.extend(nine_slice("Inside_A2.png", 2, 3, "carpet", *RUG_TONE))     # red and gold
+terrain.extend(nine_slice("Inside_A2.png", 2, 2, "rugblue", *RUG_TONE))    # blue and gold
+
+# Walls, as three tiles rather than one. A room drawn with a single solid
+# colour behind it is a floor plan; a room with a lit panel above a skirting
+# board is somewhere with a wall you could lean on. `walltop` is what the
+# deeper masonry looks like from above, and the two faces are the near side.
+terrain.append(("walltop", a4_wall(2, 1, 0, *INN_TONE)))
+terrain.append(("wallhigh", a4_wall(2, 1, 2, *INN_TONE)))
+terrain.append(("walllow", a4_wall(2, 1, 4, *INN_TONE)))
+
+save(sheet([t for _, t in terrain], len(terrain), T, T), "terrain.png")
+
+# The names, in atlas order, written beside the atlas.
+#
+# src/art/rtp.js has to name these tiles to draw them, and the coupling used to
+# be checked by reading this script's TERRAIN table with a regex. That stopped
+# working the moment tiles started being APPENDED - the carpets are composed,
+# not cropped, so they never appear in a table to read. A manifest the script
+# emits is the honest version: it says what was actually built, in the order it
+# was actually built, and tools/sheet-smoke.mjs compares rtp.js to it.
+_names = [name for name, _ in terrain]
+with open(os.path.join(OUT, "terrain.txt"), "w", encoding="utf-8", newline="\n") as _f:
+    _f.write("\n".join(_names) + "\n")
+print(f"  {'terrain.txt':20s} {len(_names)} names")
 
 # --- banners --------------------------------------------------------------
 # Outside_C row 12-13: hanging cloth for the far wall.

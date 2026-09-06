@@ -365,6 +365,30 @@
          waiting in a room — swapped by a class rather than by three separate
          screens, so the back stack and the screen switcher only learn one new
          name. -->
+    <!-- Sovereign's Dice, played at Old Ren's table in the Hearthhall. Alone
+         against the house, or with whoever else is in the party. -->
+    <section id="diceScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">Sovereign's Dice</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+
+        <p class="panel-sub">Five dice. One re-roll. Highest total takes it.</p>
+
+        <div class="dice-hand" id="diceHand"></div>
+        <p class="dice-note" id="diceNote" role="status" aria-live="polite"></p>
+
+        <div class="dice-actions">
+          <button class="menu-btn primary" id="diceRollBtn"><span>Throw</span></button>
+          <button class="menu-btn" id="diceRerollBtn" hidden><span>Throw the rest</span></button>
+          <button class="menu-btn primary" id="diceStandBtn" hidden><span>Stand</span></button>
+          <button class="menu-btn" id="diceAgainBtn" hidden><span>Again</span></button>
+        </div>
+
+        <ul class="dice-table" id="diceTable"></ul>
+        <button class="menu-btn" data-action="back"><span>Leave the table</span></button>
+      </div>
+    </section>
+
     <section id="coopScreen" class="screen">
       <div class="panel">
         <header class="panel-head"><h2 class="panel-title">Play Together (BETA)</h2>

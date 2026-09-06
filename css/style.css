@@ -1533,6 +1533,54 @@ input[type="text"], input[type="number"], input[type="search"], textarea, select
 
 .coop-actions { display: flex; flex-direction: column; gap: 8px; }
 
+/* --- Sovereign's Dice -------------------------------------------------------
+   The dice are drawn as pips in a 3x3 grid rather than set as a glyph: the
+   Unicode die faces are a font's opinion, they are not pixel art, and at this
+   size they are unreadable in half the fonts a browser might substitute. Nine
+   spans and a lookup is smaller than the workaround would have been. */
+.dice-hand { display: flex; gap: 10px; justify-content: center; margin: 6px 0 2px; flex-wrap: wrap; }
+.die {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  width: 46px; height: 46px; padding: 6px;
+  background: #efe6d4;
+  border: 2px solid #4a3526;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 0 #2b1f16;
+}
+.die:disabled { cursor: default; }
+.die.is-kept { background: #ffd75e; border-color: #7a3908; }
+.pip { border-radius: 50%; background: transparent; }
+.pip.on { background: #2b1f16; }
+
+.dice-note { min-height: 1.3em; margin: 4px 0 0; font-size: 13px; color: var(--ink-2); text-align: center; }
+.dice-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.dice-table { list-style: none; margin: 14px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dice-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  background: var(--panel-2); border: 2px solid var(--line);
+  font-family: var(--font-display); font-size: 13px;
+}
+.dice-row.is-winner { border-color: #ffd75e; background: #3a2c12; }
+.dice-row.is-draw { border-color: var(--head); }
+.dice-who { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.dice-score { font-size: 17px; color: var(--ember-2); }
+/* The little dice in a result row are read, not pressed. */
+.dice-mini { display: flex; gap: 3px; }
+.dice-mini .die {
+  width: 20px; height: 20px; padding: 2px; gap: 1px;
+  border-width: 1px; box-shadow: none;
+}
+
+@media (max-width: 560px) {
+  .die { width: 40px; height: 40px; }
+  .dice-mini .die { width: 17px; height: 17px; }
+  .dice-row { font-size: 12px; gap: 7px; }
+}
+
 /* The terms of the run. Shown to the whole party, settable by the host — a
    guest sees what they are about to play, greyed, because four people in a room
    should not have different ideas about what they agreed to. */

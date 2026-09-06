@@ -133,4 +133,5 @@ export const GAME = {
   // The lobby camp, not the run. Its own type because it is sent while the
   // room is still in the lobby, when none of the above mean anything yet.
   HUB: 'h',                    // { x, y, d, m } — where somebody is standing
+  DICE: 'x',                   // { k, hand } — the game at Old Ren's table
 };
