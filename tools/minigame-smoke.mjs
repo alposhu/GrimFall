@@ -191,6 +191,124 @@ console.log(`knives            ok (constant sweep, ${knives.RINGS.length} rings,
   + `perfect pays ${knives.prize(knives.PERFECT)})`);
 
 // ---------------------------------------------------------------------------
+// The Supper Rush
+// ---------------------------------------------------------------------------
+const supper = await import('../src/game/supper.js');
+
+// Every dish must be buildable from the stations that exist. A recipe naming an
+// ingredient the kitchen does not have is an unservable ticket, and it looks
+// exactly like a hard one.
+const stationIds = new Set(supper.STATIONS.map((s) => s.id));
+for (const dish of supper.DISHES) {
+  check(dish.steps.length >= 2, `"${dish.name}" is a one-step dish, which is a button, not a recipe`);
+  for (const step of dish.steps) {
+    check(stationIds.has(step), `"${dish.name}" needs "${step}", which no station serves`);
+  }
+  check(dish.seconds > dish.steps.length * 3,
+    `"${dish.name}" allows ${dish.seconds}s for ${dish.steps.length} steps, which is not enough time`);
+}
+
+// The book has to open up. If tier 3 were reachable from the first ticket the
+// shift would have no shape at all.
+check(supper.pressure(0).tiers < supper.pressure(20).tiers, 'the book never opens up');
+check(supper.pressure(0).every > supper.pressure(20).every, 'the tickets never speed up');
+check(supper.pressure(0).patience > supper.pressure(20).patience, 'the guests never lose patience');
+// And both curves have to flatten, or the shift becomes impossible rather than
+// hard and the last minute is unplayable for everybody.
+check(supper.pressure(999).every === supper.pressure(500).every, 'the ticket rate has no floor');
+check(supper.pressure(999).patience === supper.pressure(500).patience, 'patience has no floor');
+
+// A wrong ingredient throws the dish out. A right one advances it.
+let shift = supper.newShift(3, 1);
+let ticket = supper.writeTicket(shift);
+check(supper.useStation(shift, ticket.key, ticket.steps[0]) === 'step', 'the first step did not go in');
+check(ticket.done === 1, 'a correct step did not advance the dish');
+const wrong = supper.STATIONS.map((s) => s.id).find((id) => id !== ticket.steps[1]);
+check(supper.useStation(shift, ticket.key, wrong) === 'spoiled', 'a wrong ingredient was accepted');
+check(ticket.done === 0, 'a spoiled dish did not start again from nothing');
+
+// Finishing the steps serves it, and it leaves the rail.
+shift = supper.newShift(3, 1);
+ticket = supper.writeTicket(shift);
+for (const step of ticket.steps.slice(0, -1)) supper.useStation(shift, ticket.key, step);
+check(supper.useStation(shift, ticket.key, ticket.steps[ticket.steps.length - 1]) === 'served',
+  'the last step did not serve the dish');
+check(shift.served === 1 && shift.tickets.length === 0, 'a served dish stayed on the rail');
+check(shift.score > 0, 'a served dish scored nothing');
+
+// Speed pays: the same dish served with more of its life left is worth more.
+const fast = supper.newShift(3, 1);
+const slow = supper.newShift(3, 1);
+const ft = supper.writeTicket(fast);
+const st = supper.writeTicket(slow);
+st.left = st.life * 0.1;
+for (const step of ft.steps) supper.useStation(fast, ft.key, step);
+for (const step of st.steps) supper.useStation(slow, st.key, step);
+check(fast.score > slow.score, 'serving quickly is worth no more than serving late');
+
+// --- the collision rule, which is the whole of the co-op -------------------
+shift = supper.newShift(3, 2);
+ticket = supper.writeTicket(shift);
+check(supper.claim(shift, ticket.key, 'p1') !== null, 'the first cook could not take a ticket');
+check(supper.claim(shift, ticket.key, 'p2') === null, 'two cooks took the same ticket');
+check(supper.useStation(shift, ticket.key, ticket.steps[0], 'p2') === null,
+  'a cook worked a ticket somebody else had claimed');
+check(supper.useStation(shift, ticket.key, ticket.steps[0], 'p1') === 'step',
+  'the cook who claimed it could not work it');
+supper.release(shift, ticket.key, 'p1');
+check(supper.claim(shift, ticket.key, 'p2') !== null, 'a released ticket could not be taken up');
+
+// --- the shift ends, both ways ---------------------------------------------
+// Without a clock a perfect cook never loses a ticket and the kitchen runs for
+// ever, which is both an unbounded way to earn and a game you can only leave by
+// failing on purpose.
+shift = supper.newShift(3, 1);
+for (let i = 0; i < 2000 && !shift.over; i++) supper.tick(shift, 0.1);
+check(shift.over, 'the shift never ended');
+check(shift.ended === 'time' || shift.ended === 'lost', 'the shift ended for no stated reason');
+
+shift = supper.newShift(3, 1);
+let guard = 0;
+while (!shift.over && guard++ < 5000) supper.tick(shift, 0.05);
+check(shift.ended === 'lost', 'a kitchen nobody worked should fall over, not run out the clock');
+check(shift.lost >= supper.LIVES, 'the shift ended before the lives ran out');
+
+// Nothing new arrives at the bell: a ticket written with three seconds left is
+// a life lost to the closing bell and nothing else.
+shift = supper.newShift(3, 1);
+shift.left = 4;
+shift.since = 999;
+check(supper.tick(shift, 0.1).wrote === null, 'a ticket was written that nobody could serve');
+
+// The rail is the ceiling. Once it is full nothing more arrives, so a kitchen
+// that is drowning is not also being buried.
+shift = supper.newShift(3, 1);
+while (shift.tickets.length < supper.railFor(1)) supper.writeTicket(shift);
+shift.since = 999;
+check(supper.tick(shift, 0.01).wrote === null, 'a ticket was added to a full rail');
+
+// --- more cooks is a busier kitchen, not a bigger share --------------------
+// If the supply were fixed, every friend who joined would halve the pay and the
+// best thing you could do for your own purse would be to play alone — the wrong
+// incentive for the one co-operative game in the building.
+check(supper.pressure(10, 4).every < supper.pressure(10, 1).every,
+  'four cooks get no more tickets than one, so joining in costs everybody');
+check(supper.railFor(4) > supper.railFor(1), 'four cooks share one cook’s rail');
+
+// And the prize is per head, so a kitchen of idle spectators earns nothing.
+const busy = supper.newShift(3, 4);
+busy.score = 4000;
+const alone = supper.newShift(3, 1);
+alone.score = 1000;
+check(supper.prize(busy) === supper.prize(alone),
+  'four cooks serving four times as much do not earn what one cook earns');
+const idle = supper.newShift(3, 4);
+idle.score = 1000;
+check(supper.prize(idle) < supper.prize(alone), 'bringing spectators paid the same as working');
+console.log(`supper            ok (${supper.DISHES.length} dishes, ${supper.STATIONS.length} stations, `
+  + `${supper.SHIFT_SECONDS}s service, claims hold)`);
+
+// ---------------------------------------------------------------------------
 // And the whole point, stated as a number
 // ---------------------------------------------------------------------------
 // The cheapest Sanctuary upgrade is 50 gold and a full board is several

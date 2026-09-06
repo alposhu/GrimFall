@@ -136,4 +136,5 @@ export const GAME = {
   DICE: 'x',                   // { k, hand } — the game at Old Ren's table
   CUPS: 'c',                   // { k, wire, correct } — Piet's cups
   KNIVES: 'n',                 // { k, wire } — the board on Oswin's wall
+  SUPPER: 's',                 // { k, key, station } — Marta's shared kitchen
 };

@@ -126,6 +126,9 @@ const GROUND = {
     ['larder', 9, 4, true], ['sconce', 11, 4, true],
     ['sack_a', 5, 11, true], ['sack_b', 6, 11, true], ['basket_a', 8, 11, true],
     ['basket_b', 9, 11, true], ['claypot', 11, 11, true],
+    ['longtable', 9, 9, true], ['longtable', 11, 9, true],
+    ['cupboard', 4, 8, true], ['woodtub', 14, 8, true], ['keg', 14, 10, true],
+    ['larder', 13, 4, true], ['plant_d', 12, 11, false],
 
     // --- market row, along the east wall ----------------------------------
     ['counter', 46, 7, true], ['counter', 50, 7, true], ['counter', 54, 7, true],
@@ -135,6 +138,14 @@ const GROUND = {
     ['bolts', 51, 11, true], ['basket_b', 53, 11, true],
     ['plant_b', 44, 14, false], ['plant_d', 56, 14, false],
     ['wallcrest', 48, 4, true], ['wallblades', 52, 4, true],
+    ['sconce', 45, 4, true], ['sconce', 55, 4, true],
+    ['cask_a', 44, 9, true], ['cask_b', 45, 9, true],
+    ['sack_a', 49, 11, true], ['sack_b', 50, 11, true],
+    ['basket_a', 55, 11, true], ['crate', 56, 11, true],
+    ['bolts', 44, 12, true], ['stool', 48, 9, true], ['stool', 52, 9, true],
+    ['shelf_kegs', 48, 5, true], ['shelf_jars', 52, 5, true],
+    ['mirror', 56, 5, true], ['clock', 44, 5, true],
+    ['banner_gold', 46, 15, true], ['banner_gold', 54, 15, true],
 
     // --- the game room ----------------------------------------------------
     ['roundtable', 47, 30, true], ['stool', 46, 31, true], ['stool', 49, 31, true],
@@ -148,6 +159,13 @@ const GROUND = {
     ['stool_red', 46, 36, true], ['stool_red', 54, 36, true],
     ['piano', 44, 28, true], ['stool', 44, 30, true],
     ['mirror', 56, 28, true], ['plant_a', 44, 37, false],
+    ['sofa', 44, 34, true], ['sidetable', 48, 33, true],
+    ['keg', 56, 35, true], ['cask_b', 56, 33, true],
+    ['stool_red', 50, 33, true], ['stool', 51, 33, true],
+    ['banner_red', 47, 26, true], ['banner_red', 53, 26, true],
+    ['sconce', 44, 26, true], ['sconce', 56, 26, true],
+    ['bookcase', 55, 37, true], ['plant_c', 43, 31, false],
+    ['case_tools', 52, 37, true],
 
     // --- the great hall's tables ------------------------------------------
     ['longtable', 22, 17, true], ['longtable', 24, 17, true],
@@ -181,6 +199,8 @@ const GROUND = {
     [47, 35, 'supper'], [53, 35, 'casserole'],
     [9, 17, 'steins'], [11, 17, 'goblets'], [7, 17, 'ale'],
     [13, 20, 'cups'], [50, 28, 'bottles'],
+    [9, 9, 'breadboard'], [10, 9, 'stewpot'], [11, 9, 'greens'], [12, 9, 'roast'],
+    [48, 33, 'goblets'], [48, 9, 'fruit'], [52, 9, 'sweets'],
     [46, 7, 'fruit'], [50, 7, 'greens'], [54, 7, 'sweets'],
   ],
 
@@ -194,8 +214,9 @@ const GROUND = {
     ]],
     ['cook', 'Marta the Cook', 10, 10, 8, 'south', [
       'Eat before you go. A dish carries you further than a prayer.',
+      'Stand at the range if you want to be useful. Tickets come in, dishes go out.',
+      'Two of you is twice the tickets, not half the work. Take one each.',
       'The stew is always on. It has been on for some years now.',
-      'They come back hungrier than they leave. That is the job.',
     ]],
     ['quartermaster', 'Oswin', 16, 48, 8, 'south', [
       'Range is a choice, not a gift. Take the upgrade and you fight further out.',
@@ -245,6 +266,7 @@ const GROUND = {
     { id: 'dice', x: 50, y: 31, r: 74, label: "Old Ren's table — a game of dice" },
     { id: 'cups', x: 13, y: 21, r: 70, label: "Piet's cups — find the coin" },
     { id: 'knives', x: 50, y: 27, r: 72, label: 'The knife board — three throws' },
+    { id: 'supper', x: 10, y: 10, r: 82, label: "Marta's kitchen — work the supper rush" },
     { id: 'upstairs', x: 55, y: 20, r: 78, label: 'The stair — rooms above' },
   ],
 };

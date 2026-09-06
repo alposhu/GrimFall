@@ -1533,6 +1533,85 @@ input[type="text"], input[type="number"], input[type="search"], textarea, select
 
 .coop-actions { display: flex; flex-direction: column; gap: 8px; }
 
+/* --- The Supper Rush --------------------------------------------------------
+   The rail is the pressure, so it is the biggest thing on the screen and the
+   countdown bars are the only part that moves every frame. */
+.supper-rail {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 190px;
+}
+.ticket {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 10px;
+  padding: 7px 10px 9px;
+  background: #efe6d4;
+  border: 2px solid #4a3526;
+  border-radius: 2px;
+  color: #2b1f16;
+  cursor: pointer;
+  /* A docket, not a card: square corners and a paper ground, so the rail reads
+     as spiked orders rather than as a list of buttons. */
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.ticket.is-mine { border-color: #7a3908; background: #ffefc9; }
+.ticket.is-taken { opacity: 0.55; cursor: default; }
+
+.ticket-name {
+  font: 500 13px/1.2 var(--font-display);
+  grid-column: 1;
+}
+.ticket-who {
+  grid-column: 2; grid-row: 1;
+  font: 400 10px/1.4 var(--font-display);
+  color: #7a3908;
+}
+.ticket-steps { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.step {
+  padding: 2px 6px;
+  font: 400 10px/1.5 var(--font-display);
+  background: #d9cbb0; border: 1px solid #9c8a6b;
+  color: #4a3526;
+}
+.step.is-done { background: #4e7a3a; border-color: #2f4a22; color: #eafbe9; }
+.step.is-next { background: #ffd75e; border-color: #7a3908; }
+
+.ticket-bar {
+  grid-column: 1 / -1;
+  height: 5px; margin-top: 3px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.ticket-fill { display: block; height: 100%; background: #4e7a3a; width: 100%; }
+.ticket-fill.is-urgent { background: #a83232; }
+
+.supper-stations {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px;
+  margin-top: 10px;
+}
+.supper-stations.is-closed { opacity: 0.45; pointer-events: none; }
+.station {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-height: 62px; padding: 7px 4px;
+  background: var(--panel-2); border: 2px solid var(--line);
+  color: var(--ink);
+}
+.station:active { filter: brightness(1.25); }
+.station-art { display: block; height: 32px; line-height: 0; }
+.station-art canvas { image-rendering: pixelated; }
+.station-name {
+  font: 400 10px/1 var(--font-display);
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 560px) {
+  .supper-rail { min-height: 150px; }
+  .ticket-name { font-size: 12px; }
+  .station { min-height: 54px; }
+  .station-art { height: 26px; }
+}
+
 /* --- what the inn's games have in common ---------------------------------- */
 .game-stats {
   list-style: none; margin: 12px 0 0; padding: 0;

@@ -365,6 +365,36 @@
          waiting in a room — swapped by a class rather than by three separate
          screens, so the back stack and the screen switcher only learn one new
          name. -->
+    <!-- The Supper Rush, in Marta's kitchen. The one CO-OPERATIVE game in the
+         inn: one rail of tickets, one score, and two cooks cannot work the
+         same ticket. -->
+    <section id="supperScreen" class="screen">
+      <div class="panel">
+        <header class="panel-head"><h2 class="panel-title">The Supper Rush</h2>
+          <button class="close-btn" data-action="back" aria-label="Close"></button></header>
+
+        <ul class="game-stats">
+          <li>Score <strong id="supperScore">0</strong></li>
+          <li>Served <strong id="supperServed">0</strong></li>
+          <li>Spoiled <strong id="supperLives">3</strong></li>
+          <li>Bell <strong id="supperClock">90</strong></li>
+        </ul>
+
+        <ul class="supper-rail" id="supperRail"></ul>
+        <p class="dice-note" id="supperNote" role="status" aria-live="polite"></p>
+        <div class="supper-stations" id="supperStations"></div>
+
+        <ul class="game-stats">
+          <li>House purse <strong id="supperPurse">0</strong></li>
+        </ul>
+
+        <div class="dice-actions">
+          <button class="menu-btn primary" id="supperAgainBtn" hidden><span>Another service</span></button>
+        </div>
+        <button class="menu-btn" data-action="back"><span>Leave the kitchen</span></button>
+      </div>
+    </section>
+
     <!-- Three Cups, run by Piet at the end of the bar. Pure observation: the
          shuffle is decided before the first cup moves, and in a party everyone
          watches the identical one. -->

@@ -31,6 +31,7 @@ import { initCoop, openCoopScreen, closeCoopScreen } from './coop.js';
 import { initDice, openDice, closeDice } from './dice.js';
 import { initCups, openCups, closeCups } from './cups.js';
 import { initKnives, openKnives, closeKnives } from './knives.js';
+import { initSupper, openSupper, closeSupper } from './supper.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -76,6 +77,7 @@ export function openGame(which, mode) {
   if (which === 'dice') { openDice(mode); go('diceScreen'); }
   else if (which === 'cups') { openCups(mode); go('cupsScreen'); }
   else if (which === 'knives') { openKnives(mode); go('knivesScreen'); }
+  else if (which === 'supper') { openSupper(mode); go('supperScreen'); }
 }
 
 export function action(a) {
@@ -128,6 +130,8 @@ export function initUI(callbacks) {
     'cupsStreak', 'cupsBest', 'cupsPurse',
     'knivesScreen', 'knivesBoard', 'knivesMarker', 'knivesNote', 'knivesTable',
     'knivesThrowBtn', 'knivesAgainBtn', 'knivesTotal', 'knivesLeft', 'knivesPurse',
+    'supperScreen', 'supperRail', 'supperStations', 'supperNote', 'supperAgainBtn',
+    'supperScore', 'supperServed', 'supperLives', 'supperClock', 'supperPurse',
   ].forEach((id) => { el[id] = $(id); });
 
   selectedHero = store.meta().lastCharacter || 'ranger';
@@ -175,6 +179,7 @@ export function initUI(callbacks) {
   initDice(el);
   initCups(el);
   initKnives(el);
+  initSupper(el);
   initCoop(el, {
     onCoopStart: (m) => hooks.onCoopStart?.(m),
     onCoopRoom: () => hooks.onCoopRoom?.(),
@@ -358,6 +363,7 @@ export function go(name, remember = true) {
   if (current === 'diceScreen' && name !== 'diceScreen') closeDice();
   if (current === 'cupsScreen' && name !== 'cupsScreen') closeCups();
   if (current === 'knivesScreen' && name !== 'knivesScreen') closeKnives();
+  if (current === 'supperScreen' && name !== 'supperScreen') closeSupper();
   if (remember && current && current !== name) screenStack.push(current);
   hideAll(false);
   el[name]?.classList.add('active');

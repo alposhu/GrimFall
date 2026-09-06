@@ -491,7 +491,7 @@ function useHubPoint() {
 
   // The inn's games are the same game alone or in company; the only difference
   // is whether there is anybody to send a result to.
-  if (at.id === 'dice' || at.id === 'cups' || at.id === 'knives') {
+  if (at.id === 'dice' || at.id === 'cups' || at.id === 'knives' || at.id === 'supper') {
     leaveHub(true);
     ui.openGame(at.id, netlink.lobbyState() ? 'table' : 'solo');
     return;
